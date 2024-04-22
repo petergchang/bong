@@ -447,7 +447,7 @@ class fg_bong:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -456,6 +456,7 @@ class fg_bong:
         num_samples: int=10,
         linplugin: bool=False,
     ):
+        init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
@@ -528,6 +529,7 @@ class dg_bong:
         num_samples: int=10,
         linplugin: bool=False,
     ):
+        init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
@@ -600,6 +602,7 @@ class fg_reparam_bong:
         num_samples: int=10,
         linplugin: bool=False,
     ):
+        init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
@@ -672,6 +675,7 @@ class dg_reparam_bong:
         num_samples: int=10,
         linplugin: bool=False,
     ):
+        init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
@@ -699,3 +703,4 @@ class dg_reparam_bong:
             )   
         
         return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+    

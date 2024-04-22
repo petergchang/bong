@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax_tqdm
+import optuna
 
 from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
@@ -76,3 +77,34 @@ def run_rebayes_algorithm(
     args = jnp.arange(num_timesteps)
     final_state, outputs = jax.lax.scan(_step, init_state, args)
     return final_state, outputs
+
+
+def tune_init_cov(
+    rng_key: PRNGKey,
+    rebayes_algorithm_initializer: Any,
+    X: ArrayLike,
+    Y: ArrayLike,
+    loss_fn: Callable,
+    n_trials=10,
+    **init_kwargs,
+):
+    def _objective(trial):
+        log_init_cov = trial.suggest_float("log_init_cov", -10.0, 0.0)
+        init_cov = jnp.exp(log_init_cov).item()
+        rebayes_algorithm = rebayes_algorithm_initializer(
+            init_cov=init_cov,
+            **init_kwargs,
+        )
+        state, _ = run_rebayes_algorithm(
+            rng_key, rebayes_algorithm, X, Y,
+        )
+        eval_loss = loss_fn(state)
+        return eval_loss
+
+    study = optuna.create_study(direction="minimize")
+    study.optimize(_objective, n_trials=n_trials)
+    
+    best_trial = study.best_trial
+    best_params = best_trial.params
+    return best_params
+    
