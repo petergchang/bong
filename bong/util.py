@@ -1,11 +1,37 @@
-from typing import Any
+from typing import Any, Callable
 
 import jax
+import jax.numpy as jnp
 import jax.random as jr
 import jax_tqdm
 
 from bong.base import RebayesAlgorithm, State
-from bong.types import ArrayLike, PRNGKey
+from bong.types import Array, ArrayLike, PRNGKey
+
+
+def hess_diag_approx(
+    rng_key: PRNGKey,
+    fn: Callable,
+    param: ArrayLike,
+    num_samples: int = 100,
+) -> Array:
+    """Approximate the diagonal of the Hessian of a function using the
+    Hutchinson's method 
+        ref: equation (9) of https://arxiv.org/pdf/2006.00719.pdf
+
+    Args:
+        rng_key: JAX PRNG Key.
+        fn: Function to compute the Hessian of.
+        param: Parameters to compute the Hessian at.
+        num_samples: Number of samples to use for the approximation.
+
+    Returns:
+        Approximate diagonal of the Hessian.
+    """
+    def _hess_diag(z):
+        return z * jax.grad(lambda p: jax.grad(fn)(p) @ z)(param)
+    zs = jr.rademacher(rng_key, (num_samples, len(param)))
+    return jnp.mean(jax.vmap(_hess_diag)(zs), axis=0)
 
 
 def run_rebayes_algorithm(
