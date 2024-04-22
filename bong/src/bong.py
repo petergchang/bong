@@ -42,6 +42,7 @@ def predict_bong(
     state: BONGState,
     gamma: float,
     Q: ArrayLikeTree,
+    *args,
     **kwargs,
 ) -> BONGState:
     """Predict the next state of the belief state.
@@ -70,6 +71,7 @@ def update_fg_bong(
     emission_mean_function: Callable,
     emission_cov_function: Callable,
     num_samples: int=10,
+    *args,
     **kwargs,
 ) -> BONGState:
     """Update the full-covariance Gaussian belief state with a new observation.
@@ -104,6 +106,45 @@ def update_fg_bong(
     return new_state
 
 
+def update_lfg_bong(
+    rng_key: PRNGKey,
+    state: BONGState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    *args,
+    **kwargs,
+) -> BONGState:
+    """Update the linearized-plugin full-covariance Gaussian belief state
+    with a new observation. Note that this is equivalent to the EKF.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean, cov = state
+    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+    R = jnp.atleast_2d(emission_cov_function(mean, x))
+    S = R + (H @ cov @ H.T)
+    C = cov @ H.T
+    K = jnp.linalg.lstsq(S, C.T)[0].T
+    new_mean = mean + K @ (y - y_pred)
+    new_cov = cov - K @ S @ K.T
+    new_state = BONGState(new_mean, new_cov)
+    return new_state
+
+
 def sample_fg_bong(rng_key: PRNGKey, state: BONGState, num_samples: int=10):
     """Sample from the full-covariance Gaussian belief state"""
     mean, cov = state
@@ -111,8 +152,8 @@ def sample_fg_bong(rng_key: PRNGKey, state: BONGState, num_samples: int=10):
     return states
 
 
-class bong:
-    """Bayesian Online Natural Gradient (BONG) algorithm.
+class fg_bong:
+    """Full-covariance Gaussian BONG algorithm.
     
     Parameters
     ----------
@@ -132,15 +173,14 @@ class bong:
         Process noise, by default 0.0
     num_samples : int, optional
         Number of samples to use for the update, by default 10
+    linplugin : bool, optional
+        Whether to use the linearized plugin method, by default False
     
     Returns
     -------
     A RebayesAlgorithm.
     
     """
-    init = staticmethod(init_bong)
-    predict = staticmethod(predict_bong)
-    update = staticmethod(update_fg_bong)
     sample = staticmethod(sample_fg_bong)
     
     def __new__(
@@ -153,15 +193,22 @@ class bong:
         dynamics_decay: float=1.0,
         process_noise: ArrayLikeTree=0.0,
         num_samples: int=10,
+        linplugin: bool=False,
     ):
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
+        if linplugin:
+            _update_fn = staticmethod(update_lfg_bong)
+        else:
+            _update_fn = staticmethod(update_fg_bong)
             
         def init_fn() -> BONGState:
-            return cls.init(init_mean, init_cov)
+            return staticmethod(init_bong)(init_mean, init_cov)
             
         def pred_fn(state: BONGState) -> BONGState:
-            return cls.predict(state, dynamics_decay, process_noise)
+            return staticmethod(predict_bong)(
+                state, dynamics_decay, process_noise
+            )
         
         def update_fn(
             rng_key: PRNGKey, 
@@ -169,8 +216,9 @@ class bong:
             x: ArrayLikeTree, 
             y: ArrayLikeTree
         ) -> BONGState:
-            return cls.update(rng_key, state, x, y, log_likelihood, 
-                              emission_mean_function, emission_cov_function, 
-                              num_samples)
+            return _update_fn(
+                rng_key, state, x, y, log_likelihood, emission_mean_function, 
+                emission_cov_function, num_samples
+            )   
         
         return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
