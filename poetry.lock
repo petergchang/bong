@@ -682,6 +682,21 @@ minimum-jaxlib = ["jaxlib (==0.4.20)"]
 tpu = ["jaxlib (==0.4.26)", "libtpu-nightly (==0.1.dev20240403)", "requests"]
 
 [[package]]
+name = "jax-tqdm"
+version = "0.1.2"
+description = "Tqdm progress bar for JAX scans and loops"
+optional = false
+python-versions = ">=3.8,<4.0"
+files = [
+    {file = "jax_tqdm-0.1.2-py3-none-any.whl", hash = "sha256:1ced8d3e47733417efd535142262210346dcfe523087da9c22c3f978902c25f4"},
+    {file = "jax_tqdm-0.1.2.tar.gz", hash = "sha256:c94f751752eb95344fd483a4a7b71720530203ea2779395e070bde6bd48048ad"},
+]
+
+[package.dependencies]
+jax = ">=0.3.5"
+tqdm = ">=4.64.1,<5.0.0"
+
+[[package]]
 name = "jaxlib"
 version = "0.4.26"
 description = "XLA library for JAX"
@@ -2066,4 +2081,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "ab476fabff2414843b386e0642d95b50aa6d8691cab65b1731604b41b1bf79d6"
+content-hash = "4ae5d6ec89f61080c7c6d3aee212585524c7ee3a550c50bdf6a36e16a257ad57"
