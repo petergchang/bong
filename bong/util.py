@@ -41,8 +41,8 @@ def run_rebayes_algorithm(
     X: ArrayLike,
     Y: ArrayLike,
     init_state: State=None,
-    transform=lambda state, x, y: state,
-    progress_bar: bool = False,
+    transform=lambda key, alg, state, x, y: state,
+    progress_bar: bool=False,
     **init_kwargs,
 ) -> tuple[State, Any]:
     """Run a rebayes algorithm over a sequence of observations.
@@ -64,11 +64,11 @@ def run_rebayes_algorithm(
     
     @jax.jit
     def _step(state, t):
-        key = jr.fold_in(rng_key, t)
+        key, subkey = jr.split(jr.fold_in(rng_key, t))
         x, y = X[t], Y[t]
         pred_state = rebayes_algorithm.predict(state)
-        output = transform(pred_state, x, y)
-        new_state = rebayes_algorithm.update(key, pred_state, x, y)
+        output = transform(key, rebayes_algorithm, pred_state, x, y)
+        new_state = rebayes_algorithm.update(subkey, pred_state, x, y)
         return new_state, output
     
     if progress_bar:
@@ -95,10 +95,11 @@ def tune_init_cov(
             init_cov=init_cov,
             **init_kwargs,
         )
+        key, subkey = jr.split(rng_key)
         state, _ = run_rebayes_algorithm(
-            rng_key, rebayes_algorithm, X, Y,
+            key, rebayes_algorithm, X, Y,
         )
-        eval_loss = loss_fn(state)
+        eval_loss = loss_fn(subkey, rebayes_algorithm, state)
         return eval_loss
 
     study = optuna.create_study(direction="minimize")
