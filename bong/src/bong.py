@@ -1,6 +1,8 @@
 from typing import Callable, NamedTuple
 
 import jax
+import jax.numpy as jnp
+import jax.random as jr
 
 from bong.base import RebayesAlgorithm
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
@@ -85,15 +87,28 @@ def update_fg_bong(
         Updated belief state.
     """
     mean, cov = state
-    ... # TODO
-    new_state = state
+    
+    def ll_fn(param):
+        emission_mean = emission_mean_function(param, x)
+        emission_cov = emission_cov_function(param, x)
+        return jnp.mean(log_likelihood(emission_mean, emission_cov, y))
+    
+    z = sample_fg_bong(rng_key, state, num_samples)
+    prec_update = jnp.mean(jax.vmap(jax.hessian(ll_fn))(z), axis=0)
+    prec = jnp.linalg.pinv(cov)
+    new_prec = prec - prec_update
+    new_cov = jnp.linalg.pinv(new_prec)
+    mean_update = jnp.mean(jax.vmap(jax.grad(ll_fn))(z), axis=0)
+    new_mean = mean + new_cov @ mean_update
+    new_state = BONGState(new_mean, new_cov)
     return new_state
 
 
-def sample_bong(rng_key: PRNGKey, state: BONGState, num_samples: int=10):
-    """Sample from the BONG belief state"""
-    ... # TODO
-    return state.mean
+def sample_fg_bong(rng_key: PRNGKey, state: BONGState, num_samples: int=10):
+    """Sample from the full-covariance Gaussian belief state"""
+    mean, cov = state
+    states = jr.multivariate_normal(rng_key, mean, cov, shape=(num_samples,))
+    return states
 
 
 class bong:
@@ -101,12 +116,32 @@ class bong:
     
     Parameters
     ----------
+    init_mean : ArrayLikeTree
+        Initial mean of the belief state.
+    init_cov : ArrayLikeTree
+        Initial covariance of the belief state.
+    log_likelihood : Callable
+        Log-likelihood function (mean, cov, y -> float).
+    emission_mean_function : Callable
+        Emission mean function (param, x -> ArrayLikeTree).
+    emission_cov_function : Callable
+        Emission covariance function (param, x -> ArrayLikeTree).
+    dynamics_decay : float, optional
+        Decay factor for the dynamics, by default 1.0
+    process_noise : ArrayLikeTree, optional
+        Process noise, by default 0.0
+    num_samples : int, optional
+        Number of samples to use for the update, by default 10
+    
+    Returns
+    -------
+    A RebayesAlgorithm.
     
     """
     init = staticmethod(init_bong)
     predict = staticmethod(predict_bong)
     update = staticmethod(update_fg_bong)
-    sample = staticmethod(sample_bong)
+    sample = staticmethod(sample_fg_bong)
     
     def __new__(
         cls,
@@ -137,8 +172,5 @@ class bong:
             return cls.update(rng_key, state, x, y, log_likelihood, 
                               emission_mean_function, emission_cov_function, 
                               num_samples)
-            
-        def sample_fn(rng_key: PRNGKey, state: BONGState) -> ArrayTree:
-            return cls.sample(rng_key, state, num_samples)
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, sample_fn)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
