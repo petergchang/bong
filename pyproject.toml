@@ -13,11 +13,12 @@ matplotlib = "^3.8.2"
 pandas = "^2.1.3"
 seaborn = "^0.13.0"
 optax = "^0.1.7"
-flax = "^0.7.5"
+flax = "^0.8.0"
 tensorflow-probability = "^0.23.0"
 tqdm = "^4.66.1"
 chex = "^0.1.86"
 jax-tqdm = "^0.1.0"
+ucimlrepo = "^0.0.6"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.26.0"

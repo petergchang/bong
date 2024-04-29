@@ -104,9 +104,9 @@ dm-tree==0.1.8 ; python_version >= "3.9" and python_version < "4.0" \
 etils[epath,epy]==1.5.2 ; python_version >= "3.9" and python_version < "4.0" \
     --hash=sha256:6dc882d355e1e98a5d1a148d6323679dc47c9a5792939b9de72615aa4737eb0b \
     --hash=sha256:ba6a3e1aff95c769130776aa176c11540637f5dd881f3b79172a5149b6b1c446
-flax==0.7.5 ; python_version >= "3.9" and python_version < "4.0" \
-    --hash=sha256:bb8cf313e4935089e222fe676e09ea96e9b4d2f9ad355f8acff37c2ca5640d08 \
-    --hash=sha256:f51043efd60eb194dd4648c778ae3ea291ef3fd03ec975dce69d98de7ca47489
+flax==0.8.2 ; python_version >= "3.9" and python_version < "4.0" \
+    --hash=sha256:1c4e43ac3cb32e8e15c733cfa3df8d827b61d9ce29b50a7035920bfe9fdaa5b0 \
+    --hash=sha256:911d83e01380fdb3135c309e70981aabd15e7ca038014d7989ddc3cfaf4d0d45
 fonttools==4.51.0 ; python_version >= "3.9" and python_version < "4.0" \
     --hash=sha256:0118ef998a0699a96c7b28457f15546815015a2710a1b23a7bf6c1be60c01636 \
     --hash=sha256:0d145976194a5242fdd22df18a1b451481a88071feadf251221af110ca8f00ce \
@@ -701,6 +701,9 @@ typing-extensions==4.11.0 ; python_version >= "3.9" and python_version < "4.0" \
 tzdata==2024.1 ; python_version >= "3.9" and python_version < "4.0" \
     --hash=sha256:2674120f8d891909751c38abcdfd386ac0a5a1127954fbc332af6b5ceae07efd \
     --hash=sha256:9068bc196136463f5245e51efda838afa15aaeca9903f49050dfa2679db4d252
+ucimlrepo==0.0.6 ; python_version >= "3.9" and python_version < "4.0" \
+    --hash=sha256:16d1310a120ad5e362b1c83429e99560cfc1dc270407f74f77435edf50f24ec4 \
+    --hash=sha256:2488d85f249ca9aad39b2a2b6f915d3d25cda37543de7ab389c1ba042b2e9c61
 zipp==3.18.1 ; python_version >= "3.9" and python_version < "4.0" \
     --hash=sha256:206f5a15f2af3dbaee80769fb7dc6f249695e940acca08dfb2a4769fe61e538b \
     --hash=sha256:2884ed22e7d8961de1c9a05142eb69a247f120291bc0206a00a7642f09b5b715
