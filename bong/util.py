@@ -1,13 +1,29 @@
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
+from flax import linen as nn
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax_tqdm
+import optax
 import optuna
 
 from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
+
+
+class MLP(nn.Module):
+    features: Sequence[int]
+    activation: nn.Module = nn.relu
+    use_bias: bool = True
+
+    @nn.compact
+    def __call__(self, x):
+        x = x.ravel()
+        for feat in self.features[:-1]:
+            x = self.activation(nn.Dense(feat)(x))
+        x = nn.Dense(self.features[-1], use_bias=self.use_bias)(x)
+        return x
 
 
 def hess_diag_approx(
@@ -43,6 +59,7 @@ def run_rebayes_algorithm(
     init_state: State=None,
     transform=lambda key, alg, state, x, y: state,
     progress_bar: bool=False,
+    n_iter: int=None,
     **init_kwargs,
 ) -> tuple[State, Any]:
     """Run a rebayes algorithm over a sequence of observations.
@@ -54,6 +71,8 @@ def run_rebayes_algorithm(
         Y: Sequence of outputs.
         init_state: Initial belief state.
         transform: Transform the belief state after each update.
+        progress_bar: Whether to display a progress bar.
+        n_iter: Number of iterations to run the algorithm for.
     
     Returns:
         Final belief state and extra information.
@@ -85,11 +104,13 @@ def tune_init_cov(
     X: ArrayLike,
     Y: ArrayLike,
     loss_fn: Callable,
-    n_trials=10,
+    n_trials=20,
+    minval=-10.0,
+    maxval=0.0,
     **init_kwargs,
 ):
     def _objective(trial):
-        log_init_cov = trial.suggest_float("log_init_cov", -10.0, 0.0)
+        log_init_cov = trial.suggest_float("log_init_cov", minval, maxval)
         init_cov = jnp.exp(log_init_cov).item()
         rebayes_algorithm = rebayes_algorithm_initializer(
             init_cov=init_cov,
