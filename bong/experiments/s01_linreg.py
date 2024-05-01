@@ -8,16 +8,23 @@ import jax.random as jr
 import matplotlib.pyplot as plt
 
 from bong.settings import linreg_path
-from bong.src import bong, experiment_utils
-from bong.util import run_rebayes_algorithm
+from bong.src import bbb, blr, bog, bong, experiment_utils
+from bong.util import run_rebayes_algorithm, tune_init_hyperparam
 
 
-AGENT_TYPES = ["fg-bong", "fg-l-bong", "fg-rep-bong", "fg-rep-l-bong"]
+AGENT_TYPES = ["fg-bong", "fg-l-bong", "fg-rep-bong", "fg-rep-l-bong",
+               "fg-blr", "fg-bog", "fg-rep-bog", "fg-bbb", "fg-rep-bbb"]
+LR_AGENT_TYPES = ["fg-blr", "fg-bog", "fg-rep-bog", "fg-bbb", "fg-rep-bbb"]
 BONG_DICT = {
     "fg-bong": bong.fg_bong,
     "fg-l-bong": bong.fg_bong,
     "fg-rep-bong": bong.fg_reparam_bong,
     "fg-rep-l-bong": bong.fg_reparam_bong,
+    "fg-blr": blr.fg_blr,
+    "fg-bog": bog.fg_bog,
+    "fg-rep-bog": bog.fg_reparam_bog,
+    "fg-bbb": bbb.fg_bbb,
+    "fg-rep-bbb": bbb.fg_reparam_bbb,
 }
 
 
@@ -49,13 +56,16 @@ def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
 
 def main(args):
     # Generate dataset
-    key1, key2, subkey = jr.split(jr.PRNGKey(args.key), 3)
+    key1, key2, key3, subkey = jr.split(jr.PRNGKey(args.key), 4)
     N, d, noise_std = args.num_examples, args.param_dim, args.emission_noise
     X_tr, Y_tr, theta = generate_linreg_dataset(
         key1, N, d, noise_std=noise_std
     )
-    X_te, Y_te, _ = generate_linreg_dataset(
+    X_val, Y_val, _ = generate_linreg_dataset(
         key2, N, d, noise_std=noise_std, theta=theta
+    )
+    X_te, Y_te, _ = generate_linreg_dataset(
+        key3, N, d, noise_std=noise_std, theta=theta
     )
     
     # Compute (batch) true posterior
@@ -84,6 +94,8 @@ def main(args):
             jax.vmap(_nll, (None, 0, 0)), (0, None, None)
         )(means, X_cb, Y_cb))
         return kl_div, nll, nlpd
+    def tune_kl_loss_fn(key, alg, state):
+        return gaussian_kl_div(mu_post, cov_post, state.mean, state.cov)
     
     init_kwargs = {
         "init_mean": mu0,
@@ -94,7 +106,29 @@ def main(args):
     }
     agent_queue = {}
     for agent in args.agents:
-        if "-l-" in agent: # Linearized-BONG
+        if agent in LR_AGENT_TYPES: # Learning rate
+            for n_sample in args.num_samples:
+                key, subkey = jr.split(subkey)
+                curr_initializer = lambda **kwargs: BONG_DICT[agent](
+                    **kwargs,
+                    num_iter = 1_000,
+                )
+                try:
+                    best_lr = tune_init_hyperparam(
+                        key, curr_initializer, X_tr, Y_tr,
+                        tune_kl_loss_fn, "learning_rate", minval=1e-5,
+                        maxval=1.0, n_trials=20, **init_kwargs
+                    )["learning_rate"]
+                except:
+                    best_lr = 1e-2
+                curr_agent = BONG_DICT[agent](
+                    learning_rate=best_lr,
+                    **init_kwargs,
+                    num_samples=n_sample,
+                    num_iter = 1_000,
+                )
+                agent_queue[f"{agent}-{n_sample}"] = curr_agent
+        elif "-l-" in agent: # Linearized-BONG
             curr_agent = BONG_DICT[agent](
                 **init_kwargs,
                 linplugin=True,
@@ -190,7 +224,7 @@ if __name__ == "__main__":
     parser.add_argument("--agents", type=str, nargs="+",
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
-                        default=[1, 10, 100])
+                        default=[1_000,])
     
     args = parser.parse_args()
     main(args)
