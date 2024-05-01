@@ -229,7 +229,7 @@ class fg_blr:
         num_samples: int=10,
         linplugin: bool=False, 
         empirical_fisher: bool=False,
-        learning_rate: float=1.0,
+        learning_rate: float=1e-1,
         num_iter: int=10,
     ):
         init_cov = init_cov * jnp.eye(len(init_mean))
@@ -320,7 +320,7 @@ class dg_blr:
         num_samples: int=10,
         linplugin: bool=False,
         empirical_fisher: bool=False,
-        learning_rate: float=1.0,
+        learning_rate: float=1e-1,
         num_iter: int=10,
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))

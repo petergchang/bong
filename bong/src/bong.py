@@ -19,11 +19,23 @@ class BONGState(NamedTuple):
     cov: ArrayTree
     
 
+class BONGDLRState(NamedTuple):
+    """Belief state of a DLR-BONG agent.
+    
+    mean: Mean of the belief state.
+    prec_diag: Diagonal term (Upsilon) of DLR approximation of precision.
+    prec_lr: Low-rank term (W) of DLR approximation of precision.
+    """
+    mean: ArrayTree
+    prec_diag: ArrayTree
+    prec_lr: ArrayTree
+    
+
 def init_bong(
     init_mean: ArrayLikeTree,
     init_cov: ArrayLikeTree,
 ) -> BONGState:
-    """Initialize the belief state with a mean and precision.
+    """Initialize the belief state with a mean and covariance.
     
     Args:
         init_mean: Initial mean of the belief state.
@@ -33,6 +45,24 @@ def init_bong(
         Initial belief state.
     """
     return BONGState(mean=init_mean, cov=init_cov)
+
+
+def init_bong_dlr(
+    init_mean: ArrayLikeTree,
+    init_prec_diag: ArrayLikeTree,
+    init_prec_lr: ArrayLikeTree,
+) -> BONGDLRState:
+    """Initialize the belief state with a mean and precision.
+    
+    Args:
+        init_mean: Initial mean of the belief state.
+        init_prec_diag: Initial Upsilon of belief state.
+        init_prec_lr: Initial W of belief state.
+    
+    Returns:
+        Initial belief state.
+    """
+    return BONGDLRState(init_mean, init_prec_diag, init_prec_lr)
 
 
 def predict_bong(
@@ -54,6 +84,31 @@ def predict_bong(
     """
     mean, cov = state
     new_mean = jax.tree_map(lambda x: gamma * x, mean)
+    new_cov = jax.tree_map(lambda x, y: gamma**2 * x + y, cov, Q)
+    new_state = BONGState(new_mean, new_cov)
+    return new_state
+
+
+def predict_bong_dlr(
+    state: BONGDLRState,
+    gamma: float,
+    Q: ArrayLikeTree,
+    *args,
+    **kwargs,
+) -> BONGDLRState:
+    """Predict the next state of the belief state.
+    
+    Args:
+        state: Current belief state.
+        gamma: Forgetting factor.
+        Q: Process noise (diagonal).
+    
+    Returns:
+        Predicted belief state.
+    """
+    mean, prec_diag, prec_lr = state
+    new_mean = jax.tree_map(lambda x: gamma * x, mean)
+    new_prec_diag = 1/(gamma**2/prec_diag + Q)
     new_cov = jax.tree_map(lambda x, y: gamma**2 * x + y, cov, Q)
     new_state = BONGState(new_mean, new_cov)
     return new_state

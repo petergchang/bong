@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any, Callable, Sequence
 
 from flax import linen as nn
@@ -57,6 +58,46 @@ def nearest_psd_matrix(mat, eps=1e-6):
     return (eigenvectors @ jnp.diag(eigenvalues)) @ eigenvectors.T
 
 
+def sample_dlr_single(key, W, diag, temperature=1.0):
+    """
+    Sample from an MVG with diagonal + low-rank
+    covariance matrix. See §4.2.2, Proposition 1 of
+    L-RVGA paper
+    """
+    key_x, key_eps = jax.random.split(key)
+    diag_inv = (1 / diag).ravel()
+    diag_inv_mod = diag_inv * temperature
+    D, d = W.shape
+    
+    ID = jnp.eye(D)
+    Id = jnp.eye(d)
+    
+    M = Id + jnp.einsum("ji,j,jk->ik", W, diag_inv, W)
+    L = jnp.sqrt(temperature) * \
+        jnp.linalg.solve(M.T, jnp.einsum("ji,j->ij", W, diag_inv)).T
+    
+    x = jax.random.normal(key_x, (D,)) * jnp.sqrt(diag_inv_mod)
+    eps = jax.random.normal(key_eps, (d,))
+    
+    x_plus = jnp.einsum("ij,kj,k->i", L, W, x)
+    x_plus = x - x_plus + jnp.einsum("ij,j->i", L, eps)
+    
+    return x_plus
+
+
+@partial(jax.jit, static_argnums=(4,))
+def sample_dlr(key, W, diag, temperature=1.0, shape=None):
+    shape = (1,) if shape is None else shape
+    n_elements = np.prod(shape)
+    keys = jax.random.split(key, n_elements)
+    samples = jax.vmap(
+        sample_dlr_single, in_axes=(0, None, None, None)
+    )(keys, W, diag, temperature)
+    samples = samples.reshape(*shape, -1)
+    
+    return samples
+
+
 def run_rebayes_algorithm(
     rng_key: PRNGKey,
     rebayes_algorithm: RebayesAlgorithm,
@@ -104,22 +145,23 @@ def run_rebayes_algorithm(
     return final_state, outputs
 
 
-def tune_init_cov(
+def tune_init_hyperparam(
     rng_key: PRNGKey,
     rebayes_algorithm_initializer: Any,
     X: ArrayLike,
     Y: ArrayLike,
     loss_fn: Callable,
-    n_trials=20,
+    hyperparam_name: str,
+    n_trials=10,
     minval=-10.0,
     maxval=0.0,
     **init_kwargs,
 ):
     def _objective(trial):
-        log_init_cov = trial.suggest_float("log_init_cov", minval, maxval)
-        init_cov = jnp.exp(log_init_cov).item()
+        init_hp = trial.suggest_float(hyperparam_name, minval, maxval, log=True)
+        hp_kwargs = {hyperparam_name: init_hp}
         rebayes_algorithm = rebayes_algorithm_initializer(
-            init_cov=init_cov,
+            **hp_kwargs,
             **init_kwargs,
         )
         key, subkey = jr.split(rng_key)
