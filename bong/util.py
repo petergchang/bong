@@ -51,6 +51,12 @@ def hess_diag_approx(
     return jnp.mean(jax.vmap(_hess_diag)(zs), axis=0)
 
 
+def nearest_psd_matrix(mat, eps=1e-6):
+    eigenvalues, eigenvectors = jnp.linalg.eigh(mat)
+    eigenvalues = jnp.maximum(eigenvalues, eps)
+    return (eigenvectors @ jnp.diag(eigenvalues)) @ eigenvectors.T
+
+
 def run_rebayes_algorithm(
     rng_key: PRNGKey,
     rebayes_algorithm: RebayesAlgorithm,
