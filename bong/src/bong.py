@@ -99,10 +99,9 @@ def update_fg_bong(
     z = sample_fg_bong(rng_key, state, num_samples)
     grads = jax.vmap(jax.grad(ll_fn))(z)
     if empirical_fisher:
-        prec_update = grads.T @ grads
+        prec_update = -1/num_samples * grads.T @ grads
     else:
         prec_update = jnp.mean(jax.vmap(jax.hessian(ll_fn))(z), axis=0)
-    print(f"prec_update: {prec_update.shape}")
     prec = jnp.linalg.pinv(cov)
     new_prec = prec - prec_update
     new_cov = jnp.linalg.pinv(new_prec)
@@ -160,6 +159,7 @@ def update_dg_bong(
     emission_mean_function: Callable,
     emission_cov_function: Callable,
     num_samples: int=10,
+    empirical_fisher: bool=False,
     *args,
     **kwargs,
 ) -> BONGState:
@@ -174,6 +174,8 @@ def update_dg_bong(
         emission_mean_function: Emission mean function.
         emission_cov_function: Emission covariance function.
         num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
     
     Returns:
         Updated belief state.
@@ -187,12 +189,16 @@ def update_dg_bong(
     
     keys = jr.split(rng_key)
     z = sample_dg_bong(keys[0], state, num_samples)
-    hess_diag_fn = lambda param: hess_diag_approx(keys[1], ll_fn, param)
-    prec_update = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
+    grads = jax.vmap(jax.grad(ll_fn))(z)
+    if empirical_fisher:
+        prec_update = -1/num_samples * jnp.einsum('ij,ij->j', grads, grads)
+    else:
+        hess_diag_fn = lambda param: hess_diag_approx(keys[1], ll_fn, param)
+        prec_update = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
     prec = 1 / cov
     new_prec = prec - prec_update
     new_cov = 1 / new_prec
-    mean_update = jnp.mean(jax.vmap(jax.grad(ll_fn))(z), axis=0)
+    mean_update = jnp.mean(grads, axis=0)
     new_mean = mean + new_cov * mean_update
     new_state = BONGState(new_mean, new_cov)
     return new_state
@@ -280,7 +286,7 @@ def update_fg_reparam_bong(
     z = sample_fg_bong(rng_key, state, num_samples)
     grads = jax.vmap(jax.grad(ll_fn))(z)
     if empirical_fisher:
-        cov_update = grads.T @ grads
+        cov_update = -1/num_samples * grads.T @ grads
     else:
         cov_update = jnp.mean(jax.vmap(jax.hessian(ll_fn))(z), axis=0)
     mean_update = jnp.mean(grads, axis=0)
@@ -337,6 +343,7 @@ def update_dg_reparam_bong(
     emission_mean_function: Callable,
     emission_cov_function: Callable,
     num_samples: int=10,
+    empirical_fisher: bool=False,
     *args,
     **kwargs,
 ) -> BONGState:
@@ -352,6 +359,8 @@ def update_dg_reparam_bong(
         emission_mean_function: Emission mean function.
         emission_cov_function: Emission covariance function.
         num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
     
     Returns:
         Updated belief state.
@@ -365,11 +374,15 @@ def update_dg_reparam_bong(
     
     keys = jr.split(rng_key)
     z = sample_dg_bong(keys[0], state, num_samples)
-    mean_update = jnp.mean(jax.vmap(jax.grad(ll_fn))(z), axis=0)
-    new_mean = mean + cov * mean_update
-    hess_diag_fn = lambda param: hess_diag_approx(keys[1], ll_fn, param)
-    cov_update = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
-    new_cov = cov + cov * cov_update * cov
+    grads = jax.vmap(jax.grad(ll_fn))(z)
+    grad_est = jnp.mean(grads, axis=0)
+    if empirical_fisher:
+        hess_diag = -1/num_samples * jnp.einsum('ij,ij->j', grads, grads)
+    else:
+        hess_diag_fn = lambda param: hess_diag_approx(keys[1], ll_fn, param)
+        hess_diag = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
+    new_mean = mean + cov * grad_est
+    new_cov = cov + cov * hess_diag * cov
     new_state = BONGState(new_mean, new_cov)
     return new_state
 
@@ -527,6 +540,8 @@ class dg_bong:
         Number of samples to use for the update, by default 10
     linplugin : bool, optional
         Whether to use the linearized plugin method, by default False
+    empirical_fisher: bool, optional
+        Whether to use the empirical Fisher approximation to the Hessian matrix.
     
     Returns
     -------
@@ -546,6 +561,7 @@ class dg_bong:
         process_noise: ArrayLikeTree=0.0,
         num_samples: int=10,
         linplugin: bool=False,
+        empirical_fisher: bool=False,
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -571,7 +587,7 @@ class dg_bong:
         ) -> BONGState:
             return _update_fn(
                 rng_key, state, x, y, log_likelihood, emission_mean_function, 
-                emission_cov_function, num_samples
+                emission_cov_function, num_samples, empirical_fisher
             )   
         
         return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
@@ -676,6 +692,8 @@ class dg_reparam_bong:
         Number of samples to use for the update, by default 10
     linplugin : bool, optional
         Whether to use the linearized plugin method, by default False
+    empirical_fisher: bool, optional
+        Whether to use the empirical Fisher approximation to the Hessian matrix.
     
     Returns
     -------
@@ -695,6 +713,7 @@ class dg_reparam_bong:
         process_noise: ArrayLikeTree=0.0,
         num_samples: int=10,
         linplugin: bool=False,
+        empirical_fisher: bool=False,
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -720,7 +739,7 @@ class dg_reparam_bong:
         ) -> BONGState:
             return _update_fn(
                 rng_key, state, x, y, log_likelihood, emission_mean_function, 
-                emission_cov_function, num_samples
+                emission_cov_function, num_samples, empirical_fisher
             )   
         
         return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
