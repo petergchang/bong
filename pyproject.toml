@@ -19,6 +19,7 @@ tqdm = "^4.66.1"
 chex = "^0.1.86"
 jax-tqdm = "^0.1.0"
 ucimlrepo = "^0.0.6"
+optuna = "^3.6.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.26.0"
