@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import jax.random as jr
 
 from bong.base import RebayesAlgorithm
+from bong.util import nearest_psd_matrix
 from bong.src.bong import sample_dg_bong, sample_fg_bong
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
 
@@ -185,6 +186,7 @@ def update_fg_reparam_bog(
     num_samples: int=10,
     empirical_fisher: bool=False,
     learning_rate: float=1.0,
+    eps=1e-6,
     *args,
     **kwargs,
 ) -> BOGState:
@@ -203,6 +205,7 @@ def update_fg_reparam_bog(
         empirical_fisher: Whether to use the empirical Fisher approximation
             to the Hessian matrix.
         learning_rate: Learning rate for the update.
+        eps: eigenvalue clipping term to ensure PSD
     
     Returns:
         Updated belief state.
@@ -223,6 +226,7 @@ def update_fg_reparam_bog(
     mean_update = jnp.mean(grads, axis=0)
     new_mean = mean + learning_rate * mean_update
     new_cov = cov + learning_rate / 2 * cov_update
+    new_cov = nearest_psd_matrix(new_cov, eps)
     new_state = BOGState(new_mean, new_cov)
     return new_state
 
@@ -238,6 +242,7 @@ def update_dg_reparam_bog(
     num_samples: int=10,
     empirical_fisher: bool=False,
     learning_rate: float=1.0,
+    eps=1e-6,
     *args,
     **kwargs,
 ) -> BOGState:
@@ -256,6 +261,7 @@ def update_dg_reparam_bog(
         empirical_fisher: Whether to use the empirical Fisher approximation
             to the Hessian matrix.
         learning_rate: Learning rate for the update.
+        eps: eigenvalue clipping term to ensure PSD
     
     Returns:
         Updated belief state.
@@ -278,6 +284,7 @@ def update_dg_reparam_bog(
         hess_diag = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
     new_mean = mean + learning_rate * grad_est
     new_cov = cov + learning_rate/2 * hess_diag
+    new_cov = jnp.maximum(new_cov, eps)
     new_state = BOGState(new_mean, new_cov)
     return new_state
 
