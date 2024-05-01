@@ -121,6 +121,7 @@ def main(args):
         
     # Save KL-divergence
     curr_path = Path(linreg_path, f"dim_{args.param_dim}")
+    print("Saving to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, kldiv, _, _) in result_dict.items():
