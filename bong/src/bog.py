@@ -316,7 +316,7 @@ class fg_bog:
     
     """
     sample = staticmethod(sample_fg_bong)
-    print('fg_bog: constructor', num_iter)
+    print('calling fg bog constructor')
 
     def __new__(
         cls,
@@ -335,7 +335,7 @@ class fg_bog:
         *args,
         **kwargs,
     ):
-        print('fg_bog: new', num_iter)
+        print('calling fg_bog new', num_iter)
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)

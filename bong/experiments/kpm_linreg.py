@@ -292,10 +292,11 @@ def debug(args):
     data, subkey = make_data(args)
     init_kwargs, callback = init(args, data)
     
-    agent = bog.fg_bog(**init_kwargs,
+    agent = bog.fg_bog(
                     learning_rate = 0.1,
                     num_samples = 100,
                     num_iter = 100,
+                    **init_kwargs,
     )
     print(agent)
 
