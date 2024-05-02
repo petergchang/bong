@@ -159,8 +159,9 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     #plt.close('all')
     
 
-def make_data(args, key):
+def make_data(args):
      # Generate dataset
+    key = jr.PRNGKey(args.key)
     key1, key2, key3, subkey = jr.split(key, 4)
     N, d, noise_std = args.num_examples, args.param_dim, args.emission_noise
     X_tr, Y_tr, theta = generate_linreg_dataset(
@@ -286,10 +287,25 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                 agent_queue[f"{agent}-MC{n_sample}"] = curr_agent
     return agent_queue, subkey
 
-def main(args):
-    key = jr.PRNGKey(args.key)
-    data, subkey = make_data(args, key)
+def debug(args):
+    print('DEBUG MODE')
+    data, subkey = make_data(args)
     init_kwargs, callback = init(args, data)
+    
+    agent = bog.fg_bog(**init_kwargs,
+                    learning_rate = 0.1,
+                    num_samples = 100,
+                    num_iter = 100,
+    )
+    print(agent)
+
+def main(args):
+    data, subkey = make_data(args)
+    init_kwargs, callback = init(args, data)
+    if args.debug:
+        debug(args)
+        return
+
 
     prior, post = compute_prior_post(args, data)
     def tune_kl_loss_fn(key, alg, state):
@@ -330,7 +346,12 @@ if __name__ == "__main__":
     parser.add_argument("--agents", type=str, nargs="+",
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
-                        default=[1_000,])
+                        default=[100,])
+    parser.add_argument("--learning_rate", type=int, nargs="+", 
+                    default=[0.001, 0.005, 0.01, 0.05])
+    parser.add_argument("--tune_learning_rate", type=bool, default=False)
+
+    parser.add_argument("--debug", type=bool, default=False)
     
     args = parser.parse_args()
     main(args)

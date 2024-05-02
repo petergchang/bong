@@ -316,7 +316,8 @@ class fg_bog:
     
     """
     sample = staticmethod(sample_fg_bong)
-    
+    print('fg_bog: constructor', num_iter)
+
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
@@ -330,9 +331,11 @@ class fg_bog:
         linplugin: bool=False, 
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
+        num_iter: int=1, # ignored
         *args,
         **kwargs,
     ):
+        print('fg_bog: new', num_iter)
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
