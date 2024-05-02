@@ -59,10 +59,9 @@ def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
 
 
 
-def plot_results(result_dict, curr_path=None):
-    # Save KL-divergence
+def plot_results(result_dict, curr_path=None, ttl=''):
 
-
+    # Save KL-divergence log scale
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, kldiv, _, _) in result_dict.items():
         if jnp.any(jnp.isnan(kldiv)):
@@ -73,10 +72,29 @@ def plot_results(result_dict, curr_path=None):
     ax.set_yscale("log")
     ax.grid()
     ax.legend()
+    ax.set_title(ttl)
+    if curr_path:
+        fig.savefig(
+            Path(curr_path, f"kl_divergence_logscale.pdf"), bbox_inches='tight', dpi=300
+        )
+
+     # Save KL-divergence l
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, kldiv, _, _) in result_dict.items():
+        if jnp.any(jnp.isnan(kldiv)):
+            continue
+        ax.plot(kldiv, label=agent_name)
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("KL-divergence")
+    #ax.set_yscale("log")
+    ax.grid()
+    ax.legend()
+    ax.set_title(ttl)
     if curr_path:
         fig.savefig(
             Path(curr_path, f"kl_divergence.pdf"), bbox_inches='tight', dpi=300
         )
+    
     
     # Save NLL
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -88,9 +106,27 @@ def plot_results(result_dict, curr_path=None):
     ax.set_ylabel("NLL (plugin)")
     ax.grid()
     ax.legend()
+    ax.set_title(ttl)
     if curr_path:
         fig.savefig(
             Path(curr_path, f"plugin_nll.pdf"), bbox_inches='tight', dpi=300
+        )
+
+      # Save NLL, log scale
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, _, nll, _) in result_dict.items():
+        if jnp.any(jnp.isnan(nll)):
+            continue
+        ax.plot(nll, label=agent_name)
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("NLL (plugin)")
+    ax.set_yscale("log")
+    ax.grid()
+    ax.legend()
+    ax.set_title(ttl)
+    if curr_path:
+        fig.savefig(
+            Path(curr_path, f"plugin_nll_logscale.pdf"), bbox_inches='tight', dpi=300
         )
     
     # Save NLPD
@@ -103,6 +139,7 @@ def plot_results(result_dict, curr_path=None):
     ax.set_ylabel("NLPD (MC)")
     ax.grid()
     ax.legend()
+    ax.set_title(ttl)
     if curr_path:
         fig.savefig(
             Path(curr_path, f"mc_nlpd.pdf"), bbox_inches='tight', dpi=300
@@ -113,6 +150,7 @@ def plot_results(result_dict, curr_path=None):
     for agent_name, (runtime, _, _, _) in result_dict.items():
         ax.bar(agent_name, runtime)
     ax.set_ylabel("runtime (s)")
+    ax.set_title(ttl)
     plt.setp(ax.get_xticklabels(), rotation=30)
     if curr_path:
         fig.savefig(
@@ -185,21 +223,22 @@ def init(args, data):
     
     return init_kwargs, callback
 
-def make_agent_queue(args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
+def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
     agent_queue = {}
+    n_iter = 100 # per time step
     for agent in args.agents:
-        if agent in LR_AGENT_TYPES: # Learning rate
+        if (agent in LR_AGENT_TYPES) and args.tune_learning_rate: 
             for n_sample in args.num_samples:
                 key, subkey = jr.split(subkey)
                 curr_initializer = lambda **kwargs: BONG_DICT[agent](
                     **kwargs,
-                    num_iter = 1_000,
+                    num_iter = n_iter,
                 )
                 try:
                     best_lr = tune_init_hyperparam(
                         key, curr_initializer, X_tr, Y_tr,
                         tune_kl_loss_fn, "learning_rate", minval=1e-5,
-                        maxval=1.0, n_trials=20, **init_kwargs
+                        maxval=1.0, n_trials=10, **init_kwargs
                     )["learning_rate"]
                 except:
                     best_lr = 1e-2
@@ -207,10 +246,32 @@ def make_agent_queue(args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                     learning_rate=best_lr,
                     **init_kwargs,
                     num_samples=n_sample,
-                    num_iter = 1_000,
+                    num_iter = n_iter,
                 )
-                agent_queue[f"{agent}-{n_sample}"] = curr_agent
-        elif "-l-" in agent: # Linearized-BONG
+                best_lr_str = f"{round(best_lr,4)}".replace('.', '_')
+                agent_queue[f"{agent}-MC{n_sample}-LRtune{best_lr_str}"] = curr_agent
+        elif (agent in LR_AGENT_TYPES) and ~args.tune_learning_rate: 
+            for n_sample in args.num_samples:
+                for lr in args.learning_rate:
+                    lr_str = f"{round(lr,4)}".replace('.', '_')
+                    name = f"{agent}-MC{n_sample}-LR{lr_str}"
+                    #print("making ", name)
+                    if "bog" in agent:
+                        curr_agent = BONG_DICT[agent](
+                            **init_kwargs,
+                            learning_rate=lr,
+                            num_samples=n_sample,
+                            #num_iter = n_iter,
+                        )
+                    else:
+                       curr_agent = BONG_DICT[agent](
+                            **init_kwargs,
+                            learning_rate=lr,
+                            num_samples=n_sample,
+                            num_iter = n_iter,
+                       )
+                    agent_queue[name] = curr_agent
+        elif "-l-" in agent: # Linearized-BONG (no hparams!)
             curr_agent = BONG_DICT[agent](
                 **init_kwargs,
                 linplugin=True,
@@ -222,8 +283,8 @@ def make_agent_queue(args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                     **init_kwargs,
                     num_samples=n_sample,
                 )
-                agent_queue[f"{agent}-{n_sample}"] = curr_agent
-    return agent_queue
+                agent_queue[f"{agent}-MC{n_sample}"] = curr_agent
+    return agent_queue, subkey
 
 def main(args):
     key = jr.PRNGKey(args.key)
@@ -235,9 +296,10 @@ def main(args):
         return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
       
  
-    agent_queue = make_agent_queue(args, init_kwargs, tune_kl_loss_fn, data['X_tr'], data['Y_tr'])
+    agent_queue, subkey = make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, data['X_tr'], data['Y_tr'])
 
     result_dict = {}
+    ttl = f"linreg-d{args.param_dim}"
     for agent_name, agent in agent_queue.items():
         print(f"Running {agent_name}...")
         key, subkey = jr.split(subkey)
@@ -252,7 +314,7 @@ def main(args):
     curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
     print("Saving to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
-    plot_results(result_dict, curr_path)
+    plot_results(result_dict, curr_path, ttl)
 
    
 if __name__ == "__main__":

@@ -330,6 +330,7 @@ class fg_bog:
         linplugin: bool=False, 
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
+        num_iter: int=1, # this is ignored
     ):
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
