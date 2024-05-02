@@ -256,20 +256,20 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                     lr_str = f"{round(lr,4)}".replace('.', '_')
                     name = f"{agent}-MC{n_sample}-LR{lr_str}"
                     #print("making ", name)
-                    if "bog" in agent:
-                        curr_agent = BONG_DICT[agent](
-                            **init_kwargs,
-                            learning_rate=lr,
-                            num_samples=n_sample,
-                            #num_iter = n_iter,
-                        )
-                    else:
-                       curr_agent = BONG_DICT[agent](
-                            **init_kwargs,
-                            learning_rate=lr,
-                            num_samples=n_sample,
-                            num_iter = n_iter,
-                       )
+                    # if "bog" in agent:
+                    #     curr_agent = BONG_DICT[agent](
+                    #         **init_kwargs,
+                    #         learning_rate=lr,
+                    #         num_samples=n_sample,
+                    #         #num_iter = n_iter,
+                    #     )
+                    # else:
+                    curr_agent = BONG_DICT[agent](
+                        **init_kwargs,
+                        learning_rate=lr,
+                        num_samples=n_sample,
+                        num_iter = n_iter,
+                    )
                     agent_queue[name] = curr_agent
         elif "-l-" in agent: # Linearized-BONG (no hparams!)
             curr_agent = BONG_DICT[agent](
