@@ -218,7 +218,8 @@ def update_dg_bong(
     *args,
     **kwargs,
 ) -> BONGState:
-    """Update the diagonal-covariance Gaussian belief state with a new observation.
+    """Update the diagonal-covariance Gaussian belief state 
+    with a new observation.
     
     Args:
         rng_key: JAX PRNG Key.
@@ -402,8 +403,8 @@ def update_dg_reparam_bong(
     *args,
     **kwargs,
 ) -> BONGState:
-    """Update the diagonal-covariance Gaussian belief state with a new observation
-    under the reparameterized BONG model.
+    """Update the diagonal-covariance Gaussian belief state 
+    with a new observation under the reparameterized BONG model.
     
     Args:
         rng_key: JAX PRNG Key.
