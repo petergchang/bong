@@ -330,7 +330,8 @@ class fg_bog:
         linplugin: bool=False, 
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
-        num_iter: int=1, # this is ignored
+        *args,
+        **kwargs,
     ):
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -412,6 +413,8 @@ class dg_bog:
         linplugin: bool=False,
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
+        *args,
+        **kwargs,
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -493,6 +496,8 @@ class fg_reparam_bog:
         linplugin: bool=False,
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
+        *args,
+        **kwargs,
     ):
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -574,6 +579,8 @@ class dg_reparam_bog:
         linplugin: bool=False,
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
+        *args,
+        **kwargs,
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
