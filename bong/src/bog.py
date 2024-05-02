@@ -332,8 +332,8 @@ class fg_bog:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=1, # ignored
-        *args,
-        **kwargs,
+    #    *args,
+#        **kwargs,
     ):
         print('calling fg_bog new', num_iter)
         init_cov = init_cov * jnp.eye(len(init_mean))
@@ -366,6 +366,89 @@ class fg_bog:
             )   
         
         return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+    
+def make_fg_bog(
+        init_mean: ArrayLikeTree,
+        init_cov: float,
+        log_likelihood: Callable,
+        emission_mean_function: Callable,
+        emission_cov_function: Callable,
+        dynamics_decay: float=1.0,
+        process_noise: ArrayLikeTree=0.0,
+        num_samples: int=10,
+        linplugin: bool=False, 
+        empirical_fisher: bool=False,
+        learning_rate: float=1e-1,
+        num_iter: int=1, # ignored
+        **kwargs,
+):
+    """Full-covariance Gaussian BOG algorithm.
+    
+    Parameters
+    ----------
+    init_mean : ArrayLikeTree
+        Initial mean of the belief state.
+    init_cov : ArrayLikeTree
+        Initial covariance of the belief state.
+    log_likelihood : Callable
+        Log-likelihood function (mean, cov, y -> float).
+    emission_mean_function : Callable
+        Emission mean function (param, x -> ArrayLikeTree).
+    emission_cov_function : Callable
+        Emission covariance function (param, x -> ArrayLikeTree).
+    dynamics_decay : float, optional
+        Decay factor for the dynamics, by default 1.0
+    process_noise : ArrayLikeTree, optional
+        Process noise, by default 0.0
+    num_samples : int, optional
+        Number of samples to use for the update, by default 10
+    linplugin : bool, optional
+        Whether to use the linearized plugin method, by default False
+    empirical_fisher: bool, optional
+        Whether to use the empirical Fisher approximation to the Hessian matrix.
+    learning_rate: float, optional
+        Learning rate for the update.
+    
+    Returns
+    -------
+    A RebayesAlgorithm.
+    
+    """
+    sample = staticmethod(sample_fg_bong)
+    print('calling fg bog constructor')
+
+    print('calling fg_bog new', num_iter)
+    init_cov = init_cov * jnp.eye(len(init_mean))
+    if isinstance(process_noise, (int, float)):
+        process_noise = jax.tree_map(lambda x: process_noise, init_cov)
+    if linplugin:
+        # _update_fn = staticmethod(update_lfg_bog) TODO
+        raise NotImplementedError
+    else:
+        _update_fn = staticmethod(update_fg_bog)
+        
+    def init_fn() -> BOGState:
+        return staticmethod(init_bog)(init_mean, init_cov)
+        
+    def pred_fn(state: BOGState) -> BOGState:
+        return staticmethod(predict_bog)(
+            state, dynamics_decay, process_noise
+        )
+    
+    def update_fn(
+        rng_key: PRNGKey, 
+        state: BOGState, 
+        x: ArrayLikeTree, 
+        y: ArrayLikeTree
+    ) -> BOGState:
+        return _update_fn(
+            rng_key, state, x, y, log_likelihood, emission_mean_function, 
+            emission_cov_function, num_samples, empirical_fisher,
+            learning_rate
+        )   
+        
+    return RebayesAlgorithm(init_fn, pred_fn, update_fn, sample)
+    
     
 
 class dg_bog:

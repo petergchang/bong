@@ -291,13 +291,21 @@ def debug(args):
     print('DEBUG MODE')
     data, subkey = make_data(args)
     init_kwargs, callback = init(args, data)
-    
-    agent = bog.fg_bog(
-                    learning_rate = 0.1,
-                    num_samples = 100,
+    if 1:
+        agent = bog.fg_bog(
+                        learning_rate = 0.1,
+                        num_samples = 100,
                     num_iter = 100,
-                    **init_kwargs,
+                        **init_kwargs,
     )
+    else:
+        agent = bog.make_fg_bog(
+                        learning_rate = 0.1,
+                        num_samples = 100,
+                    num_iter = 100,
+                        **init_kwargs,
+        )
+
     print(agent)
 
 def main(args):
