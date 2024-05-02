@@ -58,6 +58,15 @@ def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
     return 0.5 * result
 
 
+def make_marker(name):
+    markers = {'bong': 'o', 'bog': 'x'}
+    if "bong" in name:
+        return markers['bong']
+    elif "bog" in name:
+        return markers['bog']
+    else:
+        return '*;'
+    
 
 def plot_results(result_dict, curr_path=None, ttl=''):
 
@@ -66,7 +75,7 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     for agent_name, (_, kldiv, _, _) in result_dict.items():
         if jnp.any(jnp.isnan(kldiv)):
             continue
-        ax.plot(kldiv, label=agent_name)
+        ax.plot(kldiv, label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("KL-divergence")
     ax.set_yscale("log")
@@ -256,15 +265,6 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                 for lr in args.learning_rate:
                     lr_str = f"{round(lr,4)}".replace('.', '_')
                     name = f"{agent}-MC{n_sample}-LR{lr_str}"
-                    #print("making ", name)
-                    # if "bog" in agent:
-                    #     curr_agent = BONG_DICT[agent](
-                    #         **init_kwargs,
-                    #         learning_rate=lr,
-                    #         num_samples=n_sample,
-                    #         #num_iter = n_iter,
-                    #     )
-                    # else:
                     curr_agent = BONG_DICT[agent](
                         **init_kwargs,
                         learning_rate=lr,
@@ -308,23 +308,8 @@ def debug(args):
 
     print(agent)
 
-def main(args):
-    data, subkey = make_data(args)
-    init_kwargs, callback = init(args, data)
-    if args.debug:
-        debug(args)
-        return
-
-
-    prior, post = compute_prior_post(args, data)
-    def tune_kl_loss_fn(key, alg, state):
-        return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
-      
- 
-    agent_queue, subkey = make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, data['X_tr'], data['Y_tr'])
-
+def run_agents(subkey, agent_queue, data, callback):
     result_dict = {}
-    ttl = f"linreg-d{args.param_dim}"
     for agent_name, agent in agent_queue.items():
         print(f"Running {agent_name}...")
         key, subkey = jr.split(subkey)
@@ -335,10 +320,28 @@ def main(args):
         t1 = time.perf_counter()
         result_dict[agent_name] = (t1 - t0, kldiv, nll, nlpd)
         print(f"\tKL-Div: {kldiv[-1]:.4f}, Time: {t1 - t0:.2f}s")
+    return result_dict
+
+def main(args):
+    data, subkey = make_data(args)
+    init_kwargs, callback = init(args, data)
+    if args.debug:
+        debug(args)
+        return
+
+    prior, post = compute_prior_post(args, data)
+    def tune_kl_loss_fn(key, alg, state):
+        return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
+      
+ 
+    agent_queue, subkey = make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, data['X_tr'], data['Y_tr'])
+    result_dict = run_agents(subkey, agent_queue, data, callback)
+  
     
     curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
     print("Saving to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
+    ttl = f"linreg-d{args.param_dim}"
     plot_results(result_dict, curr_path, ttl)
 
    
