@@ -59,28 +59,41 @@ def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
 
 
 def make_marker(name):
-    markers = {'bong': 'o', 'bog': 'x'}
+    #https://matplotlib.org/stable/api/markers_api.html
+    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
     if "bong" in name:
         return markers['bong']
+    elif "blr" in name:
+        return markers['blr']
     elif "bog" in name:
         return markers['bog']
+    elif "bbb" in name:
+        return markers['bbb']
     else:
-        return '*;'
+        return 'P;'
     
 
 def plot_results(result_dict, curr_path=None, ttl=''):
+    # extract subset of points for plotting
+    r=list(result_dict.values())[0]
+    (time, kldiv, nll, nlpd) = r
+    T = len(kldiv)
+    ndx = jnp.array(range(0, T, 10)) # decimation
+    fs = 'small'
+    loc = 'lower left'
 
     # Save KL-divergence log scale
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, kldiv, _, _) in result_dict.items():
         if jnp.any(jnp.isnan(kldiv)):
             continue
-        ax.plot(kldiv, label=agent_name, marker=make_marker(agent_name))
+        #ax.plot(kldiv, label=agent_name)
+        ax.plot(kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("KL-divergence")
     ax.set_yscale("log")
     ax.grid()
-    ax.legend()
+    ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
         fig.savefig(
@@ -92,12 +105,12 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     for agent_name, (_, kldiv, _, _) in result_dict.items():
         if jnp.any(jnp.isnan(kldiv)):
             continue
-        ax.plot(kldiv, label=agent_name)
+        ax.plot(kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("KL-divergence")
     #ax.set_yscale("log")
     ax.grid()
-    ax.legend()
+    ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
         fig.savefig(
@@ -110,11 +123,11 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     for agent_name, (_, _, nll, _) in result_dict.items():
         if jnp.any(jnp.isnan(nll)):
             continue
-        ax.plot(nll, label=agent_name)
+        ax.plot(nll[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("NLL (plugin)")
     ax.grid()
-    ax.legend()
+    ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
         fig.savefig(
@@ -126,12 +139,12 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     for agent_name, (_, _, nll, _) in result_dict.items():
         if jnp.any(jnp.isnan(nll)):
             continue
-        ax.plot(nll, label=agent_name)
+        ax.plot(nll[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("NLL (plugin)")
     ax.set_yscale("log")
     ax.grid()
-    ax.legend()
+    ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
         fig.savefig(
@@ -143,11 +156,11 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     for agent_name, (_, _, _, nlpd) in result_dict.items():
         if jnp.any(jnp.isnan(nlpd)):
             continue
-        ax.plot(nlpd, label=agent_name)
+        ax.plot(nlpd[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("NLPD (MC)")
     ax.grid()
-    ax.legend()
+    ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
         fig.savefig(
