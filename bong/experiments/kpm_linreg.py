@@ -13,8 +13,8 @@ from bong.util import run_rebayes_algorithm, tune_init_hyperparam
 
 import os
 cwd = Path(os.getcwd())
-root = cwd.parent.parent
-
+#root = cwd.parent.parent
+root = cwd
 
 AGENT_TYPES = ["fg-bong", "fg-l-bong", "fg-rep-bong", "fg-rep-l-bong",
                "fg-blr", "fg-bog", "fg-rep-bog", "fg-bbb", "fg-rep-bbb"]
@@ -73,12 +73,12 @@ def make_marker(name):
         return 'P;'
     
 
-def plot_results(result_dict, curr_path=None, ttl=''):
+def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
     # extract subset of points for plotting
     r=list(result_dict.values())[0]
     (time, kldiv, nll, nlpd) = r
     T = len(kldiv)
-    ndx = jnp.array(range(0, T, 10)) # decimation
+    ndx = jnp.array(range(0, T, 10)) # decimation of points to avoid cluttered markers
     fs = 'small'
     loc = 'lower left'
 
@@ -96,16 +96,15 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
-        fig.savefig(
-            Path(curr_path, f"kl_divergence_logscale.pdf"), bbox_inches='tight', dpi=300
-        )
+        fname = Path(curr_path, f"{file_prefix}_kl_divergence_logscale.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
 
-     # Save KL-divergence l
+     # Save KL-divergence, linear scale
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, kldiv, _, _) in result_dict.items():
         if jnp.any(jnp.isnan(kldiv)):
             continue
-        ax.plot(kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
+        ax.plot(ndx, kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("KL-divergence")
     #ax.set_yscale("log")
@@ -113,8 +112,8 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
-        fig.savefig(
-            Path(curr_path, f"kl_divergence.pdf"), bbox_inches='tight', dpi=300
+        fname = Path(curr_path, f"{file_prefix}_kl_divergence.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300
         )
     
     
@@ -123,23 +122,22 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     for agent_name, (_, _, nll, _) in result_dict.items():
         if jnp.any(jnp.isnan(nll)):
             continue
-        ax.plot(nll[ndx], label=agent_name, marker=make_marker(agent_name))
+        ax.plot(ndx, nll[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("NLL (plugin)")
     ax.grid()
     ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
-        fig.savefig(
-            Path(curr_path, f"plugin_nll.pdf"), bbox_inches='tight', dpi=300
-        )
+        fname = Path(curr_path, f"{file_prefix}_plugin_nll.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
 
       # Save NLL, log scale
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, _, nll, _) in result_dict.items():
         if jnp.any(jnp.isnan(nll)):
             continue
-        ax.plot(nll[ndx], label=agent_name, marker=make_marker(agent_name))
+        ax.plot(ndx, nll[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("NLL (plugin)")
     ax.set_yscale("log")
@@ -147,25 +145,24 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
-        fig.savefig(
-            Path(curr_path, f"plugin_nll_logscale.pdf"), bbox_inches='tight', dpi=300
-        )
+        fname = Path(curr_path, f"{file_prefix}_plugin_nll_logscale.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+        
     
     # Save NLPD
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, _, _, nlpd) in result_dict.items():
         if jnp.any(jnp.isnan(nlpd)):
             continue
-        ax.plot(nlpd[ndx], label=agent_name, marker=make_marker(agent_name))
+        ax.plot(ndx, nlpd[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("NLPD (MC)")
     ax.grid()
     ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:
-        fig.savefig(
-            Path(curr_path, f"mc_nlpd.pdf"), bbox_inches='tight', dpi=300
-        )
+        fname = Path(curr_path, f"{file_prefix}_mc_nlpld.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
 
     # Save runtime
     fig, ax = plt.subplots()
@@ -175,9 +172,8 @@ def plot_results(result_dict, curr_path=None, ttl=''):
     ax.set_title(ttl)
     plt.setp(ax.get_xticklabels(), rotation=30)
     if curr_path:
-        fig.savefig(
-            Path(curr_path, f"runtime.pdf"), bbox_inches='tight', dpi=300
-        )
+        fname = Path(curr_path, f"{file_prefix}_runtime.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
     #plt.close('all')
     
 
@@ -351,11 +347,16 @@ def main(args):
     result_dict = run_agents(subkey, agent_queue, data, callback)
   
     
-    curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
-    print("Saving to", curr_path)
+    #curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
+    curr_path = Path(root, "results")
+    if args.filename == "":
+        prefix =  f"linreg_dim{args.param_dim}"
+    else:
+        prefix = args.prefix
+    print("Saving figures to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
     ttl = f"linreg-d{args.param_dim}"
-    plot_results(result_dict, curr_path, ttl)
+    plot_results(result_dict, curr_path, prefix, ttl)
 
    
 if __name__ == "__main__":
@@ -377,6 +378,7 @@ if __name__ == "__main__":
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
 
     parser.add_argument("--debug", type=bool, default=False)
+    parser.add_argument("--filename", type=str, default="")
     
     args = parser.parse_args()
     main(args)
