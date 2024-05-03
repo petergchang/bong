@@ -88,7 +88,7 @@ def plot_results(result_dict, curr_path=None, ttl=''):
         if jnp.any(jnp.isnan(kldiv)):
             continue
         #ax.plot(kldiv, label=agent_name)
-        ax.plot(kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
+        ax.plot(ndx, kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
     ax.set_xlabel("number of iteration")
     ax.set_ylabel("KL-divergence")
     ax.set_yscale("log")

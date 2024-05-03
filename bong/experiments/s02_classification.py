@@ -175,7 +175,7 @@ def main(args):
                  X_cb=X_te, Y_cb=Y_te, n_samples=100):
         # KL-div
         kl_div = logreg_kl_div(key, mu0, cov0, state.mean, state.cov,
-                               X_tr, Y_tr, n_samples, nll_fn)
+                               X_tr, Y_tr,  em_function, n_samples, nll_fn)
         # Plugin-NLL
         nll = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_cb, Y_cb))
         # MC-NLPD
@@ -227,9 +227,11 @@ def main(args):
                 curr_agent = BONG_DICT[agent](
                     **init_kwargs,
                     num_samples=n_sample,
+                    learning_rate=0.005,
                 )
                 agent_queue[f"{agent}-{n_sample}"] = curr_agent
     result_dict = {}
+
     # Run Laplace baseline
     if args.dataset == "logreg":
         print("Running Laplace...")
@@ -237,7 +239,7 @@ def main(args):
         key, subkey = jr.split(subkey)
         sol_lap = minimize(
             lambda *args: -logreg_posterior(*args), mu0, 
-            args=(mu0, cov0, X_tr, Y_tr), method="BFGS", 
+            args=(mu0, cov0, X_tr, Y_tr, em_function), method="BFGS", 
             options={'line_search_maxiter': 1e2, 'gtol': args.laplace_gtol}
         )
         if not sol_lap.success:
@@ -248,7 +250,7 @@ def main(args):
         nll_mean_fn = lambda m, X, Y: \
             jnp.mean(jax.vmap(_nll, (None, 0, 0))(m, X, Y))
         cov_lap = jnp.linalg.pinv(jax.hessian(nll_sum_fn)(mu_lap, X_tr, Y_tr))
-        kldiv_lap = logreg_kl_div(key, mu0, cov0, mu_lap, cov_lap, X_tr, Y_tr)
+        kldiv_lap = logreg_kl_div(key, mu0, cov0, mu_lap, cov_lap, X_tr, Y_tr, em_function)
         nll_lap = nll_mean_fn(mu_lap, X_te, Y_te)
         mvn = MVN(loc=mu_lap, scale_tril=jnp.linalg.cholesky(cov_lap))
         means_lap = mvn.sample((100,), seed=subkey)
@@ -272,6 +274,7 @@ def main(args):
     # Save KL-divergence
     curr_path = Path(result_path, f"dim_{args.param_dim}")
     curr_path.mkdir(parents=True, exist_ok=True)
+    print("saving to", curr_path)
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     for agent_name, (_, kldiv, _, _) in result_dict.items():
         if jnp.any(jnp.isnan(kldiv)):
@@ -351,7 +354,7 @@ if __name__ == "__main__":
     parser.add_argument("--agents", type=str, nargs="+",
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
-                        default=[1, 10, 100])
+                        default=[100])
     parser.add_argument("--init_var", type=float, default=4.0)
     parser.add_argument("--laplace_gtol", type=float, default=1e-3)
     
