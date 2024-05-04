@@ -68,6 +68,8 @@ def plot_results(args, result_dict, curr_path=None, file_prefix='', ttl=''):
     T = args.n_test
     #ndx = jnp.array(range(0, T, 10)) # decimation of points 
     ndx = round(jnp.linspace(0, T-1, num=min(T,50)))
+    # skip first 2 time steps, since it messes up the vertical scale
+    ndx = ndx[2:]
 
     fs = 'small'
     loc = 'lower left'
@@ -178,7 +180,7 @@ def plot_results(args, result_dict, curr_path=None, file_prefix='', ttl=''):
     #plt.close('all')
     
 
-def generate_logreg_dataset(
+def generate_logreg_dataset_from_gmm(
     key, N, d, c=1., scale=1., coef_s=0.2, mean_dir=None
 ):
     if isinstance(key, int):
@@ -201,6 +203,27 @@ def generate_logreg_dataset(
     idx = jr.permutation(keys[4], len(X))
     X, Y = X[idx], Y[idx]
     return X, Y, mean_dir
+
+def logistic(r):
+    return 1 / (1 + jnp.exp(-r))
+
+def generate_logreg_dataset(
+    key, N, d, c=1., scale=1., theta=None
+):
+    if isinstance(key, int):
+        key = jr.PRNGKey(key)
+    keys = jr.split(key, 4)
+    mean = jnp.zeros(d)
+    cov = experiment_utils.generate_covariance_matrix(keys[0], d, c, scale)
+    X = jr.multivariate_normal(keys[1], mean, cov, (N,))
+    if theta is None:
+        theta = jr.uniform(keys[2], (d,), minval=-1., maxval=1.)
+        theta = theta / jnp.linalg.norm(theta)
+    #Y = X @ theta + jr.normal(keys[3], (N,)) * noise_std
+    eps = 1e-5
+    probs = jnp.clip(jax.nn.sigmoid(X @ theta), eps, 1-eps)
+    Y = jr.bernoulli(keys[3], probs) 
+    return X, Y, theta
 
 
 def generate_uci_dataset(
@@ -258,11 +281,9 @@ def main(args):
     key1, key2, key3, subkey = jr.split(jr.PRNGKey(args.key), 4)
     d = args.param_dim
     if args.dataset == "logreg":
-        X_tr, Y_tr, mean_dir = generate_logreg_dataset(key1, args.n_train, d)
-        X_val, Y_val, _ = generate_logreg_dataset(key2, args.n_test, 
-                                                  d, mean_dir=mean_dir)
-        X_te, Y_te, _ = generate_logreg_dataset(key3, args.n_test, 
-                                                d, mean_dir=mean_dir)
+        X_tr, Y_tr, theta = generate_logreg_dataset(key1, args.n_train, d)
+        X_val, Y_val, _ = generate_logreg_dataset(key2, args.n_test, d, theta=theta)
+        X_te, Y_te, _ = generate_logreg_dataset(key3, args.n_test, d, theta=theta)
         # Set up Logistic Regression model
         eps = 1e-5
         sigmoid_fn = lambda w, x: jnp.clip(jax.nn.sigmoid(w @ x), eps, 1-eps)
@@ -461,11 +482,11 @@ if __name__ == "__main__":
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
                         default=[100])
-    parser.add_argument("--init_var", type=float, default=4.0)
+    parser.add_argument("--init_var", type=float, default=1.0)
     parser.add_argument("--laplace_gtol", type=float, default=1e-3)
 
     parser.add_argument("--learning_rate", type=int, nargs="+", 
-                    default=[0.001, 0.005, 0.01, 0.05])
+                    default=[0.001, 0.005, 0.01])
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
     parser.add_argument("--num_iter", type=int, nargs="+", 
                     default=[10])
