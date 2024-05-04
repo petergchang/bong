@@ -32,30 +32,7 @@ BONG_DICT = {
 }
 
 
-def generate_linreg_dataset(
-    key, N, d, c=1., scale=1., noise_std=1.0, theta=None
-):
-    if isinstance(key, int):
-        key = jr.PRNGKey(key)
-    keys = jr.split(key, 4)
-    mean = jnp.zeros(d)
-    cov = experiment_utils.generate_covariance_matrix(keys[0], d, c, scale)
-    X = jr.multivariate_normal(keys[1], mean, cov, (N,))
-    if theta is None:
-        theta = jr.uniform(keys[2], (d,), minval=-1., maxval=1.)
-        theta = theta / jnp.linalg.norm(theta)
-    Y = X @ theta + jr.normal(keys[3], (N,)) * noise_std
-    return X, Y, theta
 
-
-def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
-    d = mu1.shape[0]
-    _, ld1 = jnp.linalg.slogdet(sigma1)
-    _, ld2 = jnp.linalg.slogdet(sigma2)
-    result = ld2 - ld1 - d
-    result += jnp.trace(jnp.linalg.solve(sigma2, sigma1))
-    result += (mu2 - mu1).T @ jnp.linalg.solve(sigma2, mu2 - mu1)
-    return 0.5 * result
 
 
 def make_marker(name):
@@ -176,6 +153,30 @@ def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
         fig.savefig(fname, bbox_inches='tight', dpi=300)
     #plt.close('all')
     
+def generate_linreg_dataset(
+    key, N, d, c=1., scale=1., noise_std=1.0, theta=None
+):
+    if isinstance(key, int):
+        key = jr.PRNGKey(key)
+    keys = jr.split(key, 4)
+    mean = jnp.zeros(d)
+    cov = experiment_utils.generate_covariance_matrix(keys[0], d, c, scale)
+    X = jr.multivariate_normal(keys[1], mean, cov, (N,))
+    if theta is None:
+        theta = jr.uniform(keys[2], (d,), minval=-1., maxval=1.)
+        theta = theta / jnp.linalg.norm(theta)
+    Y = X @ theta + jr.normal(keys[3], (N,)) * noise_std
+    return X, Y, theta
+
+
+def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
+    d = mu1.shape[0]
+    _, ld1 = jnp.linalg.slogdet(sigma1)
+    _, ld2 = jnp.linalg.slogdet(sigma2)
+    result = ld2 - ld1 - d
+    result += jnp.trace(jnp.linalg.solve(sigma2, sigma1))
+    result += (mu2 - mu1).T @ jnp.linalg.solve(sigma2, mu2 - mu1)
+    return 0.5 * result
 
 def make_data(args):
      # Generate dataset
@@ -355,7 +356,7 @@ def main(args):
         prefix = args.prefix
     print("Saving figures to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
-    ttl = f"linreg-d{args.param_dim}"
+    ttl = prefix
     plot_results(result_dict, curr_path, prefix, ttl)
 
    
@@ -373,10 +374,10 @@ if __name__ == "__main__":
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
                         default=[100,])
+    
     parser.add_argument("--learning_rate", type=int, nargs="+", 
                     default=[0.001, 0.005, 0.01, 0.05])
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
-
     parser.add_argument("--debug", type=bool, default=False)
     parser.add_argument("--filename", type=str, default="")
     
