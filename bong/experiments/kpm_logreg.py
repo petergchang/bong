@@ -1,4 +1,3 @@
-#python  experiments/kpm_logreg.py  --agents fg-bong fg-l-bong
 
 import argparse
 from functools import partial
@@ -371,7 +370,7 @@ def main(args):
                     except:
                         best_lr = 1e-2
                     best_lr_str = f"{round(best_lr,4)}".replace('.', '_')
-                    name = f"{agent}-MC{n_sample}-LRtune{best_lr_str}-iter{n_iter}"
+                    name = f"{agent}-MC{n_sample}-I{n_iter}-LRtune{best_lr_str}"
                     curr_agent = BONG_DICT[agent](
                         learning_rate=best_lr,
                         **init_kwargs,
@@ -383,7 +382,7 @@ def main(args):
                 for lr in args.learning_rate:
                     for n_iter in args.num_iter:
                         lr_str = f"{round(lr,4)}".replace('.', '_')
-                        name = f"{agent}-MC{n_sample}-LR{lr_str}-iter{n_iter}"
+                        name = f"{agent}-M{n_sample}-I{n_iter}-LR{lr_str}"
                         curr_agent = BONG_DICT[agent](
                             **init_kwargs,
                             learning_rate = lr,
@@ -405,7 +404,7 @@ def main(args):
                     num_samples=n_sample,
                     #learning_rate=0.005,
                 )
-                agent_queue[f"{agent}-MC{n_sample}"] = curr_agent
+                agent_queue[f"{agent}-M{n_sample}"] = curr_agent
     result_dict = {}
 
     # Run Laplace baseline
@@ -455,15 +454,19 @@ def main(args):
         dataset_name = f"logreg_{args.dataset}"
     if args.filename == "":
         cov0_str = f"{round(args.init_var,4)}".replace('.', '_')
-        prefix =  f"{dataset_name}_initcov{cov0_str}"
+        #prefix =  f"{dataset_name}_initcov{cov0_str}"
+        filename_prefix =  f"{dataset_name}"
     else:
-        prefix = args.prefix
+        filename_prefix = args.filename
     print("Saving figures to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
-    ttl = prefix
-    plot_results(args, result_dict, curr_path, prefix, ttl)
+    ttl = filename_prefix
+    plot_results(args, result_dict, curr_path, filename_prefix, ttl)
 
-
+'''
+python  experiments/kpm_logreg.py  --agents fg-bong fg-blr --param_dim 10 --filename logreg_dim10_blr_lrsweep \
+--num_samples 1 10 100 --num_iter 1 10 100 --learning_rate 0.01 0.05 0.1 
+'''
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -481,12 +484,12 @@ if __name__ == "__main__":
     parser.add_argument("--agents", type=str, nargs="+",
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
-                        default=[100])
+                        default=[10])
     parser.add_argument("--init_var", type=float, default=1.0)
     parser.add_argument("--laplace_gtol", type=float, default=1e-3)
 
-    parser.add_argument("--learning_rate", type=int, nargs="+", 
-                    default=[0.001, 0.005, 0.01])
+    parser.add_argument("--learning_rate", type=float, nargs="+", 
+                    default=[0.005, 0.01, 0.05])
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
     parser.add_argument("--num_iter", type=int, nargs="+", 
                     default=[10])
