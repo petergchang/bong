@@ -186,8 +186,7 @@ def tune_init_hyperparam(
     best_params = best_trial.params
     return best_params
     
-def run_agents(subkey, agent_queue, data, callback):
-    result_dict = {}
+def run_agents(subkey, agent_queue, data, callback, result_dict={}):
     for agent_name, agent in agent_queue.items():
         print(f"Running {agent_name}...")
         key, subkey = jr.split(subkey)
@@ -198,6 +197,8 @@ def run_agents(subkey, agent_queue, data, callback):
         t1 = time.perf_counter()
         result_dict[agent_name] = (t1 - t0, kldiv, nll, nlpd)
         print(f"\tKL-Div: {kldiv[-1]:.4f}, Time: {t1 - t0:.2f}s")
+    ntest = len(kldiv)
+    result_dict['ntest'] = ntest
     return result_dict
 
 
@@ -260,6 +261,7 @@ def test_split_filename_column():
 
 
 def extract_nsteps_from_result_dict(result_dict):
+    # this breaks for laplace entry, which is a scalar, not a timeseries
     names = list(result_dict.keys())
     r = result_dict[names[0]]
     (tyme, kldiv, nll, nlpd) = r
@@ -267,7 +269,9 @@ def extract_nsteps_from_result_dict(result_dict):
     return T
 
 def convert_result_dict_to_pandas(result_dict):
-    T = extract_nsteps_from_result_dict(result_dict)
+    result_dict = result_dict.copy()
+    #T = extract_nsteps_from_result_dict(result_dict)
+    T = result_dict.pop('ntest')
     steps = range(0, T)
     frames = []
     for name, r in result_dict.items():
@@ -300,7 +304,9 @@ def make_marker(name):
 
     
 def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
-    T = extract_nsteps_from_result_dict(result_dict)
+    result_dict = result_dict.copy()
+    #T = extract_nsteps_from_result_dict(result_dict)
+    T = result_dict.pop('ntest')
     # extract subset of points for plotting to avoid cluttered markers
     #ndx = jnp.array(range(0, T, 10)) # decimation of points 
     ndx = round(jnp.linspace(0, T-1, num=min(T,50)))

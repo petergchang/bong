@@ -311,7 +311,7 @@ def main(args):
         result_dict["laplace"] = (t1 - t0, kldiv_lap, nll_lap, nlpd_lap)
     
   
-    result_dict = run_agents(subkey, agent_queue, data, callback)
+    result_dict = run_agents(subkey, agent_queue, data, callback, result_dict)
 
     #curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
     curr_path = Path(root, "results")
@@ -326,7 +326,7 @@ def main(args):
     else:
         filename_prefix = args.filename
     curr_path.mkdir(parents=True, exist_ok=True)
-    
+
     fname = Path(curr_path, f"{filename_prefix}.csv")
     print("Saving results to", fname)
     df = convert_result_dict_to_pandas(result_dict)
