@@ -1,5 +1,9 @@
 from functools import partial
 from typing import Any, Callable, Sequence
+import argparse
+from functools import partial
+from pathlib import Path
+import time
 
 from flax import linen as nn
 import jax
@@ -8,6 +12,9 @@ import jax.random as jr
 import jax_tqdm
 import optax
 import optuna
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
 from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
@@ -178,3 +185,161 @@ def tune_init_hyperparam(
     best_params = best_trial.params
     return best_params
     
+
+
+def convert_result_dict_to_pandas(T, result_dict):
+    frames = []
+    #names = list(result_dict.keys())
+    #r = result_dict[names[0]]
+    #(tyme, kldiv, nll, nlpd) = r
+    #T = len(kldiv)
+    #print('pandas', T)
+    steps = range(0, T)
+    for name, r in result_dict.items():
+        df  = pd.DataFrame({'name': name,  
+                            'step': steps,
+                            'kl': np.array(r[1]), 
+                            'nll': np.array(r[2]), 
+                            'nlpd': np.array(r[3]),
+                            'time': r[0],
+                            })
+        frames.append(df)
+    tbl = pd.concat(frames)
+    return tbl
+
+
+def make_marker(name):
+    #https://matplotlib.org/stable/api/markers_api.html
+    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
+    if "bong" in name:
+        return markers['bong']
+    elif "blr" in name:
+        return markers['blr']
+    elif "bog" in name:
+        return markers['bog']
+    elif "bbb" in name:
+        return markers['bbb']
+    else:
+        return 'P;'
+    
+
+    
+def plot_results(T, result_dict, curr_path=None, file_prefix='', ttl=''):
+     # extract subset of points for plotting to avoid cluttered markers
+    #T = args.n_test
+    #names = list(result_dict.keys())
+    #r = result_dict[names[0]]
+    #(time, kldiv, nll, nlpd) = r
+    #T = len(kldiv)
+    #ndx = jnp.array(range(0, T, 10)) # decimation of points 
+    ndx = round(jnp.linspace(0, T-1, num=min(T,50)))
+    # skip first 2 time steps, since it messes up the vertical scale
+    ndx = ndx[2:]
+
+    fs = 'small'
+    loc = 'lower left'
+
+    # Save KL-divergence, linear scale
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, kldiv, _, _) in result_dict.items():
+        if jnp.any(jnp.isnan(kldiv)):
+            continue
+        if agent_name == "laplace":
+            ax.axhline(kldiv, color="black", linestyle="--", label=agent_name)
+        else:
+            ax.plot(ndx, kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("KL-divergence")
+    #ax.set_yscale("log")
+    ax.grid()
+    ax.legend()
+    ax.legend(loc=loc, prop={'size': fs})
+    ax.set_title(ttl)
+    if curr_path:
+        fname = Path(curr_path, f"{file_prefix}_kl_divergence.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+
+    # Save KL-divergence, log scale
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, kldiv, _, _) in result_dict.items():
+        if jnp.any(jnp.isnan(kldiv)):
+            continue
+        if agent_name == "laplace":
+            ax.axhline(kldiv, color="black", linestyle="--", label=agent_name)
+        else:
+            ax.plot(ndx, kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("KL-divergence")
+    ax.set_yscale("log")
+    ax.grid()
+    ax.legend(loc=loc, prop={'size': fs})
+    ax.set_title(ttl)
+    if curr_path:
+        fname = Path(curr_path, f"{file_prefix}_kl_divergence_logscale.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+    
+    # Save NLL
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, _, nll, _) in result_dict.items():
+        if jnp.any(jnp.isnan(nll)):
+            continue
+        if agent_name == "laplace":
+            ax.axhline(nll, color="black", linestyle="--", label=agent_name)
+        else:
+            ax.plot(ndx, nll[ndx], label=agent_name, marker=make_marker(agent_name))
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("NLL (plugin)")
+    ax.grid()
+    ax.legend(loc=loc, prop={'size': fs})
+    ax.set_title(ttl)
+    if curr_path:
+        fname = Path(curr_path, f"{file_prefix}_plugin_nll.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+
+      # Save NLL
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, _, nll, _) in result_dict.items():
+        if jnp.any(jnp.isnan(nll)):
+            continue
+        if agent_name == "laplace":
+            ax.axhline(nll, color="black", linestyle="--", label=agent_name)
+        else:
+            ax.plot(ndx, nll[ndx], label=agent_name, marker=make_marker(agent_name))
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("NLL (plugin)")
+    ax.set_yscale("log")
+    ax.grid()
+    ax.legend(loc=loc, prop={'size': fs})
+    ax.set_title(ttl)
+    if curr_path:
+        fname = Path(curr_path, f"{file_prefix}_plugin_nll_logscale.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+    
+    # Save NLPD
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+    for agent_name, (_, _, _, nlpd) in result_dict.items():
+        if jnp.any(jnp.isnan(nlpd)):
+            continue
+        if agent_name == "laplace":
+            ax.axhline(nlpd, color="black", linestyle="--", label=agent_name)
+        else:
+            ax.plot(ndx, nlpd[ndx], label=agent_name, marker=make_marker(agent_name))
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("NLPD (MC)")
+    ax.grid()
+    ax.legend(loc=loc, prop={'size': fs})
+    ax.set_title(ttl)
+    if curr_path:
+        fname = Path(curr_path, f"{file_prefix}_mc_nlpd.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+
+    # Save runtime
+    fig, ax = plt.subplots()
+    for agent_name, (runtime, _, _, _) in result_dict.items():
+        ax.bar(agent_name, runtime)
+    ax.set_ylabel("runtime (s)")
+    plt.setp(ax.get_xticklabels(), rotation=30)
+    if curr_path:
+        fname = Path(curr_path, f"{file_prefix}_runtime.pdf")
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+    #plt.close('all')

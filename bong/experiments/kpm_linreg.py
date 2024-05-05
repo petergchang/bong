@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from bong.settings import linreg_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.util import run_rebayes_algorithm, tune_init_hyperparam
+from bong.util import plot_results, convert_result_dict_to_pandas
 
 import os
 cwd = Path(os.getcwd())
@@ -33,126 +34,6 @@ BONG_DICT = {
 
 
 
-
-
-def make_marker(name):
-    #https://matplotlib.org/stable/api/markers_api.html
-    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
-    if "bong" in name:
-        return markers['bong']
-    elif "blr" in name:
-        return markers['blr']
-    elif "bog" in name:
-        return markers['bog']
-    elif "bbb" in name:
-        return markers['bbb']
-    else:
-        return 'P;'
-    
-
-def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
-    # extract subset of points for plotting
-    r=list(result_dict.values())[0]
-    (time, kldiv, nll, nlpd) = r
-    T = len(kldiv)
-    ndx = jnp.array(range(0, T, 10)) # decimation of points to avoid cluttered markers
-    fs = 'small'
-    loc = 'lower left'
-
-    # Save KL-divergence log scale
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-    for agent_name, (_, kldiv, _, _) in result_dict.items():
-        if jnp.any(jnp.isnan(kldiv)):
-            continue
-        #ax.plot(kldiv, label=agent_name)
-        ax.plot(ndx, kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
-    ax.set_xlabel("number of iteration")
-    ax.set_ylabel("KL-divergence")
-    ax.set_yscale("log")
-    ax.grid()
-    ax.legend(loc=loc, prop={'size': fs})
-    ax.set_title(ttl)
-    if curr_path:
-        fname = Path(curr_path, f"{file_prefix}_kl_divergence_logscale.pdf")
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
-
-     # Save KL-divergence, linear scale
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-    for agent_name, (_, kldiv, _, _) in result_dict.items():
-        if jnp.any(jnp.isnan(kldiv)):
-            continue
-        ax.plot(ndx, kldiv[ndx], label=agent_name, marker=make_marker(agent_name))
-    ax.set_xlabel("number of iteration")
-    ax.set_ylabel("KL-divergence")
-    #ax.set_yscale("log")
-    ax.grid()
-    ax.legend(loc=loc, prop={'size': fs})
-    ax.set_title(ttl)
-    if curr_path:
-        fname = Path(curr_path, f"{file_prefix}_kl_divergence.pdf")
-        fig.savefig(fname, bbox_inches='tight', dpi=300
-        )
-    
-    
-    # Save NLL
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-    for agent_name, (_, _, nll, _) in result_dict.items():
-        if jnp.any(jnp.isnan(nll)):
-            continue
-        ax.plot(ndx, nll[ndx], label=agent_name, marker=make_marker(agent_name))
-    ax.set_xlabel("number of iteration")
-    ax.set_ylabel("NLL (plugin)")
-    ax.grid()
-    ax.legend(loc=loc, prop={'size': fs})
-    ax.set_title(ttl)
-    if curr_path:
-        fname = Path(curr_path, f"{file_prefix}_plugin_nll.pdf")
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
-
-      # Save NLL, log scale
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-    for agent_name, (_, _, nll, _) in result_dict.items():
-        if jnp.any(jnp.isnan(nll)):
-            continue
-        ax.plot(ndx, nll[ndx], label=agent_name, marker=make_marker(agent_name))
-    ax.set_xlabel("number of iteration")
-    ax.set_ylabel("NLL (plugin)")
-    ax.set_yscale("log")
-    ax.grid()
-    ax.legend(loc=loc, prop={'size': fs})
-    ax.set_title(ttl)
-    if curr_path:
-        fname = Path(curr_path, f"{file_prefix}_plugin_nll_logscale.pdf")
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
-        
-    
-    # Save NLPD
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-    for agent_name, (_, _, _, nlpd) in result_dict.items():
-        if jnp.any(jnp.isnan(nlpd)):
-            continue
-        ax.plot(ndx, nlpd[ndx], label=agent_name, marker=make_marker(agent_name))
-    ax.set_xlabel("number of iteration")
-    ax.set_ylabel("NLPD (MC)")
-    ax.grid()
-    ax.legend(loc=loc, prop={'size': fs})
-    ax.set_title(ttl)
-    if curr_path:
-        fname = Path(curr_path, f"{file_prefix}_mc_nlpld.pdf")
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
-
-    # Save runtime
-    fig, ax = plt.subplots()
-    for agent_name, (runtime, _, _, _) in result_dict.items():
-        ax.bar(agent_name, runtime)
-    ax.set_ylabel("runtime (s)")
-    ax.set_title(ttl)
-    plt.setp(ax.get_xticklabels(), rotation=30)
-    if curr_path:
-        fname = Path(curr_path, f"{file_prefix}_runtime.pdf")
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
-    #plt.close('all')
-    
 def generate_linreg_dataset(
     key, N, d, c=1., scale=1., noise_std=1.0, theta=None
 ):
@@ -245,43 +126,44 @@ def init(args, data):
 
 def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
     agent_queue = {}
-    n_iter = 100 # per time step
     for agent in args.agents:
         if (agent in LR_AGENT_TYPES) and args.tune_learning_rate: 
             for n_sample in args.num_samples:
-                key, subkey = jr.split(subkey)
-                curr_initializer = lambda **kwargs: BONG_DICT[agent](
-                    **kwargs,
-                    num_iter = n_iter,
-                )
-                try:
-                    best_lr = tune_init_hyperparam(
-                        key, curr_initializer, X_tr, Y_tr,
-                        tune_kl_loss_fn, "learning_rate", minval=1e-5,
-                        maxval=1.0, n_trials=10, **init_kwargs
-                    )["learning_rate"]
-                except:
-                    best_lr = 1e-2
-                curr_agent = BONG_DICT[agent](
-                    learning_rate=best_lr,
-                    **init_kwargs,
-                    num_samples=n_sample,
-                    num_iter = n_iter,
-                )
-                best_lr_str = f"{round(best_lr,4)}".replace('.', '_')
-                agent_queue[f"{agent}-MC{n_sample}-LRtune{best_lr_str}"] = curr_agent
-        elif (agent in LR_AGENT_TYPES) and ~args.tune_learning_rate: 
-            for n_sample in args.num_samples:
-                for lr in args.learning_rate:
-                    lr_str = f"{round(lr,4)}".replace('.', '_')
-                    name = f"{agent}-MC{n_sample}-LR{lr_str}"
+                for n_iter in args.num_iter:
+                    key, subkey = jr.split(subkey)
+                    curr_initializer = lambda **kwargs: BONG_DICT[agent](
+                        **kwargs,
+                        num_iter = n_iter, 
+                    )
+                    try:
+                        best_lr = tune_init_hyperparam(
+                            key, curr_initializer, X_tr, Y_tr,
+                            tune_kl_loss_fn, "learning_rate", minval=1e-5,
+                            maxval=1.0, n_trials=10, **init_kwargs
+                        )["learning_rate"]
+                    except:
+                        best_lr = 1e-2
                     curr_agent = BONG_DICT[agent](
+                        learning_rate=best_lr,
                         **init_kwargs,
-                        learning_rate=lr,
-                        num_samples=n_sample,
+                        num_samples = n_sample,
                         num_iter = n_iter,
                     )
-                    agent_queue[name] = curr_agent
+                    best_lr_str = f"{round(best_lr,4)}".replace('.', '_')
+                    agent_queue[f"{agent}-M{n_sample}-I{n_iter}-LRtune{best_lr_str}"] = curr_agent
+        elif (agent in LR_AGENT_TYPES) and ~args.tune_learning_rate: 
+            for n_sample in args.num_samples:
+                for n_iter in args.num_iter:
+                    for lr in args.learning_rate:
+                        lr_str = f"{round(lr,4)}".replace('.', '_')
+                        name = f"{agent}-M{n_sample}-I{n_iter}-LR{lr_str}"
+                        curr_agent = BONG_DICT[agent](
+                            **init_kwargs,
+                            learning_rate=lr,
+                            num_samples=n_sample,
+                            num_iter = n_iter,
+                        )
+                        agent_queue[name] = curr_agent
         elif "-l-" in agent: # Linearized-BONG (no hparams!)
             curr_agent = BONG_DICT[agent](
                 **init_kwargs,
@@ -294,7 +176,7 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                     **init_kwargs,
                     num_samples=n_sample,
                 )
-                agent_queue[f"{agent}-MC{n_sample}"] = curr_agent
+                agent_queue[f"{agent}-M{n_sample}"] = curr_agent
     return agent_queue, subkey
 
 def debug(args):
@@ -348,16 +230,20 @@ def main(args):
     result_dict = run_agents(subkey, agent_queue, data, callback)
   
     
-    #curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
     curr_path = Path(root, "results")
     if args.filename == "":
-        prefix =  f"linreg_dim{args.param_dim}"
+        filename_prefix =  f"linreg_dim{args.param_dim}"
     else:
-        prefix = args.prefix
-    print("Saving figures to", curr_path)
+        filename_prefix = args.filename
+    print("Saving results to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
-    ttl = prefix
-    plot_results(result_dict, curr_path, prefix, ttl)
+
+    #df = convert_result_dict_to_pandas(result_dict)
+    #fname = Path(curr_path, f"{filename_prefix}_results.csv")
+    #df.to_csv(fname, index=False, na_rep="NAN")
+    plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
+    
+
 
    
 if __name__ == "__main__":
@@ -373,10 +259,12 @@ if __name__ == "__main__":
     parser.add_argument("--agents", type=str, nargs="+",
                         default=["fg-bong"], choices=AGENT_TYPES)
     parser.add_argument("--num_samples", type=int, nargs="+", 
-                        default=[100,])
+                        default=[10,])
     
     parser.add_argument("--learning_rate", type=int, nargs="+", 
-                    default=[0.001, 0.005, 0.01, 0.05])
+                    default=[0.005, 0.01, 0.05])
+    parser.add_argument("--num_iter", type=int, nargs="+", 
+                    default=[10])
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
     parser.add_argument("--debug", type=bool, default=False)
     parser.add_argument("--filename", type=str, default="")
