@@ -18,8 +18,9 @@ from ucimlrepo import fetch_ucirepo
 
 from bong.settings import logreg_path, uci_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
-from bong.util import MLP, run_rebayes_algorithm, tune_init_hyperparam
-from bong.util import plot_results, convert_result_dict_to_pandas
+from bong.util import MLP, run_rebayes_algorithm, tune_init_hyperparam, run_agents
+from bong.util import plot_results, convert_result_dict_to_pandas, split_filename_column
+
 import os
 cwd = Path(os.getcwd())
 #root = cwd.parent.parent
@@ -194,6 +195,9 @@ def main(args):
             return jnp.atleast_2d(cov)
         nll_fn = optax.softmax_cross_entropy
         result_path = Path(uci_path, args.dataset)
+
+    data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te}
+
     # Plugin-NLL
     def _nll(curr_mean, xcb, ycb):
         em = em_function(curr_mean, xcb)
@@ -241,7 +245,7 @@ def main(args):
                     except:
                         best_lr = 1e-2
                     best_lr_str = f"{round(best_lr,4)}".replace('.', '_')
-                    name = f"{agent}-MC{n_sample}-I{n_iter}-LRtune{best_lr_str}"
+                    name = f"{agent}-MC{n_sample}-I{n_iter}-LR{best_lr_str}-tuned"
                     curr_agent = BONG_DICT[agent](
                         learning_rate=best_lr,
                         **init_kwargs,
@@ -267,7 +271,7 @@ def main(args):
                 linplugin=True,
                 emission_mean_function=em_linpi_function,
             )
-            agent_queue[agent] = curr_agent
+            agent_queue[f"{agent}-M{0}-I{1}-LR{0}"] = curr_agent
         else: # MC-BONG
             for n_sample in args.num_samples:
                 curr_agent = BONG_DICT[agent](
@@ -275,7 +279,7 @@ def main(args):
                     num_samples=n_sample,
                     #learning_rate=0.005,
                 )
-                agent_queue[f"{agent}-M{n_sample}"] = curr_agent
+                agent_queue[f"{agent}-M{n_sample}-I{1}-LR{0}"] = curr_agent
     result_dict = {}
 
     # Run Laplace baseline
@@ -306,17 +310,9 @@ def main(args):
         t1 = time.perf_counter()
         result_dict["laplace"] = (t1 - t0, kldiv_lap, nll_lap, nlpd_lap)
     
-    for agent_name, agent in agent_queue.items():
-        print(f"Running {agent_name}...")
-        key, subkey = jr.split(subkey)
-        t0 = time.perf_counter()
-        _, (kldiv, nll, nlpd) = jax.block_until_ready(
-            run_rebayes_algorithm(key, agent, X_tr, Y_tr, transform=callback)
-        )
-        t1 = time.perf_counter()
-        result_dict[agent_name] = (t1 - t0, kldiv, nll, nlpd)
-        print(f"\tKL-Div: {kldiv[-1]:.4f}, Time: {t1 - t0:.2f}s")
-        
+  
+    result_dict = run_agents(subkey, agent_queue, data, callback)
+
     #curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
     curr_path = Path(root, "results")
     if args.dataset == "logreg":
@@ -329,13 +325,19 @@ def main(args):
         filename_prefix =  f"{dataset_name}"
     else:
         filename_prefix = args.filename
-    print("Saving results to", curr_path, "/", filename_prefix)
     curr_path.mkdir(parents=True, exist_ok=True)
     
-    #df = convert_result_dict_to_pandas(args.n_test, result_dict)
-    #fname = Path(curr_path, f"{filename_prefix}_results.csv")
-    #df.to_csv(fname, index=False, na_rep="NAN")
-    plot_results(args.n_test, result_dict, curr_path, filename_prefix, ttl=filename_prefix)
+    fname = Path(curr_path, f"{filename_prefix}.csv")
+    print("Saving results to", fname)
+    df = convert_result_dict_to_pandas(result_dict)
+    df.to_csv(fname, index=False, na_rep="NAN", mode="w")
+    
+    fname = Path(curr_path, f"{filename_prefix}_parsed.csv")
+    df = split_filename_column(df)
+    df.to_csv(fname, index=False, na_rep="NAN", mode="w")
+
+    plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
+
 
 '''
 python  experiments/kpm_logreg.py  --agents fg-bong fg-blr --param_dim 10 --filename logreg_dim10_blr_lrsweep \

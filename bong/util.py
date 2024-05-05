@@ -4,6 +4,8 @@ import argparse
 from functools import partial
 from pathlib import Path
 import time
+import re
+import numpy as np
 
 from flax import linen as nn
 import jax
@@ -13,7 +15,6 @@ import jax_tqdm
 import optax
 import optuna
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 
 from bong.base import RebayesAlgorithm, State
@@ -185,16 +186,90 @@ def tune_init_hyperparam(
     best_params = best_trial.params
     return best_params
     
+def run_agents(subkey, agent_queue, data, callback):
+    result_dict = {}
+    for agent_name, agent in agent_queue.items():
+        print(f"Running {agent_name}...")
+        key, subkey = jr.split(subkey)
+        t0 = time.perf_counter()
+        _, (kldiv, nll, nlpd) = jax.block_until_ready(
+            run_rebayes_algorithm(key, agent, data['X_tr'], data['Y_tr'], transform=callback)
+        )
+        t1 = time.perf_counter()
+        result_dict[agent_name] = (t1 - t0, kldiv, nll, nlpd)
+        print(f"\tKL-Div: {kldiv[-1]:.4f}, Time: {t1 - t0:.2f}s")
+    return result_dict
 
 
-def convert_result_dict_to_pandas(T, result_dict):
-    frames = []
-    #names = list(result_dict.keys())
-    #r = result_dict[names[0]]
-    #(tyme, kldiv, nll, nlpd) = r
-    #T = len(kldiv)
-    #print('pandas', T)
+def parse_filename(s):
+    # example filename: "fg-l-bong-M10-I10-LR0_01"
+    s = s.replace("_", ".")
+    import re
+    pattern = r"^([a-z-]+)-M(\d+)-I(\d+)-LR(\d*\.?\d+)"
+    match = re.match(pattern, s)
+    if match:
+        return {
+            'prefix': match.group(1),
+            'M': int(match.group(2)),
+            'I': int(match.group(3)),
+            'LR': float(match.group(4))
+        }
+    return {'prefix': None, 'M': None, 'I': None, 'LR': None}
+
+def test_parse_filename():
+    strings = ["fg-bong-M10-I1-LR0", "fg-l-bong-M10-I10-LR0_01"]
+    for string in strings:
+        res = parse_filename(string)
+        print(res)
+
+def split_filename_column(df):
+    # If filename is fg-bong-M10-I1-LR0_01, we create columns name, M, I, LR with corresponding values
+
+    # Apply the parse function and expand the results into new DataFrame columns
+    df_expanded = df['name'].apply(parse_filename).apply(pd.Series)
+
+    # Join the new columns with the original DataFrame
+    #df_final = df_expanded.join(df.drop('name', axis=1))
+    df_final = df_expanded.join(df)
+
+    # Optionally, rearrange columns to match the desired output format
+    #df_final = df_final[['prefix', 'M', 'I', 'LR', 'step', 'kl', 'nll', 'nlpd', 'time']]
+    return df_final
+
+def test_split_filename_column():
+    # Sample DataFrame
+    data = {
+        'name': [
+            "fg-bong-M10-I1-LR0", "fg-bong-M10-I1-LR0", "fg-bong-M10-I1-LR0",
+            "fg-blr-M10-I10-LR0_01", "fg-blr-M10-I10-LR0_01", "fg-blr-M10-I10-LR0_01",
+            "fg-blr-M10-I10-LR0_05", "fg-blr-M10-I10-LR0_05", "fg-blr-M10-I10-LR0_05"
+        ],
+        'step': [0, 1, 2, 0, 1, 2, 0, 1, 2],
+        'kl': [4715.3643, np.nan, 4704.921, 4637.003, 4708.9194, 4677.56, 4622.0254, 4707.8594, 4647.589],
+        'nll': [0.829247, 0.8394967, 0.84964615, 0.829247, 0.83029026, 0.8313881, 0.829247, 0.8334199, 0.83842194],
+        'nlpd': [1.0150638, 1.0070719, 1.00812, 0.98381305, 1.0121765, 1.0324197, 0.98617476, 1.0010813, 0.9961206],
+        'time': [
+            1.907885749998968, 1.907885749998968, 1.907885749998968,
+            2.0240805419743992, 2.0240805419743992, 2.0240805419743992,
+            2.021093249961268, 2.021093249961268, 2.021093249961268
+        ]
+    }
+    df = pd.DataFrame(data)
+    res = split_filename_column(df)
+    print(res)
+
+
+def extract_nsteps_from_result_dict(result_dict):
+    names = list(result_dict.keys())
+    r = result_dict[names[0]]
+    (tyme, kldiv, nll, nlpd) = r
+    T = len(kldiv)
+    return T
+
+def convert_result_dict_to_pandas(result_dict):
+    T = extract_nsteps_from_result_dict(result_dict)
     steps = range(0, T)
+    frames = []
     for name, r in result_dict.items():
         df  = pd.DataFrame({'name': name,  
                             'step': steps,
@@ -204,7 +279,7 @@ def convert_result_dict_to_pandas(T, result_dict):
                             'time': r[0],
                             })
         frames.append(df)
-    tbl = pd.concat(frames)
+    tbl = pd.concat(frames, ignore_index=True) # ensure each row has unique index
     return tbl
 
 
@@ -224,13 +299,9 @@ def make_marker(name):
     
 
     
-def plot_results(T, result_dict, curr_path=None, file_prefix='', ttl=''):
-     # extract subset of points for plotting to avoid cluttered markers
-    #T = args.n_test
-    #names = list(result_dict.keys())
-    #r = result_dict[names[0]]
-    #(time, kldiv, nll, nlpd) = r
-    #T = len(kldiv)
+def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
+    T = extract_nsteps_from_result_dict(result_dict)
+    # extract subset of points for plotting to avoid cluttered markers
     #ndx = jnp.array(range(0, T, 10)) # decimation of points 
     ndx = round(jnp.linspace(0, T-1, num=min(T,50)))
     # skip first 2 time steps, since it messes up the vertical scale

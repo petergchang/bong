@@ -7,10 +7,10 @@ import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
 
-from bong.settings import linreg_path
+#from bong.settings import linreg_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
-from bong.util import run_rebayes_algorithm, tune_init_hyperparam
-from bong.util import plot_results, convert_result_dict_to_pandas
+from bong.util import run_rebayes_algorithm, tune_init_hyperparam, run_agents
+from bong.util import plot_results, convert_result_dict_to_pandas, split_filename_column
 
 import os
 cwd = Path(os.getcwd())
@@ -150,7 +150,7 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                         num_iter = n_iter,
                     )
                     best_lr_str = f"{round(best_lr,4)}".replace('.', '_')
-                    agent_queue[f"{agent}-M{n_sample}-I{n_iter}-LRtune{best_lr_str}"] = curr_agent
+                    agent_queue[f"{agent}-M{n_sample}-I{n_iter}-LR{best_lr_str}-tuned"] = curr_agent
         elif (agent in LR_AGENT_TYPES) and ~args.tune_learning_rate: 
             for n_sample in args.num_samples:
                 for n_iter in args.num_iter:
@@ -169,14 +169,14 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tr, Y_tr):
                 **init_kwargs,
                 linplugin=True,
             )
-            agent_queue[agent] = curr_agent
+            agent_queue[f"{agent}-M{0}-I{1}-LR{0}"] = curr_agent
         else: # MC-BONG
             for n_sample in args.num_samples:
                 curr_agent = BONG_DICT[agent](
                     **init_kwargs,
                     num_samples=n_sample,
                 )
-                agent_queue[f"{agent}-M{n_sample}"] = curr_agent
+                agent_queue[f"{agent}-M{n_sample}-I{1}-LR{0}"] = curr_agent
     return agent_queue, subkey
 
 def debug(args):
@@ -200,19 +200,6 @@ def debug(args):
 
     print(agent)
 
-def run_agents(subkey, agent_queue, data, callback):
-    result_dict = {}
-    for agent_name, agent in agent_queue.items():
-        print(f"Running {agent_name}...")
-        key, subkey = jr.split(subkey)
-        t0 = time.perf_counter()
-        _, (kldiv, nll, nlpd) = jax.block_until_ready(
-            run_rebayes_algorithm(key, agent, data['X_tr'], data['Y_tr'], transform=callback)
-        )
-        t1 = time.perf_counter()
-        result_dict[agent_name] = (t1 - t0, kldiv, nll, nlpd)
-        print(f"\tKL-Div: {kldiv[-1]:.4f}, Time: {t1 - t0:.2f}s")
-    return result_dict
 
 def main(args):
     data, subkey = make_data(args)
@@ -235,15 +222,24 @@ def main(args):
         filename_prefix =  f"linreg_dim{args.param_dim}"
     else:
         filename_prefix = args.filename
-    print("Saving results to", curr_path)
     curr_path.mkdir(parents=True, exist_ok=True)
 
-    #df = convert_result_dict_to_pandas(result_dict)
-    #fname = Path(curr_path, f"{filename_prefix}_results.csv")
-    #df.to_csv(fname, index=False, na_rep="NAN")
+    fname = Path(curr_path, f"{filename_prefix}.csv")
+    print("Saving results to", fname)
+    df = convert_result_dict_to_pandas(result_dict)
+    df.to_csv(fname, index=False, na_rep="NAN", mode="w")
+    
+    fname = Path(curr_path, f"{filename_prefix}_parsed.csv")
+    df = split_filename_column(df)
+    df.to_csv(fname, index=False, na_rep="NAN", mode="w")
+
     plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
     
 
+'''
+python  experiments/linreg.py  --agents fg-bong fg-bog --param_dim 10 --filename foo \
+--num_samples 10 --num_iter 10  --learning_rate 0.05 
+'''
 
    
 if __name__ == "__main__":
@@ -261,7 +257,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_samples", type=int, nargs="+", 
                         default=[10,])
     
-    parser.add_argument("--learning_rate", type=int, nargs="+", 
+    parser.add_argument("--learning_rate", type=float, nargs="+", 
                     default=[0.005, 0.01, 0.05])
     parser.add_argument("--num_iter", type=int, nargs="+", 
                     default=[10])
