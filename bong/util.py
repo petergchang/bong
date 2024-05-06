@@ -21,6 +21,9 @@ from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
 
 
+_vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inverse
+
+
 class MLP(nn.Module):
     features: Sequence[int]
     activation: nn.Module = nn.relu
@@ -60,6 +63,24 @@ def hess_diag_approx(
     return jnp.mean(jax.vmap(_hess_diag)(zs), axis=0)
 
 
+def fast_svd(
+    M: ArrayLike,
+) -> Array:
+    """Singular value decomposition.
+
+    Args:
+        M (m, n): Matrix to decompose.
+
+    Returns:
+        U (m, k): Left singular vectors.
+        S (k,): Singular values.
+    """
+    U, S, _ = jnp.linalg.svd(M.T @ M, full_matrices = False, hermitian = True)
+    U = M @ (U * _vec_pinv(jnp.sqrt(S)))
+    S = jnp.sqrt(S)
+    return U, S
+
+
 def nearest_psd_matrix(mat, eps=1e-6):
     eigenvalues, eigenvectors = jnp.linalg.eigh(mat)
     eigenvalues = jnp.maximum(eigenvalues, eps)
@@ -89,7 +110,6 @@ def sample_dlr_single(key, W, diag, temperature=1.0):
     
     x_plus = jnp.einsum("ij,kj,k->i", L, W, x)
     x_plus = x - x_plus + jnp.einsum("ij,j->i", L, eps)
-    
     return x_plus
 
 
@@ -102,7 +122,6 @@ def sample_dlr(key, W, diag, temperature=1.0, shape=None):
         sample_dlr_single, in_axes=(0, None, None, None)
     )(keys, W, diag, temperature)
     samples = samples.reshape(*shape, -1)
-    
     return samples
 
 
