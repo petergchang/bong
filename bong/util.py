@@ -343,7 +343,7 @@ def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
     ax.set_ylabel("KL-divergence")
     #ax.set_yscale("log")
     ax.grid()
-    ax.legend()
+    #ax.legend()
     ax.legend(loc=loc, prop={'size': fs})
     ax.set_title(ttl)
     if curr_path:

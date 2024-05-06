@@ -343,6 +343,9 @@ def main(args):
 '''
 python  experiments/kpm_logreg.py  --agents fg-bong fg-blr --param_dim 10 --filename logreg_dim10_blr_lrsweep \
 --num_samples 1 10 100 --num_iter 1 10 100 --learning_rate 0.01 0.05 0.1 
+
+python  experiments/logreg.py  --agents fg-bong fg-l-bong fg-blr fg-bbb fg-bog --param_dim 10 --filename baz \
+    --num_samples 1 10 --num_iter 1 10  --learning_rate 0.01 0.05
 '''
 
 if __name__ == "__main__":
