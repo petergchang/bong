@@ -273,7 +273,21 @@ def convert_result_dict_to_pandas(result_dict):
     #T = extract_nsteps_from_result_dict(result_dict)
     T = result_dict.pop('ntest')
     steps = range(0, T)
-    frames = []
+
+    if "laplace" in result_dict:
+        laplace = result_dict.pop("laplace")
+        (tim, kldiv, nll, nlpd) = laplace
+        df  = pd.DataFrame({'name': 'laplace-M0-I0-LR0',  
+                                'step': np.array([T]),
+                                'kl': np.array(kldiv), 
+                                'nll': np.array(nll), 
+                                'nlpd': np.array(nlpd),
+                                'time': tim,
+                                })
+        frames = [df]
+    else:
+        frames = []
+
     for name, r in result_dict.items():
         df  = pd.DataFrame({'name': name,  
                             'step': steps,

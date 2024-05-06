@@ -334,7 +334,8 @@ def main(args):
     
     fname = Path(curr_path, f"{filename_prefix}_parsed.csv")
     df = split_filename_column(df)
-    df.to_csv(fname, index=False, na_rep="NAN", mode="w")
+    #df.to_csv(fname, index=False, na_rep="NAN", mode="w")
+    df.to_csv(fname, index=False, mode="w")
 
     plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
 
