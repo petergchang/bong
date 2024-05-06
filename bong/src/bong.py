@@ -6,7 +6,7 @@ import jax.random as jr
 
 from bong.base import RebayesAlgorithm
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
-from bong.util import hess_diag_approx
+from bong.util import fast_svd, hess_diag_approx, sample_dlr
 
 
 class BONGState(NamedTuple):
@@ -52,7 +52,7 @@ def init_bong_dlr(
     init_prec_diag: ArrayLikeTree,
     init_prec_lr: ArrayLikeTree,
 ) -> BONGDLRState:
-    """Initialize the belief state with a mean and precision.
+    """Initialize the belief state with a mean and DLR precision.
     
     Args:
         init_mean: Initial mean of the belief state.
@@ -92,7 +92,7 @@ def predict_bong(
 def predict_bong_dlr(
     state: BONGDLRState,
     gamma: float,
-    Q: ArrayLikeTree,
+    q: float,
     *args,
     **kwargs,
 ) -> BONGDLRState:
@@ -101,16 +101,21 @@ def predict_bong_dlr(
     Args:
         state: Current belief state.
         gamma: Forgetting factor.
-        Q: Process noise (diagonal).
+        q: Process noise.
     
     Returns:
         Predicted belief state.
     """
     mean, prec_diag, prec_lr = state
+    P, L = prec_lr.shape
     new_mean = jax.tree_map(lambda x: gamma * x, mean)
-    new_prec_diag = 1/(gamma**2/prec_diag + Q)
-    new_cov = jax.tree_map(lambda x, y: gamma**2 * x + y, cov, Q)
-    new_state = BONGState(new_mean, new_cov)
+    new_prec_diag = 1/(gamma**2/prec_diag + q)
+    C = jnp.linalg.pinv(
+        jnp.eye(L) + q * prec_lr.T @ (prec_lr * (new_prec_diag/prec_diag))
+    )
+    new_prec_lr = \
+        gamma * (new_prec_diag/prec_diag) * prec_lr @ jnp.linalg.cholesky(C)
+    new_state = BONGDLRState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
 
@@ -174,6 +179,8 @@ def update_lfg_bong(
     log_likelihood: Callable,
     emission_mean_function: Callable,
     emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
     *args,
     **kwargs,
 ) -> BONGState:
@@ -202,6 +209,126 @@ def update_lfg_bong(
     new_mean = mean + K @ (y - y_pred)
     new_cov = cov - K @ S @ K.T
     new_state = BONGState(new_mean, new_cov)
+    return new_state
+
+
+def update_dlrg_bong(
+    rng_key: PRNGKey,
+    state: BONGDLRState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=True,
+    *args,
+    **kwargs,
+) -> BONGDLRState:
+    """Update the DLR-precision Gaussian belief state with a new observation.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+        num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean, prec_diag, prec_lr = state
+    P, L = prec_lr.shape
+    
+    def ll_fn(param):
+        emission_mean = emission_mean_function(param, x)
+        emission_cov = emission_cov_function(param, x)
+        return jnp.mean(log_likelihood(emission_mean, emission_cov, y))
+    
+    z = sample_dlrg_bong(rng_key, state, num_samples)
+    grads = jax.vmap(jax.grad(ll_fn))(z)
+    g = jnp.mean(grads, axis=0).reshape(-1, 1)
+    if empirical_fisher:
+        prec_lr_update = 1/jnp.sqrt(num_samples) * grads.T
+        prec_lr_tilde = jnp.hstack(
+            [prec_lr, prec_lr_update.reshape(P, -1)]
+        )
+    else:
+        raise NotImplementedError
+    _, L_tilde = prec_lr_tilde.shape
+    G = jnp.linalg.pinv(
+        jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag)
+    )
+    mean_update = g/prec_diag - (prec_lr_tilde/prec_diag @ G) @ \
+        ((prec_lr_tilde/prec_diag).T @ g)
+    new_mean = mean + mean_update.ravel()
+    U, Lamb = fast_svd(prec_lr_tilde)
+    U_new, Lamb_new = U[:, :L], Lamb[:L]
+    U_extra, Lamb_extra = U[:, L:], Lamb[L:]
+    extra_prec_lr = Lamb_extra * U_extra
+    new_prec_lr = Lamb_new * U_new
+    new_prec_diag = prec_diag + \
+        jnp.einsum('ij,ij->i', extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
+    new_state = BONGDLRState(new_mean, new_prec_diag, new_prec_lr)
+    return new_state
+
+
+def update_ldlrg_bong(
+    rng_key: PRNGKey,
+    state: BONGDLRState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
+    *args,
+    **kwargs,
+) -> BONGDLRState:
+    """Update the linearized-plugin DLR-precision Gaussian belief state
+    with a new observation. Note that this is equivalent to the EKF.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean, prec_diag, prec_lr = state
+    P, L = prec_lr.shape
+    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+    R = jnp.atleast_2d(emission_cov_function(mean, x))
+    R_chol = jnp.linalg.cholesky(R)
+    A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
+    prec_lr_tilde = jnp.hstack([prec_lr, (H.T @ A).reshape(P, -1)])
+    _, L_tilde = prec_lr_tilde.shape
+    G = jnp.linalg.pinv(
+        jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag)
+    )
+    mean_update = (H.T @ A) @ A.T/prec_diag - (prec_lr_tilde/prec_diag @ G) @ \
+        ((prec_lr_tilde/prec_diag).T @ (H.T @ A) @ A.T)
+    new_mean = mean + mean_update @ (y - y_pred)
+    U, Lamb = fast_svd(prec_lr_tilde)
+    U_new, Lamb_new = U[:, :L], Lamb[:L]
+    U_extra, Lamb_extra = U[:, L:], Lamb[L:]
+    extra_prec_lr = Lamb_extra * U_extra
+    new_prec_lr = Lamb_new * U_new
+    new_prec_diag = prec_diag + \
+        jnp.einsum('ij,ij->i', extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
+    new_state = BONGDLRState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
 
@@ -269,6 +396,7 @@ def update_ldg_bong(
     emission_mean_function: Callable,
     emission_cov_function: Callable,
     num_samples: int=10,
+    empirical_fisher: bool=False,
     *args,
     **kwargs,
 ) -> BONGState:
@@ -284,7 +412,6 @@ def update_ldg_bong(
         log_likelihood: Log-likelihood function.
         emission_mean_function: Emission mean function.
         emission_cov_function: Emission covariance function.
-        num_samples: Number of samples to use for the update.
     
     Returns:
         Updated belief state.
@@ -360,6 +487,8 @@ def update_lfg_reparam_bong(
     log_likelihood: Callable,
     emission_mean_function: Callable,
     emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
     *args,
     **kwargs,
 ) -> BONGState:
@@ -452,6 +581,7 @@ def update_ldg_reparam_bong(
     emission_mean_function: Callable,
     emission_cov_function: Callable,
     num_samples: int=10,
+    empirical_fisher: bool=False,
     *args,
     **kwargs,
 ) -> BONGState:
@@ -466,7 +596,6 @@ def update_ldg_reparam_bong(
         log_likelihood: Log-likelihood function.
         emission_mean_function: Emission mean function.
         emission_cov_function: Emission covariance function.
-        num_samples: Number of samples to use for the update.
     
     Returns:
         Updated belief state.
@@ -486,6 +615,15 @@ def sample_fg_bong(rng_key: PRNGKey, state: BONGState, num_samples: int=10):
     """Sample from the full-covariance Gaussian belief state"""
     mean, cov = state
     states = jr.multivariate_normal(rng_key, mean, cov, shape=(num_samples,))
+    return states
+
+
+def sample_dlrg_bong(rng_key: PRNGKey, state: BONGDLRState, num_samples: int=10):
+    """Sample from the DLR-precision Gaussian belief state"""
+    mean, prec_diag, prec_lr = state
+    states = sample_dlr(
+        rng_key, prec_lr, prec_diag, shape=(num_samples,)
+    ) + mean
     return states
 
 
@@ -542,6 +680,7 @@ class fg_bong:
         num_samples: int=10,
         linplugin: bool=False,
         empirical_fisher: bool=False,
+        *args,
         **kwargs
     ):
         init_cov = init_cov * jnp.eye(len(init_mean))
@@ -566,6 +705,88 @@ class fg_bong:
             x: ArrayLikeTree, 
             y: ArrayLikeTree
         ) -> BONGState:
+            return _update_fn(
+                rng_key, state, x, y, log_likelihood, emission_mean_function, 
+                emission_cov_function, num_samples, empirical_fisher
+            )   
+        
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+    
+
+class dlrg_bong:
+    """DLR-precision Gaussian BONG algorithm.
+    
+    Parameters
+    ----------
+    init_mean : ArrayLikeTree
+        Initial mean of the belief state.
+    init_cov : ArrayLikeTree
+        Initial covariance of the belief state.
+    log_likelihood : Callable
+        Log-likelihood function (mean, cov, y -> float).
+    emission_mean_function : Callable
+        Emission mean function (param, x -> ArrayLikeTree).
+    emission_cov_function : Callable
+        Emission covariance function (param, x -> ArrayLikeTree).
+    dynamics_decay : float, optional
+        Decay factor for the dynamics, by default 1.0
+    process_noise : ArrayLikeTree, optional
+        Process noise, by default 0.0
+    num_samples : int, optional
+        Number of samples to use for the update, by default 10
+    linplugin : bool, optional
+        Whether to use the linearized plugin method, by default False
+    empirical_fisher: bool, optional
+        Whether to use the empirical Fisher approximation to the Hessian matrix.
+    rank: int, optional
+        Rank of the low-rank approximation.
+    
+    Returns
+    -------
+    A RebayesAlgorithm.
+    
+    """
+    sample = staticmethod(sample_dlrg_bong)
+    
+    def __new__(
+        cls,
+        init_mean: ArrayLikeTree,
+        init_cov: float,
+        log_likelihood: Callable,
+        emission_mean_function: Callable,
+        emission_cov_function: Callable,
+        dynamics_decay: float=1.0,
+        process_noise: float=0.0,
+        num_samples: int=10,
+        linplugin: bool=False,
+        empirical_fisher: bool=False,
+        rank: int=10,
+        *args,
+        **kwargs
+    ):
+        init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
+        init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
+        if linplugin:
+            _update_fn = staticmethod(update_ldlrg_bong)
+        else:
+            _update_fn = staticmethod(update_dlrg_bong)
+            
+        def init_fn() -> BONGDLRState:
+            return staticmethod(init_bong_dlr)(
+                init_mean, init_prec_diag, init_lr
+            )
+            
+        def pred_fn(state: BONGDLRState) -> BONGDLRState:
+            return staticmethod(predict_bong_dlr)(
+                state, dynamics_decay, process_noise
+            )
+        
+        def update_fn(
+            rng_key: PRNGKey, 
+            state: BONGDLRState, 
+            x: ArrayLikeTree, 
+            y: ArrayLikeTree
+        ) -> BONGDLRState:
             return _update_fn(
                 rng_key, state, x, y, log_likelihood, emission_mean_function, 
                 emission_cov_function, num_samples, empirical_fisher
@@ -610,7 +831,7 @@ class dg_bong:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -619,6 +840,8 @@ class dg_bong:
         num_samples: int=10,
         linplugin: bool=False,
         empirical_fisher: bool=False,
+        *args,
+        **kwargs
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -686,7 +909,7 @@ class fg_reparam_bong:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -695,6 +918,8 @@ class fg_reparam_bong:
         num_samples: int=10,
         linplugin: bool=False,
         empirical_fisher: bool=False,
+        *args,
+        **kwargs
     ):
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -762,7 +987,7 @@ class dg_reparam_bong:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -771,6 +996,8 @@ class dg_reparam_bong:
         num_samples: int=10,
         linplugin: bool=False,
         empirical_fisher: bool=False,
+        *args,
+        **kwargs
     ):
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
