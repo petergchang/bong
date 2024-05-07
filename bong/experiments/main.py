@@ -19,7 +19,7 @@ def make_results(args):
     T = 10
     steps = jnp.arange(0, T)
     kl = steps * args.learning_rate 
-    nll = steps * steps * args.learning_rate 
+    nll = steps * args.num_iter
     nlpd = nll
     df  = pd.DataFrame({'time': 0, 
                         'step': steps,

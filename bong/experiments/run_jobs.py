@@ -1,3 +1,8 @@
+'''
+python run_jobs.py --parallel --learning_rate 0.01 --agent fg-bong fg-bbb
+python run_jobs.py  --learning_rate 0.001 0.01 --agent fg-bong fg-bbb
+'''
+
 from lightning_sdk import Studio, Machine
 import argparse
 import os
@@ -13,6 +18,8 @@ def main(args):
     #grid_search_params = [(lr, agent) for lr in args.learning_rate for agent in args.agent]
 
     if args.parallel:
+        print('parallel')
+
         studio = Studio()
         studio.install_plugin('jobs')
         job_plugin = studio.installed_plugins['jobs']
@@ -25,11 +32,12 @@ def main(args):
             job_plugin.run(cmd, name=job_name)
             # results stored in /teamspace/jobs/job_name/work/xxx
     else:
+        print('serial')
         for index, (agent, lr, niter) in enumerate(grid_search_params):
             cmd = make_cmd(agent, lr, niter)
             job_name = f'bong-{index}'
             output_dir = f'/teamspace/studios/this_studio/jobs/{job_name}/work'
-            cmd = cmd + f'--dir {output_dir}'
+            cmd = cmd + f' --dir {output_dir}'
             print('running', cmd)
             os.system(cmd)
 
@@ -45,5 +53,6 @@ if __name__ == "__main__":
                     default=[10,100])
   
     args = parser.parse_args()
+    print(args)
     
     main(args)
