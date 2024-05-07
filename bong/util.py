@@ -334,7 +334,81 @@ def make_marker(name):
     else:
         return 'P;'
     
+def plot_df(df):
+    #fname = "/Users/kpmurphy/github/bong/bong/results/baz_parsed.csv"
+    #df = pd.read_csv(fname)
 
+    niters = df['I'].unique()
+    niters = niters[niters != 0]
+
+    lrs = df['LR'].unique()
+    lrs = lrs[lrs != 0]
+
+    mcs = df['M'].unique()
+    mcs = mcs[mcs != 0]
+
+    agents = df['prefix'].unique()
+    agents = agents[ agents != "laplace" ]
+    agents = agents[ agents != "fg-bong" ]
+    agents = agents[ agents != "fg-l-bong" ]
+
+    fs = 'x-small'
+    loc = 'upper right' #'lower left'
+
+    df2 = df[ df['prefix']=='fg-l-bong']
+    kl = df2['kl'].to_numpy()
+    T = len(kl)
+    print(T)
+
+    # extract subset of points for plotting to avoid cluttered markers
+    #ndx = jnp.array(range(0, T, 10)) # decimation of points 
+    ndx = round(jnp.linspace(0, T-1, num=min(T,30)))
+    # skip first 2 time steps, since it messes up the vertical scale
+    ndx = ndx[2:]
+
+    fig, axs = plt.subplots(len(niters), len(lrs), figsize=(8, 8))
+    for i, niter in enumerate(niters):
+        for j, lr in enumerate(lrs):
+            ax = axs[i,j]
+            df2 = df[ (df['I']==niter) & (df['LR']==lr) ]
+            for agent in agents:
+                df3 = df2[df2['prefix']==agent]
+                for mc in mcs:
+                    df4 = df3[ (df3['M']==mc) ]
+                    name = f'{agent}-M{mc}-I{niter}-LR{lr}'
+                    #print(name)
+                    steps = df4['step'].to_numpy()
+                    kl = df4['kl'].to_numpy()
+                    if np.any(np.isnan(kl)):
+                        continue
+                    else:
+                    ax.plot(steps[ndx], kl[ndx], label=name, marker=make_marker(agent))
+
+            if 'fg-bong' in df['prefix'].unique():
+                agent = 'fg-bong' # not indexed by I,LR
+                df2 = df[ (df['prefix']==agent) ]
+                for mc in mcs:
+                    df3 = df2[ (df2['M']==mc) ]
+                    name = f'{agent}-M{mc}'
+                    steps = df3['step'].to_numpy()
+                    kl = df3['kl'].to_numpy()
+                    ax.plot(steps[ndx], kl[ndx], label=name, marker=make_marker(agent))
+            
+            if 'fg-l-bong' in df['prefix'].unique():
+                agent = 'fg-l-bong' # not indexed by I,LR,M
+                df2 = df[df['prefix']==agent]
+                name = f'{agent}'
+                steps = df2['step'].to_numpy()
+                kl = df2['kl'].to_numpy()
+                ax.plot(steps[ndx], kl[ndx], label=name, marker=make_marker(agent))
+            
+            if 'laplace' in df['prefix'].unique():
+                df2 = df[ (df['prefix']=='laplace') ]
+                kldiv = df2['kl'].to_numpy()[0]
+                ax.axhline(kldiv, color="black", linestyle="--", label='laplace')
+
+            ax.legend(loc=loc, prop={'size': fs})
+            ax.set_title(f'Iter{niter}-LR{lr}')
     
 def plot_results(result_dict, curr_path=None, file_prefix='', ttl=''):
     result_dict = result_dict.copy()
