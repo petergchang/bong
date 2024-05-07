@@ -5,8 +5,13 @@ import jax.numpy as jnp
 import jax.random as jr
 
 from bong.base import RebayesAlgorithm
-from bong.src.bong import sample_dg_bong, sample_fg_bong
+from bong.src.bong import (
+    sample_dg_bong,
+    sample_dlrg_bong,
+    sample_fg_bong
+)
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
+from bong.util import fast_svd, hess_diag_approx
 
 
 class BBBState(NamedTuple):
@@ -121,6 +126,61 @@ def update_fg_bbb(
     return new_state
 
 
+def update_lfg_bbb(
+    rng_key: PRNGKey,
+    state_pred: BBBState,
+    state: BBBState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
+    learning_rate: float=1.0,
+    *args,
+    **kwargs,
+) -> BBBState:
+    """Update the linearized-plugin full-covariance Gaussian belief state 
+    with a new observation.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state_pred: Belief state from the predict step.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+        num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
+        learning_rate: Learning rate for the update.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean0, cov0 = state_pred
+    mean, cov = state
+    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+    R = jnp.atleast_2d(emission_cov_function(mean, x))
+    R_inv = jnp.linalg.pinv(R)
+    prec0, prec = jnp.linalg.pinv(cov0), jnp.linalg.pinv(cov)
+    update_term = H.T @ R_inv @ (y - y_pred)
+    prec_update = 2 * jnp.outer(update_term, mean) \
+        + 2 * prec0 @ jnp.outer(mean0 - mean, mean) \
+        - (H.T @ R_inv @ H + prec0) @ cov + jnp.eye(cov.shape[0])
+    new_prec = prec - 2 * learning_rate * cov @ prec_update
+    new_cov = jnp.linalg.pinv(new_prec)
+    mean_update = update_term + prec0 @ (mean0 - mean)
+    new_mean = new_cov @ prec @ mean \
+        + learning_rate * new_cov @ cov @ mean_update
+    new_state = BBBState(new_mean, new_cov)
+    return new_state
+
+
 def update_dg_bbb(
     rng_key: PRNGKey,
     state_pred: BBBState,
@@ -185,6 +245,60 @@ def update_dg_bbb(
     return new_state
 
 
+def update_ldg_bbb(
+    rng_key: PRNGKey,
+    state_pred: BBBState,
+    state: BBBState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
+    learning_rate: float=1.0,
+    *args,
+    **kwargs,
+) -> BBBState:
+    """Update the linearized-plugin diagonal-covariance Gaussian belief state
+    with a new observation.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state_pred: Belief state from the predict step.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+        num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
+        learning_rate: Learning rate for the update.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean0, cov0 = state_pred
+    mean, cov = state
+    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+    R = jnp.atleast_2d(emission_cov_function(mean, x))
+    R_inv = jnp.linalg.pinv(R)
+    prec0, prec = 1/cov0, 1/cov
+    update_term = H.T @ R_inv @ (y - y_pred)
+    prec_update = 2 * update_term * mean + 2 * prec0 * (mean0-mean) * mean \
+        - cov * (((H.T @ R_inv) * H.T).sum(-1) + prec0) + 1
+    new_prec = prec - 2 * learning_rate * cov * prec_update
+    new_cov = 1 / new_prec
+    mean_update = update_term + prec0 * (mean0 - mean)
+    new_mean = new_cov * prec * mean \
+        + learning_rate * new_cov * cov * mean_update
+    new_state = BBBState(new_mean, new_cov)
+    return new_state
+
+
 def update_fg_reparam_bbb(
     rng_key: PRNGKey,
     state_pred: BBBState,
@@ -237,7 +351,57 @@ def update_fg_reparam_bbb(
     prec0, prec = jnp.linalg.pinv(cov0), jnp.linalg.pinv(cov)
     mean_update = g + prec0 @ (mean0 - mean)
     new_mean = mean + learning_rate * mean_update
-    cov_update = hess + prec + prec0
+    cov_update = hess + prec - prec0
+    new_cov = cov + learning_rate / 2 * cov_update
+    new_state = BBBState(new_mean, new_cov)
+    return new_state
+
+
+def update_lfg_reparam_bbb(
+    rng_key: PRNGKey,
+    state_pred: BBBState,
+    state: BBBState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
+    learning_rate: float=1.0,
+    *args,
+    **kwargs,
+) -> BBBState:
+    """Update the linearized-plugin full-covariance Gaussian belief state
+    with a new observation, under the reparameterized BBB model.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+        num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
+        learning_rate: Learning rate for the update.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean0, cov0 = state_pred
+    mean, cov = state
+    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+    R = jnp.atleast_2d(emission_cov_function(mean, x))
+    R_inv = jnp.linalg.pinv(R)
+    prec0, prec = jnp.linalg.pinv(cov0), jnp.linalg.pinv(cov)
+    update_term = H.T @ R_inv @ (y - y_pred)
+    mean_update = update_term + prec0 @ (mean0 - mean)
+    new_mean = mean + learning_rate * mean_update
+    cov_update = -H.T @ R_inv @ H + prec - prec0
     new_cov = cov + learning_rate / 2 * cov_update
     new_state = BBBState(new_mean, new_cov)
     return new_state
@@ -297,7 +461,57 @@ def update_dg_reparam_bbb(
     prec0, prec = 1 / cov0, 1 / cov
     mean_update = g + prec0 * (mean0 - mean)
     new_mean = mean + learning_rate * mean_update
-    cov_update = hess_diag + prec + prec0
+    cov_update = hess_diag + prec - prec0
+    new_cov = cov + learning_rate/2 * cov_update
+    new_state = BBBState(new_mean, new_cov)
+    return new_state
+
+
+def update_ldg_reparam_bbb(
+    rng_key: PRNGKey,
+    state_pred: BBBState,
+    state: BBBState,
+    x: ArrayLikeTree,
+    y: ArrayLikeTree,
+    log_likelihood: Callable,
+    emission_mean_function: Callable,
+    emission_cov_function: Callable,
+    num_samples: int=10,
+    empirical_fisher: bool=False,
+    learning_rate: float=1.0,
+    *args,
+    **kwargs,
+) -> BBBState:
+    """Update the linearized-plugin diagonal-covariance Gaussian belief state 
+    with a new observation under the reparameterized BBB model.
+    
+    Args:
+        rng_key: JAX PRNG Key.
+        state: Current belief state.
+        x: Input.
+        y: Observation.
+        log_likelihood: Log-likelihood function.
+        emission_mean_function: Emission mean function.
+        emission_cov_function: Emission covariance function.
+        num_samples: Number of samples to use for the update.
+        empirical_fisher: Whether to use the empirical Fisher approximation
+            to the Hessian matrix.
+        learning_rate: Learning rate for the update.
+    
+    Returns:
+        Updated belief state.
+    """
+    mean0, cov0 = state_pred
+    mean, cov = state
+    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+    R = jnp.atleast_2d(emission_cov_function(mean, x))
+    R_inv = jnp.linalg.pinv(R)
+    prec0, prec = 1/cov0, 1/cov
+    update_term = H.T @ R_inv @ (y - y_pred)
+    mean_update = update_term + prec0 * (mean0 - mean)
+    new_mean = mean + learning_rate * mean_update
+    cov_update = -((H.T @ R_inv) * H.T).sum(-1) + prec - prec0
     new_cov = cov + learning_rate/2 * cov_update
     new_state = BBBState(new_mean, new_cov)
     return new_state
@@ -359,8 +573,7 @@ class fg_bbb:
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
-            # _update_fn = staticmethod(update_lfg_bbb) TODO
-            raise NotImplementedError
+            _update_fn = staticmethod(update_lfg_bbb)
         else:
             _update_fn = staticmethod(update_fg_bbb)
             
@@ -382,7 +595,7 @@ class fg_bbb:
             def _step(curr_state, t):
                 key = jr.fold_in(rng_key, t)
                 new_state = _update_fn(
-                    rng_key, state, curr_state, x, y, log_likelihood, 
+                    key, state, curr_state, x, y, log_likelihood, 
                     emission_mean_function, emission_cov_function, num_samples, 
                     empirical_fisher, learning_rate
                 )
@@ -434,7 +647,7 @@ class dg_bbb:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -450,8 +663,7 @@ class dg_bbb:
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
-            # _update_fn = staticmethod(update_ldg_bbb) TODO
-            raise NotImplementedError
+            _update_fn = staticmethod(update_ldg_bbb)
         else:
             _update_fn = staticmethod(update_dg_bbb)
             
@@ -473,7 +685,7 @@ class dg_bbb:
             def _step(curr_state, t):
                 key = jr.fold_in(rng_key, t)
                 new_state = _update_fn(
-                    rng_key, state, curr_state, x, y, log_likelihood, 
+                    key, state, curr_state, x, y, log_likelihood, 
                     emission_mean_function, emission_cov_function, num_samples, 
                     empirical_fisher, learning_rate
                 )
@@ -525,7 +737,7 @@ class fg_reparam_bbb:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -541,8 +753,7 @@ class fg_reparam_bbb:
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
-            # _update_fn = staticmethod(update_lfg_reparam_bbb) TODO
-            raise NotImplementedError
+            _update_fn = staticmethod(update_lfg_reparam_bbb)
         else:
             _update_fn = staticmethod(update_fg_reparam_bbb)
             
@@ -564,7 +775,7 @@ class fg_reparam_bbb:
             def _step(curr_state, t):
                 key = jr.fold_in(rng_key, t)
                 new_state = _update_fn(
-                    rng_key, state, curr_state, x, y, log_likelihood, 
+                    key, state, curr_state, x, y, log_likelihood, 
                     emission_mean_function, emission_cov_function, num_samples, 
                     empirical_fisher, learning_rate
                 )
@@ -616,7 +827,7 @@ class dg_reparam_bbb:
     def __new__(
         cls,
         init_mean: ArrayLikeTree,
-        init_cov: ArrayLikeTree,
+        init_cov: float,
         log_likelihood: Callable,
         emission_mean_function: Callable,
         emission_cov_function: Callable,
@@ -632,8 +843,7 @@ class dg_reparam_bbb:
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
         if linplugin:
-            # _update_fn = staticmethod(update_ldg_reparam_bbb) TODO
-            raise NotImplementedError
+            _update_fn = staticmethod(update_ldg_reparam_bbb)
         else:
             _update_fn = staticmethod(update_dg_reparam_bbb)
             
@@ -655,7 +865,7 @@ class dg_reparam_bbb:
             def _step(curr_state, t):
                 key = jr.fold_in(rng_key, t)
                 new_state = _update_fn(
-                    rng_key, state, curr_state, x, y, log_likelihood, 
+                    key, state, curr_state, x, y, log_likelihood, 
                     emission_mean_function, emission_cov_function, num_samples, 
                     empirical_fisher, learning_rate
                 )
