@@ -15,13 +15,17 @@ def make_results(args):
     M = jr.normal(key, (N,N))
     M = M * M
 
-    # Save results in dataframe
+    # Save dummy results in dataframe
     T = 10
-    steps = range(0, T)
-    kl = jnp.ones(T) * args.learning_rate
+    steps = jnp.arange(0, T)
+    kl = steps * args.learning_rate 
+    nll = steps * steps * args.learning_rate 
+    nlpd = nll
     df  = pd.DataFrame({'time': 0, 
-                        'step': np.array(steps),
-                        'kl': np.array(kl)
+                        'step': steps,
+                        'kl': kl,
+                        'nll': nll,
+                        'nlpd': nlpd
     })
     return df
 
@@ -38,8 +42,6 @@ def main(args, args_dict):
     print("Saving to", fname)
     with open(fname, 'w') as json_file:
         json.dump(args_dict, json_file, indent=4)
-    #with open('arguments.json', 'r') as file:
-    #data_dict = json.load(file)
 
     df = make_results(args)
 
