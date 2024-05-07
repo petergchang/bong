@@ -382,7 +382,10 @@ def plot_df(df):
                     if np.any(np.isnan(kl)):
                         continue
                     else:
-                    ax.plot(steps[ndx], kl[ndx], label=name, marker=make_marker(agent))
+                        ax.plot(
+                            steps[ndx], kl[ndx], label=name, 
+                            marker=make_marker(agent)
+                        )
 
             if 'fg-bong' in df['prefix'].unique():
                 agent = 'fg-bong' # not indexed by I,LR
