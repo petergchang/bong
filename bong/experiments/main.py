@@ -18,9 +18,9 @@ def make_results(args):
     # Save dummy results in dataframe
     T = 10
     steps = jnp.arange(0, T)
-    kl = steps * args.learning_rate 
-    nll = steps * args.num_iter
-    nlpd = nll
+    kl = steps * args.lr 
+    nll = steps * args.niter
+    nlpd = steps * args.nsample
     df  = pd.DataFrame({'time': 0, 
                         'step': steps,
                         'kl': kl,
@@ -60,8 +60,9 @@ if __name__ == "__main__":
     
     # Model parameters
     parser.add_argument("--agent", type=str, default="fg-bong")
-    parser.add_argument("--learning_rate", type=float, default=0.01)
-    parser.add_argument("--num_iter", type=int, default=10) 
+    parser.add_argument("--lr", type=float, default=0.01)
+    parser.add_argument("--niter", type=int, default=10) 
+    parser.add_argument("--nsample", type=int, default=10) 
 
     # results
     parser.add_argument("--dir", type=str, default="", help="directory to store results") 
@@ -69,13 +70,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     if False: #args.filename == "":
-        lr_str = f"{round(args.learning_rate,4)}".replace('.', '_')
-        args.filename = f"{args.dataset}_{args.agent}_LR{lr_str}_I{args.num_iter}_"  
+        lr_str = f"{round(args.lr,4)}".replace('.', '_')
+        args.filename = f"{args.dataset}_{args.agent}_LR{lr_str}_I{args.niter}_"  
 
     args_dict = extract_args_dict(args, parser)
     main(args, args_dict)
 
-'''
-python  experiments/main.py  --agent fg-bong --learning_rate 0.01 --num_iter 10 
-
-'''
