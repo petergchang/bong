@@ -21,6 +21,8 @@ from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
 
 
+
+
 _vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inverse
 
 

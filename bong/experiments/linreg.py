@@ -12,25 +12,12 @@ from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.util import run_rebayes_algorithm, tune_init_hyperparam, run_agents
 from bong.util import plot_results, convert_result_dict_to_pandas, split_filename_column
 
+from bong.agents import AGENT_TYPES, LR_AGENT_TYPES, BONG_DICT
+
 import os
 cwd = Path(os.getcwd())
 #root = cwd.parent.parent
 root = cwd
-
-AGENT_TYPES = ["fg-bong", "fg-l-bong", "fg-rep-bong", "fg-rep-l-bong",
-               "fg-blr", "fg-bog", "fg-rep-bog", "fg-bbb", "fg-rep-bbb"]
-LR_AGENT_TYPES = ["fg-blr", "fg-bog", "fg-rep-bog", "fg-bbb", "fg-rep-bbb"]
-BONG_DICT = {
-    "fg-bong": bong.fg_bong,
-    "fg-l-bong": bong.fg_bong,
-    "fg-rep-bong": bong.fg_reparam_bong,
-    "fg-rep-l-bong": bong.fg_reparam_bong,
-    "fg-blr": blr.fg_blr,
-    "fg-bog": bog.fg_bog,
-    "fg-rep-bog": bog.fg_reparam_bog,
-    "fg-bbb": bbb.fg_bbb,
-    "fg-rep-bbb": bbb.fg_reparam_bbb,
-}
 
 
 
