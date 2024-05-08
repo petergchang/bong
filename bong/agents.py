@@ -1,4 +1,5 @@
 from bong.src import bbb, blr, bog, bong
+import pandas as pd
 
 AGENT_TYPES = ["fg-bong", "fg-l-bong", "fg-rep-bong", "fg-rep-l-bong",
                "fg-blr", "fg-bog", "fg-bbb", "fg-rep-bbb"]
@@ -188,10 +189,12 @@ AGENT_DICT_BASE = {
 }
 
 def convert_to_linplugin(args):
+    args = args.copy()
     args['linplugin'] = True
     args['needs_nsamples'] = False
     args['empirical_fisher'] = False
     return args
+
 
 LIN_DICT = { f'{agent}-lin': convert_to_linplugin(args) for (agent, args) in AGENT_DICT_BASE.items() }
 AGENT_DICT = AGENT_DICT_BASE | LIN_DICT
