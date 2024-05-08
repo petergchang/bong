@@ -390,7 +390,7 @@ def update_dg_bog(
         hess_diag = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
     prec = 1 / cov
     prec_update = - 4 * learning_rate * cov * mean * grad_est \
-        + 2 * learning_rate * cov**2 * hess_diag
+        - 2 * learning_rate * cov**2 * hess_diag
     new_prec = prec + prec_update
     new_cov = 1 / new_prec
     new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * grad_est
@@ -439,7 +439,7 @@ def update_ldg_bog(
     prec = 1 / cov
     update_term = H.T @ R_inv @ (y - y_pred)
     prec_update = - 4 * learning_rate * cov * mean @ update_term \
-        - 2 * learning_rate * cov**2 * ((H.T @ R_inv) * H.T).sum(-1)
+        + 2 * learning_rate * cov**2 * ((H.T @ R_inv) * H.T).sum(-1)
     new_prec = prec + prec_update
     new_cov = 1 / new_prec
     new_mean = new_cov * prec * mean + \
