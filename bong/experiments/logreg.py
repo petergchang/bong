@@ -18,8 +18,9 @@ from ucimlrepo import fetch_ucirepo
 
 from bong.settings import logreg_path, uci_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
-from bong.util import MLP, run_rebayes_algorithm, tune_init_hyperparam, run_agents
-from bong.util import plot_results, convert_result_dict_to_pandas, split_filename_column
+from bong.util import MLP, run_rebayes_algorithm, tune_init_hyperparam
+from plot_utils import plot_results
+from job_utils import convert_result_dict_to_pandas, split_filename_column, run_agents
 
 from bong.agents import AGENT_TYPES, LR_AGENT_TYPES, BONG_DICT
 
@@ -304,7 +305,8 @@ def main(args):
     result_dict = run_agents(subkey, agent_queue, data, callback, result_dict)
 
     #curr_path = Path(root, "results", "linreg", f"dim_{args.param_dim}")
-    curr_path = Path(root, "results")
+    #curr_path = Path(root, "results")
+    curr_path = Path(args.dir)
     if args.dataset == "logreg":
         dataset_name = f"logreg_dim{args.param_dim}"
     else:
@@ -330,13 +332,7 @@ def main(args):
     plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
 
 
-'''
-python  experiments/kpm_logreg.py  --agents fg-bong fg-blr --param_dim 10 --filename logreg_dim10_blr_lrsweep \
---num_samples 1 10 100 --num_iter 1 10 100 --learning_rate 0.01 0.05 0.1 
 
-python  experiments/logreg.py  --agents fg-bong fg-l-bong fg-blr fg-bbb fg-bog --param_dim 10 --filename baz \
-    --num_samples 1 10 --num_iter 1 10  --learning_rate 0.01 0.05
-'''
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -356,15 +352,22 @@ if __name__ == "__main__":
     parser.add_argument("--num_samples", type=int, nargs="+", 
                         default=[10])
     parser.add_argument("--init_var", type=float, default=1.0)
-    parser.add_argument("--laplace_gtol", type=float, default=1e-3)
+    parser.add_argument("--laplace_gtol", type=float, default=1e-2)
 
     parser.add_argument("--learning_rate", type=float, nargs="+", 
                     default=[0.005, 0.01, 0.05])
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
     parser.add_argument("--num_iter", type=int, nargs="+", 
                     default=[10])
+
     parser.add_argument("--debug", type=bool, default=False)
     parser.add_argument("--filename", type=str, default="")
+    parser.add_argument("--dir", type=str, default="")
     
     args = parser.parse_args()
     main(args)
+
+'''
+
+python  logreg.py  --agents fg-bong  --filename logreg-bong --dir ~/jobs  --learning_rate 0.01 
+'''

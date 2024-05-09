@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 
 #from bong.settings import linreg_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
-from bong.util import run_rebayes_algorithm, tune_init_hyperparam, run_agents
-from bong.util import plot_results, convert_result_dict_to_pandas, split_filename_column
+from bong.util import run_rebayes_algorithm, tune_init_hyperparam
+from plot_utils import plot_results
+from job_utils import convert_result_dict_to_pandas, split_filename_column,  run_agents
 
 from bong.agents import AGENT_TYPES, LR_AGENT_TYPES, BONG_DICT
 
@@ -204,7 +205,8 @@ def main(args):
     result_dict = run_agents(subkey, agent_queue, data, callback)
   
     
-    curr_path = Path(root, "results")
+    #curr_path = Path(root, "results")
+    curr_path = Path(args.dir)
     if args.filename == "":
         filename_prefix =  f"linreg_dim{args.param_dim}"
     else:
@@ -223,10 +225,6 @@ def main(args):
     plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
     
 
-'''
-python  experiments/linreg.py  --agents fg-bong fg-bog --param_dim 10 --filename foo \
---num_samples 10 --num_iter 10  --learning_rate 0.05 
-'''
 
    
 if __name__ == "__main__":
@@ -249,8 +247,17 @@ if __name__ == "__main__":
     parser.add_argument("--num_iter", type=int, nargs="+", 
                     default=[10])
     parser.add_argument("--tune_learning_rate", type=bool, default=False)
+
     parser.add_argument("--debug", type=bool, default=False)
     parser.add_argument("--filename", type=str, default="")
-    
+    parser.add_argument("--dir", type=str, default="")
+
     args = parser.parse_args()
     main(args)
+
+'''
+
+
+python  linreg.py  --agents fg-bong  --param_dim 10 --learning_rate 0.01 --filename bong  --dir ~/jobs
+python  linreg.py  --agents fg-blr  --param_dim 10 --learning_rate 0.01 --filename bong  --dir ~/jobs
+'''

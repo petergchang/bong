@@ -11,7 +11,7 @@ from bong.src.bong import (
     sample_fg_bong
 )
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
-from bong.util import fast_svd, hess_diag_approx
+from bong.util import fast_svd, hess_diag_approx, safestr
 
 
 class BBBState(NamedTuple):
@@ -964,6 +964,7 @@ class fg_bbb:
         learning_rate: float=1e-1,
         num_iter: int=10,
     ):
+        name = f"bbb-FC-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -999,7 +1000,7 @@ class fg_bbb:
             new_state, _ = jax.lax.scan(_step, state, jnp.arange(num_iter))
             return new_state
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
 
 
 class dlrg_bbb:
@@ -1059,6 +1060,7 @@ class dlrg_bbb:
         *args,
         **kwargs
     ):
+        name = f"bbb-DLR-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -1095,7 +1097,7 @@ class dlrg_bbb:
             new_state, _ = jax.lax.scan(_step, state, jnp.arange(num_iter))
             return new_state
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
 
 class dg_bbb:
@@ -1150,6 +1152,7 @@ class dg_bbb:
         learning_rate: float=1e-1,
         num_iter: int=10,
     ):
+        name = f"bbb-Diag-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1185,7 +1188,7 @@ class dg_bbb:
             new_state, _ = jax.lax.scan(_step, state, jnp.arange(num_iter))
             return new_state
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
 
 class fg_reparam_bbb:
@@ -1240,6 +1243,7 @@ class fg_reparam_bbb:
         learning_rate: float=1e-1,
         num_iter: int=10,
     ):
+        name = f"bbb-FC-Mom-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1275,7 +1279,7 @@ class fg_reparam_bbb:
             new_state, _ = jax.lax.scan(_step, state, jnp.arange(num_iter))
             return new_state   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
 
 class dg_reparam_bbb:
@@ -1330,6 +1334,7 @@ class dg_reparam_bbb:
         learning_rate: float=1e-1,
         num_iter: int=10,
     ):
+        name = f"bbb-Diag-Mom-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1365,5 +1370,5 @@ class dg_reparam_bbb:
             new_state, _ = jax.lax.scan(_step, state, jnp.arange(num_iter))
             return new_state
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     

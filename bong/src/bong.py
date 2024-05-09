@@ -683,6 +683,7 @@ class fg_bong:
         *args,
         **kwargs
     ):
+        name = f"bong-FC-M{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -710,7 +711,7 @@ class fg_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
 
 class dlrg_bong:
@@ -764,6 +765,7 @@ class dlrg_bong:
         *args,
         **kwargs
     ):
+        name = f"bong-DLR-M{num_samples}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -792,7 +794,7 @@ class dlrg_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
 
 class dg_bong:
@@ -843,6 +845,7 @@ class dg_bong:
         *args,
         **kwargs
     ):
+        name = f"bong-DG-M{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -870,7 +873,7 @@ class dg_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
     
 class fg_reparam_bong:
@@ -921,6 +924,7 @@ class fg_reparam_bong:
         *args,
         **kwargs
     ):
+        name = f"bong-FC-Mom-M{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -948,7 +952,7 @@ class fg_reparam_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     
 
 class dg_reparam_bong:
@@ -999,6 +1003,7 @@ class dg_reparam_bong:
         *args,
         **kwargs
     ):
+        name = f"bong-Diag-Mom-M{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1026,5 +1031,5 @@ class dg_reparam_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
     

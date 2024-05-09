@@ -1,7 +1,4 @@
-'''
-python run_jobs.py  --learning_rate 0.001 0.01 --agent bong-fc blr-fc
-python run_jobs.py  --learning_rate 0.001 0.01 --agent bong-fc blr-fc --parallel
-'''
+
 
 from lightning_sdk import Studio, Machine
 import argparse
@@ -10,37 +7,20 @@ import itertools
 import pandas as pd
 from pathlib import Path
 
-from bong.agents import AGENT_DICT
+from bong.agents import AGENT_DICT, AGENT_NAMES
 
 def make_cmd(agent, lr, niter, nsample):
     main_name = '/teamspace/studios/this_studio/bong/bong/experiments/main.py'
     cmd = f'python {main_name} --agent {agent} --lr {lr} --niter {niter} --nsample {nsample}'
     return cmd
 
-def extract_args_old(props, learning_rate, num_iter, num_sample):
-    args = {}
-    if props['needs_lr']:
-        args['lr'] = learning_rate
-    else:
-        args['lr'] = 0
-    if props['needs_niter']:
-        args['niter'] = num_iter
-    else:
-        args['niter'] = 1
-    if props['needs_nsample']:
-        args['nsample'] = num_sample
-    else:
-        args['nsample'] = 0
-    args['empirical_fisher'] = props['empirical_fisher'] 
-    args['linplugin'] = props['linplugin']
-    return args
 
 def extract_args(props, learning_rate, num_iter, num_sample):
     args = props.copy()
     if props['lr'] is None: args['lr'] = learning_rate
     if props['niter'] is None: args['niter'] = int(num_iter)
     if props['nsample'] is None: args['nsample'] = int(num_sample)
-    args['empirical_fisher'] = props['empirical_fisher'] 
+    args['ef'] = props['ef'] 
     args['linplugin'] = props['linplugin']
     return args
 
@@ -86,6 +66,7 @@ def old(args):
 
 def main(args):
     df = make_df_for_arg_crossproduct(args.agents, args.lrs, args.niters, args.nsamples, args.parallel)
+    df['dataset'] = args.dataset
     fname = Path(args.dir, "jobs.csv")
     print("Saving to", fname)
     df.to_csv(fname, index=False) 
@@ -119,8 +100,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str, default="", help="directory in which to store jobs.csv") 
     parser.add_argument("--parallel", type=bool, default=False)
+
+    # Data parameters
+    parser.add_argument("--dataset", type=str, default="linreg")
+    parser.add_argument("--key", type=int, default=0)
+    parser.add_argument("--ntrain", type=int, default=500)
+    parser.add_argument("--nval", type=int, default=500)
+    parser.add_argument("--ntest", type=int, default=500)
+    parser.add_argument("--data_dim", type=int, default=10)
+    parser.add_argument("--emission_noise", type=float, default=1.0)
+    
+
     parser.add_argument("--agents", type=str, nargs="+",
-                        default=["bong-fc", "blr-fc"])
+                        default=["bong-fc", "blr-fc"], choices=AGENT_NAMES)
     parser.add_argument("--lrs", type=float, nargs="+", 
                     default=[0.01, 0.05])
     parser.add_argument("--niters", type=int, nargs="+", 
@@ -131,3 +123,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     main(args)
+
+'''
+python run_jobs.py  --lrs 0.001 0.01 --agents bong-fc blr-fc
+'''

@@ -17,3 +17,4 @@ class RebayesAlgorithm(NamedTuple):
     predict: Callable
     update: Callable
     sample: Callable
+    name: str = 'no-name'
