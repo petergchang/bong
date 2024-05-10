@@ -14,8 +14,121 @@ import numpy as np
 import jax.numpy as jnp
 
 from bong.util import run_rebayes_algorithm
+from bong.agents import AGENT_DICT, AGENT_NAMES
 
-def run_agents(subkey, agent_queue, data, callback, result_dict={}):
+
+def make_results_dirname(jobname, parallel):
+    # the results artefacts are written (by lightning ai studio) to a certain directory
+    # depending on jobname.
+    if parallel:
+        output_dir = f'/teamspace/jobs/{jobname}/work'
+    else:
+        output_dir = f'/teamspace/studios/this_studio/jobs/{jobname}/work'
+    return output_dir
+
+def make_dict_for_flags(props, learning_rate, num_iter, num_sample):
+    args = props.copy()
+    if props['lr'] is None: args['lr'] = learning_rate
+    if props['niter'] is None: args['niter'] = int(num_iter)
+    if props['nsample'] is None: args['nsample'] = int(num_sample)
+    args['ef'] = props['ef'] 
+    args['linplugin'] = props['linplugin']
+    del args['constructor']
+    return args
+
+
+def make_df_for_flag_crossproduct(agents, lrs, niters, nsamples, parallel):
+    args_list = []
+    for agent in agents:
+        props = AGENT_DICT[agent]
+        for lr in lrs:
+            for niter in niters:
+                for nsample in nsamples:
+                    args = make_dict_for_flags(props, lr, niter, nsample)
+                    args['agent'] = agent
+                    args_list.append(args)
+    df = pd.DataFrame(args_list)
+    df = df.drop_duplicates()
+    N = len(df)
+    jobnames = [f'job-{i}' for i in range(N)] 
+    df['jobname'] = jobnames
+    dirs = [make_results_dirname(j, parallel) for j in jobnames]
+    df['results_dir'] = dirs
+    return df
+
+def make_unix_cmd_given_flags(agent, lr, niter, nsample):
+    main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_one_job.py'
+    cmd = f'python {main_name} --agent {agent} --lr {lr} --niter {niter} --nsample {nsample}'
+    return cmd
+
+
+def make_cmd_dict_for_flag_crossproduct(args):
+    df_flags = make_df_for_flag_crossproduct(args.agents, args.lrs, args.niters, args.nsamples, args.parallel)
+    df_flags['dataset'] = args.dataset
+
+    cmd_dict = {}
+    for index, row in df_flags.iterrows():
+        cmd = make_unix_cmd_given_flags(row.agent, row.lr, row.niter, row.nsample)
+        cmd_dict[row.jobname] = cmd
+
+    # Store csv containing all the commands that are being executed
+    path = Path(args.dir)
+    path.mkdir(parents=True, exist_ok=True)
+    fname = Path(path, "flags.csv")
+    print("Saving to", fname)
+    df_flags.to_csv(fname, index=False) 
+
+    cmds = [{'agent': key, 'command': value} for key, value in cmd_dict.items()]
+    df_cmds = pd.DataFrame(cmds)
+    fname = Path(path, "cmds.csv")
+    print("Saving to", fname)
+    df_cmds.to_csv(fname, index=False)
+
+    return cmd_dict
+
+
+#    grid_search_params = list(itertools.product(args.agent, args.learning_rate, args.num_iter))
+    #grid_search_params = [(lr, agent) for lr in args.learning_rate for agent in args.agent]
+    #for index, (agent, lr, niter) in enumerate(grid_search_params):
+    #    cmd = make_cmd(agent, lr, niter)
+    #    job_name = f'bong-{index}'
+    #    output_dir = f'/teamspace/studios/this_studio/jobs/{job_name}/work'
+    #    cmd = cmd + f' --dir {output_dir}'
+    #    print('running', cmd)
+    #    os.system(cmd)
+
+def run_agent(key, agent, data, callback):
+    print(f"Running {agent.name}")
+    t0 = time.perf_counter()
+    _, (kldiv, nll, nlpd) = jax.block_until_ready(
+        run_rebayes_algorithm(key, agent, data['X_tr'], data['Y_tr'], transform=callback)
+    )
+    t1 = time.perf_counter()
+    print(f"KL-Div: {kldiv[-1]:.4f}, NLL: {nll[-1]:.4f},  NLPD: {nlpd[-1]:.4f}, Time: {t1 - t0:.2f}s")
+    ntest = len(kldiv)
+    results = {
+        'agent_name': agent.name,
+        'dataset_name': data['name'],
+        'time': t1 - t0, 
+        'kl': kldiv, 
+        'nll': nll,
+        'nlpd': nlpd, 
+        #'ntest': ntest
+             }
+    return results
+
+def run_agents(keyroot, agent_queue, data, callback, result_dict={}):
+    key = keyroot
+    for agent_name, agent in agent_queue.items():
+        results = run_agent(key, agent, data, callback)
+        # store in legacy tuple format
+        result_dict[agent_name] = (results['time'], results['kl'], results['nll'], results['nlpd'])
+        keyroot, key = jr.split(keyroot)
+    ntest = len(results['kl'])
+    result_dict['ntest'] = ntest
+    return result_dict
+
+def run_agents_old(subkey, agent_queue, data, callback, result_dict={}):
     for agent_name, agent in agent_queue.items():
         print(f"Running {agent_name}...")
         key, subkey = jr.split(subkey)
@@ -25,7 +138,7 @@ def run_agents(subkey, agent_queue, data, callback, result_dict={}):
         )
         t1 = time.perf_counter()
         result_dict[agent_name] = (t1 - t0, kldiv, nll, nlpd)
-        print(f"\tKL-Div: {kldiv[-1]:.4f}, Time: {t1 - t0:.2f}s")
+        print(f"KL-Div: {kldiv[-1]:.4f}, NLL: {nll[-1]:.4f},  NLPD: {nlpd[-1]:.4f}, Time: {t1 - t0:.2f}s")
     ntest = len(kldiv)
     result_dict['ntest'] = ntest
     return result_dict
@@ -157,27 +270,6 @@ def split_filename_column(df):
     #df_final = df_final[['prefix', 'M', 'I', 'LR', 'step', 'kl', 'nll', 'nlpd', 'time']]
     return df_final
 
-def test_split_filename_column():
-    # Sample DataFrame
-    data = {
-        'name': [
-            "fg-bong-M10-I1-LR0", "fg-bong-M10-I1-LR0", "fg-bong-M10-I1-LR0",
-            "fg-blr-M10-I10-LR0_01", "fg-blr-M10-I10-LR0_01", "fg-blr-M10-I10-LR0_01",
-            "fg-blr-M10-I10-LR0_05", "fg-blr-M10-I10-LR0_05", "fg-blr-M10-I10-LR0_05"
-        ],
-        'step': [0, 1, 2, 0, 1, 2, 0, 1, 2],
-        'kl': [4715.3643, np.nan, 4704.921, 4637.003, 4708.9194, 4677.56, 4622.0254, 4707.8594, 4647.589],
-        'nll': [0.829247, 0.8394967, 0.84964615, 0.829247, 0.83029026, 0.8313881, 0.829247, 0.8334199, 0.83842194],
-        'nlpd': [1.0150638, 1.0070719, 1.00812, 0.98381305, 1.0121765, 1.0324197, 0.98617476, 1.0010813, 0.9961206],
-        'time': [
-            1.907885749998968, 1.907885749998968, 1.907885749998968,
-            2.0240805419743992, 2.0240805419743992, 2.0240805419743992,
-            2.021093249961268, 2.021093249961268, 2.021093249961268
-        ]
-    }
-    df = pd.DataFrame(data)
-    res = split_filename_column(df)
-    print(res)
 
 
 def extract_nsteps_from_result_dict(result_dict):

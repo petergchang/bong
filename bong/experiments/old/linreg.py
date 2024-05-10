@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 #from bong.settings import linreg_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
-from bong.util import run_rebayes_algorithm, tune_init_hyperparam
+from bong.util import run_rebayes_algorithm, tune_init_hyperparam, gaussian_kl_div
 from plot_utils import plot_results
 from job_utils import convert_result_dict_to_pandas, split_filename_column,  run_agents
 
@@ -38,14 +38,6 @@ def generate_linreg_dataset(
     return X, Y, theta
 
 
-def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
-    d = mu1.shape[0]
-    _, ld1 = jnp.linalg.slogdet(sigma1)
-    _, ld2 = jnp.linalg.slogdet(sigma2)
-    result = ld2 - ld1 - d
-    result += jnp.trace(jnp.linalg.solve(sigma2, sigma1))
-    result += (mu2 - mu1).T @ jnp.linalg.solve(sigma2, mu2 - mu1)
-    return 0.5 * result
 
 def make_data(args):
      # Generate dataset
