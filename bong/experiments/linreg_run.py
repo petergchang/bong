@@ -16,11 +16,6 @@ from job_utils import convert_result_dict_to_pandas, split_filename_column,  run
 from bong.agents import AGENT_TYPES, LR_AGENT_TYPES, BONG_DICT
 from linreg_data import make_linreg
 
-import os
-cwd = Path(os.getcwd())
-#root = cwd.parent.parent
-root = cwd
-
 
 
 def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tune, Y_tune):
@@ -92,7 +87,6 @@ def make_results_dict(args):
 def main(args):
     result_dict = make_results_dict(args)
     
-    #curr_path = Path(root, "results")
     curr_path = Path(args.dir)
     if args.filename == "":
         filename_prefix =  f"linreg_dim{args.param_dim}"

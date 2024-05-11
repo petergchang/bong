@@ -25,6 +25,15 @@ def generate_xdata_mvn(keyroot, N, d, c=1., scale=1):
 
 
 
+def generate_ydata_mlpreg(keyroot, X, model, noise_std=1.0):
+    key, keyroot = jr.split(keyroot)
+    N, d = X.shape
+    predictor = model['pred_fn']
+    Ymean = jax.vmap(predictor)(X)  # (N,1) for scalar output
+    Y = Ymean + jr.normal(key, (N,1)) * noise_std
+    return Y
+
+
 def generate_mlp(keyroot, d, nneurons = [1,]):
     # nneurons=[1,] refers to scalar output with no hidden units
     key, keyroot = jr.split(keyroot)
@@ -37,22 +46,13 @@ def generate_mlp(keyroot, d, nneurons = [1,]):
     return model_dict
 
 
-def generate_ydata_mlpreg(keyroot, X, model, noise_std=1.0):
-    key, keyroot = jr.split(keyroot)
-    N, d = X.shape
-    predictor = model['pred_fn']
-    Ymean = jax.vmap(predictor)(X)
-    Y = Ymean + jr.normal(key, (N,1)) * noise_std
-    return Y
 
-
-
-
-def make_data_mlp(args):
+def make_data_mlpreg(args):
     d, noise_std = args.data_dim, args.emission_noise
     keyroot = jr.PRNGKey(args.data_key)
     key1, keyroot = jr.split(keyroot)
-    model = generate_mlp(key1, args.data_dim, args.data_neurons)
+    nneurons_per_layer = [int(num) for num in args.data_neurons.split('-')]
+    model = generate_mlp(key1, args.data_dim, nneurons_per_layer)
 
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
     X_tr = generate_xdata_mvn(key1, args.ntrain, d)
@@ -62,7 +62,8 @@ def make_data_mlp(args):
     X_te = generate_xdata_mvn(key3, args.ntest, d)
     Y_te = generate_ydata_mlpreg(key3, X_te, model, noise_std)
 
-    neuron_str = '-'.join(str(num) for num in args.data_neurons)
+    neuron_str = '_'.join(str(num) for num in nneurons_per_layer)
+    #neuron_str = args.data_neurons
     name = f'mlpreg-dim{args.data_dim}-neurons{neuron_str}-key{args.data_key}'
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data

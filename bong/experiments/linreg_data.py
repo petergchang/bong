@@ -32,8 +32,8 @@ def generate_linear_model(keyroot, d):
 def generate_ydata_linreg(keyroot, X, theta, noise_std=1.0):
     key, keyroot = jr.split(keyroot)
     N, d = X.shape
-    Ymean = X @ theta
-    Y = Ymean  + jr.normal(key, (N,1)) * noise_std
+    Ymean = X @ theta # (N,)
+    Y = Ymean  + jr.normal(key, (N,)) * noise_std
     return Y
 
 

@@ -963,6 +963,7 @@ class fg_bbb:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
+        **kwargs
     ):
         name = f"bbb-FC-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
@@ -1057,7 +1058,6 @@ class dlrg_bbb:
         learning_rate: float=1e-1,
         num_iter: int=10,
         rank: int=10,
-        *args,
         **kwargs
     ):
         name = f"bbb-DLR-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
@@ -1151,6 +1151,7 @@ class dg_bbb:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
+        **kwargs
     ):
         name = f"bbb-Diag-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
@@ -1242,6 +1243,7 @@ class fg_reparam_bbb:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
+        **kwargs
     ):
         name = f"bbb-FC-Mom-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
@@ -1333,6 +1335,7 @@ class dg_reparam_bbb:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
+        **kwargs
     ):
         name = f"bbb-Diag-Mom-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
