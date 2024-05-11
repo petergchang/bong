@@ -16,6 +16,7 @@ import optax
 import optuna
 import pandas as pd
 import matplotlib.pyplot as plt
+from jax.flatten_util import ravel_pytree
 
 from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
@@ -40,7 +41,7 @@ def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
     result += (mu2 - mu1).T @ jnp.linalg.solve(sigma2, mu2 - mu1)
     return 0.5 * result
 
-class MLP(nn.Module):
+class MLPold(nn.Module):
     features: Sequence[int]
     activation: nn.Module = nn.relu
     use_bias: bool = True
@@ -52,6 +53,49 @@ class MLP(nn.Module):
             x = self.activation(nn.Dense(feat)(x))
         x = nn.Dense(self.features[-1], use_bias=self.use_bias)(x)
         return x
+
+
+# https://twitter.com/DHolzmueller/status/1787053526453023011
+#https://jmlr.org/papers/volume23/20-830/20-830.pdf
+# Recommends sampling first layer bias terms from U(-sqrt(6), 0)
+# to avoid all the kinks (for relu network) being at the origin
+
+def make_bias_initializer(method, minval=-jnp.sqrt(6), maxval=0):
+    #https://flax.readthedocs.io/en/latest/api_reference/flax.linen/initializers.html
+    def custom_uniform(key, shape, dtype=jnp.float32):
+        return jnp.array(jax.random.uniform(key, shape, dtype=dtype, minval=minval, maxval=maxval))
+
+    if method == 'zero':
+        bias_init = nn.initializers.constant(0)  
+    elif method == 'uniform':
+        bias_init = custom_uniform
+    else:
+        raise Exception(f'unknown bias init {method}')
+    return bias_init
+
+
+
+class MLP(nn.Module):
+    #https://flax.readthedocs.io/en/latest/api_reference/flax.linen/layers.html
+    features: Sequence[int]
+    activation: nn.Module = nn.gelu
+    use_bias: bool = True
+    bias_init_fn: nn.initializers = make_bias_initializer('uniform')
+    bias_init_fn_first_layer: nn.initializers = make_bias_initializer('uniform')
+
+    @nn.compact
+    def __call__(self, x):
+        x = x.ravel()
+        if len(self.features) == 1: # linear model
+            x = nn.Dense(self.features[-1], use_bias=self.use_bias, bias_init=self.bias_init_fn_first_layer)(x)
+        else:
+            x = self.activation(nn.Dense(self.features[0], use_bias=self.use_bias, bias_init=self.bias_init_fn_first_layer)(x))
+            for feat in self.features[1:-1]:
+                x = self.activation(nn.Dense(feat, use_bias=self.use_bias, bias_init=self.bias_init_fn)(x))
+            x = nn.Dense(self.features[-1], use_bias=self.use_bias, bias_init=self.bias_init_fn)(x)
+        return x
+
+
 
 
 def hess_diag_approx(
