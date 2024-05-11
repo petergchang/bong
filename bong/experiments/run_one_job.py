@@ -13,6 +13,7 @@ from bong.util import run_rebayes_algorithm, gaussian_kl_div
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.agents import AGENT_DICT, AGENT_NAMES
 from linreg_data import make_linreg
+from mlpreg_data import make_mlpreg
 from job_utils import  run_agent
 
 
@@ -20,6 +21,8 @@ from job_utils import  run_agent
 def make_results(args):
     if args.dataset == "linreg":
         data, init_kwargs, callback, tune_fn = make_linreg(args)
+    elif args.dataset == "mlpreg":
+        data, init_kwargs, callback, tune_fn = make_mlpreg(args)
     else:
         raise Exception(f'unrecognized dataset {args.dataset}')
 
@@ -71,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument("--ntest", type=int, default=500)
     parser.add_argument("--data_dim", type=int, default=10)
     parser.add_argument("--emission_noise", type=float, default=1.0)
+    parser.add_argument("--data_neurons", type=int, nargs="+", default=[20,20,20,1])
     
     # Model parameters
     parser.add_argument("--agent", type=str, default="bong-fc", choices=AGENT_NAMES)
@@ -80,6 +84,7 @@ if __name__ == "__main__":
     parser.add_argument("--nsample", type=int, default=10) 
     parser.add_argument("--ef", type=int, default=1)
     parser.add_argument("--linplugin", type=int, default=0)
+    parser.add_argument("--model_neurons", type=int, nargs="+", default=[10,10,1])
 
     # results
     parser.add_argument("--dir", type=str, default="", help="directory to store results") 

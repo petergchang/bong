@@ -23,36 +23,47 @@ def generate_xdata_mvn(keyroot, N, d, c=1., scale=1):
     X = jr.multivariate_normal(key1, mean, cov, (N,))
     return X
 
-def generate_linear_model(keyroot, d):
-    key1, key2, keyroot = jr.split(keyroot, 3)
-    theta = jr.uniform(key1, (d,), minval=-1., maxval=1.)
-    theta = theta / jnp.linalg.norm(theta)
-    return theta
 
-def generate_ydata_linreg(keyroot, X, theta, noise_std=1.0):
+
+def generate_mlp(keyroot, d, nneurons = [1,]):
+    # nneurons=[1,] refers to scalar output with no hidden units
+    key, keyroot = jr.split(keyroot)
+    model = MLP(features = nneurons, use_bias=True)
+    params = model.init(key, jnp.ones(d,))
+    flat_params, unflatten_fn = ravel_pytree(params)
+    apply_fn = lambda w, x: model.apply(unflatten_fn(w), jnp.atleast_1d(x))
+    pred_fn = lambda x: model.apply(params, jnp.atleast_1d(x))
+    model_dict = {'model': model, 'params': params, 'flat_params': flat_params, 'apply_fn': apply_fn, 'pred_fn': pred_fn}
+    return model_dict
+
+
+def generate_ydata_mlpreg(keyroot, X, model, noise_std=1.0):
     key, keyroot = jr.split(keyroot)
     N, d = X.shape
-    Ymean = X @ theta
-    Y = Ymean  + jr.normal(key, (N,1)) * noise_std
+    predictor = model['pred_fn']
+    Ymean = jax.vmap(predictor)(X)
+    Y = Ymean + jr.normal(key, (N,1)) * noise_std
     return Y
 
 
 
-def make_data_linreg(args):
+
+def make_data_mlp(args):
     d, noise_std = args.data_dim, args.emission_noise
     keyroot = jr.PRNGKey(args.data_key)
     key1, keyroot = jr.split(keyroot)
-    theta = generate_linear_model(key1, args.data_dim)
+    model = generate_mlp(key1, args.data_dim, args.data_neurons)
 
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
     X_tr = generate_xdata_mvn(key1, args.ntrain, d)
-    Y_tr = generate_ydata_linreg(key1, X_tr, theta, noise_std)
+    Y_tr = generate_ydata_mlpreg(key1, X_tr, model, noise_std)
     X_val = generate_xdata_mvn(key2, args.nval, d)
-    Y_val = generate_ydata_linreg(key2, X_val, theta, noise_std)
+    Y_val = generate_ydata_mlpreg(key2, X_val, model, noise_std)
     X_te = generate_xdata_mvn(key3, args.ntest, d)
-    Y_te = generate_ydata_linreg(key3, X_te, theta, noise_std)
+    Y_te = generate_ydata_mlpreg(key3, X_te, model, noise_std)
 
-    name = f'linreg-dim{args.data_dim}-key{args.data_key}'
+    neuron_str = '-'.join(str(num) for num in args.data_neurons)
+    name = f'mlpreg-dim{args.data_dim}-neurons{neuron_str}-key{args.data_key}'
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data
 
@@ -69,7 +80,8 @@ def compute_prior_post_linreg(args, data):
     return prior, post
 
 
-def init_linreg(args, data):
+def init_mlpreg(args, data):
+    print("WIP******************")
     prior, post = compute_prior_post_linreg(args, data) # training set
     noise_std = args.emission_noise
     
@@ -109,7 +121,7 @@ def init_linreg(args, data):
 
     return init_kwargs, callback, tune_kl_loss_fn
 
-def make_linreg(args):
-    data = make_data_linreg(args)
-    init_kwargs, callback, tune_obj_fn = init_linreg(args, data)
+def make_mlpreg(args):
+    data = make_data_mlpreg(args)
+    init_kwargs, callback, tune_obj_fn = init_mlpreg(args, data)
     return data, init_kwargs, callback, tune_obj_fn
