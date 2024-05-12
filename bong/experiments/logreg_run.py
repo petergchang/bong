@@ -19,7 +19,7 @@ from ucimlrepo import fetch_ucirepo
 from bong.settings import logreg_path, uci_path
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.util import MLP, run_rebayes_algorithm, tune_init_hyperparam
-from plot_utils import plot_results
+from plot_utils import plot_results_from_dict
 from job_utils import convert_result_dict_to_pandas, split_filename_column, run_agents
 
 from bong.agents import AGENT_TYPES, LR_AGENT_TYPES, BONG_DICT
@@ -329,7 +329,7 @@ def main(args):
     #df.to_csv(fname, index=False, na_rep="NAN", mode="w")
     df.to_csv(fname, index=False, mode="w")
 
-    plot_results(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
+    plot_results_from_dict(result_dict, curr_path, filename_prefix, ttl=filename_prefix)
 
 
 

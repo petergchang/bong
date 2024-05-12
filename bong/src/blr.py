@@ -748,10 +748,9 @@ class fg_blr:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
-        *args,
         **kwargs
     ):
-        name = f"BLR-FC-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"blr_fc_MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -844,10 +843,9 @@ class dlrg_blr:
         learning_rate: float=1e-1,
         num_iter: int=10,
         rank: int=10,
-        *args,
         **kwargs
     ):
-        name = f"BLR-DLR-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
+        name = f"blr_dlr-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -938,10 +936,9 @@ class dg_blr:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
-        *args,
         **kwargs
     ):
-        name = f"BLR-Diag-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"blr_diag-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1027,10 +1024,9 @@ class fg_reparam_blr:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
-        *args,
         **kwargs
     ):
-        name = f"BLR-FC-Mom-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"blr_fc_mom-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1116,10 +1112,9 @@ class dg_reparam_blr:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         num_iter: int=10,
-        *args,
         **kwargs
     ):
-        name = f"BLR-Diag-Mom-M{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"blr_diag_mom-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)

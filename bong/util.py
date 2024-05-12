@@ -28,6 +28,7 @@ _vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inver
 
 def safestr(lr):
     '''Convert float to string, replacing . with _, so can be used as a filename'''
+    lr = float(lr) # convert from string if necessary
     lr_str = f"{round(lr,4)}".replace('.', '_')
     return lr_str
 

@@ -51,7 +51,7 @@ def make_data_mlpreg(args):
     d, noise_std = args.data_dim, args.emission_noise
     keyroot = jr.PRNGKey(args.data_key)
     key1, keyroot = jr.split(keyroot)
-    nneurons_per_layer = [int(num) for num in args.data_neurons.split('-')]
+    nneurons_per_layer = [int(num) for num in args.data_neurons.split('+')]
     model = generate_mlp(key1, args.data_dim, nneurons_per_layer)
 
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
@@ -62,9 +62,10 @@ def make_data_mlpreg(args):
     X_te = generate_xdata_mvn(key3, args.ntest, d)
     Y_te = generate_ydata_mlpreg(key3, X_te, model, noise_std)
 
-    neuron_str = '_'.join(str(num) for num in nneurons_per_layer)
+    #neuron_str = '_'.join(str(num) for num in nneurons_per_layer)
     #neuron_str = args.data_neurons
-    name = f'mlpreg-dim{args.data_dim}-neurons{neuron_str}-key{args.data_key}'
+    #name = f'mlpreg-dim{args.data_dim}-neurons{neuron_str}-key{args.data_key}'
+    name = make_dataset_name(args)
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data
 

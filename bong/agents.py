@@ -1,204 +1,205 @@
 from bong.src import bbb, blr, bog, bong
 import pandas as pd
+from bong.util import safestr
 
-AGENT_TYPES = ["fg-bong", "fg-l-bong", "fg-rep-bong", "fg-rep-l-bong",
-               "fg-blr", "fg-bog", "fg-bbb", "fg-rep-bbb"]
+AGENT_TYPES = ["fg_bong", "fg_l_bong", "fg_rep_bong", "fg_rep_l_bong",
+               "fg_blr", "fg_bog", "fg_bbb", "fg_rep_bbb"]
 
 
-LR_AGENT_TYPES = ["fg-blr", "fg-bog", "fg-rep-bog", "fg-bbb", "fg-rep-bbb"]
+LR_AGENT_TYPES = ["fg_blr", "fg_bog", "fg_rep_bog", "fg_bbb", "fg_rep_bbb"]
 
 
 BONG_DICT = {
-    "fg-bong": bong.fg_bong,
-    "fg-l-bong": bong.fg_bong,
-    "fg-rep-bong": bong.fg_reparam_bong,
-    "fg-rep-l-bong": bong.fg_reparam_bong,
-    "fg-blr": blr.fg_blr,
-    "fg-bog": bog.fg_bog,
-    "fg-bbb": bbb.fg_bbb,
-    "fg-rep-bbb": bbb.fg_reparam_bbb,
+    "fg_bong": bong.fg_bong,
+    "fg_l_bong": bong.fg_bong,
+    "fg_rep_bong": bong.fg_reparam_bong,
+    "fg_rep_l_bong": bong.fg_reparam_bong,
+    "fg_blr": blr.fg_blr,
+    "fg_bog": bog.fg_bog,
+    "fg_bbb": bbb.fg_bbb,
+    "fg_rep_bbb": bbb.fg_reparam_bbb,
 }
 
-
+# A None field means there is no fixed value for this agent
+# so the value must be specified at runtime
 AGENT_DICT_MC = {
-    'bong-fc': {'constructor': bong.fg_bong, 
+    'bong_fc': {'constructor': bong.fg_bong, 
                 'lr': 0,
                 'niter': 0,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bong-fc-mom': {'constructor': bong.fg_reparam_bong, 
+    'bong_fc_mom': {'constructor': bong.fg_reparam_bong, 
                 'lr': 0,
                 'niter': 0,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bong-diag': {'constructor': bong.dg_bong, 
+    'bong_diag': {'constructor': bong.dg_bong, 
                 'lr': 0,
                 'niter': 0,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bong-diag-mom': {'constructor': bong.dg_reparam_bong, 
+    'bong_diag_mom': {'constructor': bong.dg_reparam_bong, 
                 'lr': 0,
                 'niter': 0,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bong-dlr': {'constructor': bong.dlrg_bong, 
+    'bong_dlr': {'constructor': bong.dlrg_bong, 
                 'lr': 0,
                 'niter': 0,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': None,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': None,
                 },
 #################
 #################
-     'blr-fc': {'constructor': blr.fg_blr, 
+     'blr_fc': {'constructor': blr.fg_blr, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': False,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'blr-fc-mom': {'constructor': blr.fg_reparam_blr, 
+    'blr_fc_mom': {'constructor': blr.fg_reparam_blr, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': False,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'blr-diag': {'constructor': blr.dg_blr, 
+    'blr_diag': {'constructor': blr.dg_blr, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'blr-diag-mom': {'constructor': blr.dg_reparam_blr, 
+    'blr_diag_mom': {'constructor': blr.dg_reparam_blr, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'blr-dlr': {'constructor': blr.dlrg_blr, 
+    'blr_dlr': {'constructor': blr.dlrg_blr, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': None,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': None,
                 },
     ###########
 #############
-     'bog-fc': {'constructor': bog.fg_bog, 
+     'bog_fc': {'constructor': bog.fg_bog, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': False,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bog-fc-mom': {'constructor': bog.fg_reparam_bog, 
+    'bog_fc_mom': {'constructor': bog.fg_reparam_bog, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': False,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bog-diag': {'constructor': bog.dg_bog, 
+    'bog_diag': {'constructor': bog.dg_bog, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bog-diag-mom': {'constructor': bog.dg_reparam_bog, 
+    'bog_diag_mom': {'constructor': bog.dg_reparam_bog, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bog-dlr': {'constructor': bog.dlrg_bog, 
+    'bog_dlr': {'constructor': bog.dlrg_bog, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': None,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': None,
                 },
 ###########
 #############
-     'bbb-fc': {'constructor': bbb.fg_bbb, 
+     'bbb_fc': {'constructor': bbb.fg_bbb, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': False,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bbb-fc-mom': {'constructor': bbb.fg_reparam_bbb, 
+    'bbb_fc_mom': {'constructor': bbb.fg_reparam_bbb, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': False,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bbb-diag': {'constructor': bbb.dg_bbb, 
+    'bbb_diag': {'constructor': bbb.dg_bbb, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': 1,
+                'dlr_rank': 0,
                 },
-    'bbb-diag-mom': {'constructor': bbb.dg_reparam_bbb, 
+    'bbb_diag_mom': {'constructor': bbb.dg_reparam_bbb, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': 0,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': 0,
                 },
-    'bbb-dlr': {'constructor': bbb.dlrg_bbb, 
+    'bbb_dlr': {'constructor': bbb.dlrg_bbb, 
                 'lr': None,
                 'niter': None,
                 'nsample': None,
-                'linplugin': False,
-                'ef': True,
-                'rank': None,
+                'linplugin': 0,
+                'ef': None,
+                'dlr_rank': None,
                 },
 }
 
 def convert_to_linplugin(args):
     args = args.copy()
-    args['linplugin'] = True
-    #args['needs_nsample'] = False
+    args['linplugin'] = 1
     args['nsample'] = 0
-    args['ef'] = False
+    args['ef'] = 0
     return args
 
 
-AGENT_DICT_LIN = { f'{agent}-lin': convert_to_linplugin(args) for (agent, args) in AGENT_DICT_MC.items() }
+AGENT_DICT_LIN = { f'{agent}_lin': convert_to_linplugin(args) for (agent, args) in AGENT_DICT_MC.items() }
 AGENT_DICT = AGENT_DICT_MC | AGENT_DICT_LIN # union of dicts (python 3.9+)
 
 AGENT_NAMES = AGENT_DICT.keys()
@@ -211,3 +212,74 @@ def make_agent_df(AGENT_DICT):
 
     df = pd.DataFrame(lst)
     return df
+
+
+
+def make_agent_name(args):
+    parts = []
+    if hasattr(args, 'agent_list'):
+        if len(args.agent_list)>1:
+            s =  "Any"
+        else:
+            s = args.agent_list[0]
+    else:
+        s = args.agent
+    parts.append(f"A:{s}")
+
+    if hasattr(args, 'lr_list'):
+        if len(args.lr_list)>1:
+            s =  "Any"
+        else:
+            s = safestr(args.lr_list[0])
+    else:
+        s = safestr(args.lr)
+    parts.append(f"LR:{s}")
+
+    if hasattr(args, 'niter_list'):
+        if len(args.niter_list)>1:
+            s =  "Any"
+        else:
+            s = args.niter_list[0]
+    else:
+        s = args.niter
+    parts.append(f"I:{s}")
+
+    if hasattr(args, 'nsample_list'):
+        if len(args.nsample_list)>1:
+            s =  "Any"
+        else:
+            s = args.nsample_list[0]
+    else:
+        s = args.nsample
+    parts.append(f"MC:{s}")
+
+    if hasattr(args, 'ef_list'):
+        if len(args.ef_list)>1:
+            s =  "Any"
+        else:
+            s = args.ef_list[0]
+    else:
+        s = args.ef
+    parts.append(f"EF:{s}")
+
+    if hasattr(args, 'rank_list'):
+        if len(args.rank_list)>1:
+            s =  "Any"
+        else:
+            s = args.rank_list[0]
+    else:
+        s = args.rank
+    parts.append(f"R:{s}")
+
+    if hasattr(args, 'model_neurons_list'):
+        if len(args.model_neurons_list)>1:
+            s =  "Any"
+        else:
+            s = args.model_neurons_list[0]
+    else:
+        s = args.model_neurons
+    parts.append(f"MLP:{s}")
+
+    name = "-".join(parts)
+    return name
+

@@ -10,6 +10,7 @@ from pathlib import Path
 def make_marker(name):
     #https://matplotlib.org/stable/api/markers_api.html
     markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
+    name = name.lower()
     if "bong" in name:
         return markers['bong']
     elif "blr" in name:
@@ -19,8 +20,52 @@ def make_marker(name):
     elif "bbb" in name:
         return markers['bbb']
     else:
-        return 'P;'
+        return '.'
     
+#'/teamspace/studios/this_studio/jobs/{jobname}/work'
+#f'/teamspace/jobs/{jobname}/work'
+
+
+def plot_results_from_files(dir,  metric, save_fig=False):
+    fname = f"{dir}/flags.csv"
+    df_flags = pd.read_csv(fname)
+    jobnames = df_flags['jobname']
+
+    fig, ax = plt.subplots(figsize=(5,5))
+    fs = 'x-small'
+    loc = 'upper right' #'lower left'
+
+    for jobname in jobnames:
+        fname = f"{dir}/{jobname}/work/results.csv"
+        df_res = pd.read_csv(fname)
+        vals = df_res[metric]
+        if np.any(np.isnan(vals)):
+            print(f'found NaNs in {metric} in {fname}, skipping')
+            continue
+        
+        agent_name = df_res['agent_name'][0] # bong_fc-MC10
+        agent_type = agent_name.split('_')[0]
+        #print(f'plotting {agent_name}, {agent_type}')
+        marker = make_marker(agent_type)
+        data_name = df_res['dataset_name'][0]
+        ttl = f'{metric} on {data_name}'
+
+        T = len(vals)
+        steps = jnp.arange(0, T)
+        ndx = round(jnp.linspace(0, T-1, num=min(T,30))) #    # extract subset of points for plotting to avoid cluttered markers
+        ndx = ndx[2:] #  skip first 2 time steps, since it messes up the vertical scale
+
+        ax.plot(steps[ndx], vals[ndx], label=agent_name, marker=marker)
+        ax.grid(True)
+        ax.legend(loc=loc, prop={'size': fs})
+        ax.set_ylabel(metric)
+        ax.set_xlabel('num. training observations')
+        ax.set_title(ttl)
+    if save_fig:
+        fname = f"{dir}/{metric}.png"
+        print(f'Saving figure to {fname}')
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+
 def plot_df(df):
     #fname = "/Users/kpmurphy/github/bong/bong/results/baz_parsed.csv"
     #df = pd.read_csv(fname)
@@ -100,7 +145,7 @@ def plot_df(df):
             ax.legend(loc=loc, prop={'size': fs})
             ax.set_title(f'Iter{niter}-LR{lr}')
     
-def plot_results(result_dict, curr_path=None, file_prefix='', ttl='', filetype='png'):
+def plot_results_from_dict(result_dict, curr_path=None, file_prefix='', ttl='', filetype='png'):
     result_dict = result_dict.copy()
     #T = extract_nsteps_from_result_dict(result_dict)
     T = result_dict.pop('ntest')

@@ -695,10 +695,9 @@ class fg_bog:
         linplugin: bool=False, 
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
-        *args,
         **kwargs,
     ):
-        name = f"bog-FC-M{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bog_fc-MC{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -781,10 +780,9 @@ class dlrg_bog:
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
         rank: int=10,
-        *args,
         **kwargs,
     ):
-        name = f"bog-DLR-M{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
+        name = f"bog_dlr-MC{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -865,10 +863,9 @@ class dg_bog:
         linplugin: bool=False,
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
-        *args,
         **kwargs,
     ):
-        name = f"bog-Diag-M{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bog_diag-MC{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -948,10 +945,9 @@ class fg_reparam_bog:
         linplugin: bool=False,
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
-        *args,
         **kwargs,
     ):
-        name = f"bog-FC-Mom-M{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bog_fc_mom-MC{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1031,10 +1027,9 @@ class dg_reparam_bog:
         linplugin: bool=False,
         empirical_fisher: bool=False,
         learning_rate: float=1e-1,
-        *args,
         **kwargs,
     ):
-        name = f"bog-Diag-Mom-M{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bog_diag_mom-MC{num_samples}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)

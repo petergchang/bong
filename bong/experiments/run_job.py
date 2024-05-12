@@ -12,12 +12,14 @@ import jax
 from bong.util import run_rebayes_algorithm, gaussian_kl_div
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.agents import AGENT_DICT, AGENT_NAMES
+
+from datasets import DATASET_NAMES
 from linreg_data import make_linreg
 from mlpreg_data import make_mlpreg
 
 
 def run_agent(key, agent, data, callback):
-    print(f"Running {agent.name}")
+    print(f"Running {agent.name} on {data['name']}")
     t0 = time.perf_counter()
     _, (kldiv, nll, nlpd) = jax.block_until_ready(
         run_rebayes_algorithm(key, agent, data['X_tr'], data['Y_tr'], transform=callback)
@@ -64,7 +66,7 @@ def make_results(args):
 
 
 def main(args, args_dict):
-    print(args)
+    #print(args)
     results_path = Path(args.dir)
     results_path.mkdir(parents=True, exist_ok=True)
     
@@ -77,7 +79,7 @@ def main(args, args_dict):
     df = make_results(args)
 
     fname = Path(results_path, f"{args.filename}results.csv")
-    print("Saving to", fname)
+    #print("Saving to", fname)
     df.to_csv(fname, index=False) #, na_rep="NAN", mode="w")
 
 
@@ -86,7 +88,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Data parameters
-    parser.add_argument("--dataset", type=str, default="linreg")
+    parser.add_argument("--dataset", type=str, default="linreg",  choices=DATASET_NAMES)
     parser.add_argument("--data_dim", type=int, default=10)
     parser.add_argument("--data_neurons", type=str, default="20-20-1") # default is nonlinear generator
     parser.add_argument("--emission_noise", type=float, default=1.0)
@@ -97,7 +99,7 @@ if __name__ == "__main__":
 
     
     # Model parameters
-    parser.add_argument("--agent", type=str, default="bong-fc") # choices=AGENT_NAMES)
+    parser.add_argument("--agent", type=str, default="bong_fc", choices=AGENT_NAMES)
     parser.add_argument("--agent_key", type=int, default=0)
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--niter", type=int, default=10) 

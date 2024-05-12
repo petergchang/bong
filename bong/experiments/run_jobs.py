@@ -5,10 +5,12 @@ import os
 import itertools
 import pandas as pd
 from pathlib import Path
-
-from bong.agents import AGENT_DICT, AGENT_NAMES
-
 import os
+
+from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name
+from datasets import DATASET_NAMES, make_dataset_name
+from bong.util import safestr
+
 cwd = Path(os.getcwd())
 root = cwd
 script_path = os.path.abspath(__file__)
@@ -55,6 +57,30 @@ def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, model_ne
 
 
 def make_df_for_flag_crossproduct(
+        agent_list, lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list):
+    args_list = []
+    for agent in agent_list:
+        props = AGENT_DICT[agent]
+        for lr in lr_list:
+            for niter in niter_list:
+                for nsample in nsample_list:
+                    for ef in ef_list:
+                        for model_neurons in model_neurons_list:
+                            for rank in rank_list:
+                                args = extract_optional_agent_args(props, lr, niter, nsample, ef, rank)
+                                args['agent'] = agent
+                                args['model_neurons'] = model_neurons
+                                args_list.append(args)
+    df = pd.DataFrame(args_list)
+    df = df.drop_duplicates()
+    N = len(df)
+    jobnames = [f'job-{i}' for i in range(N)] 
+    df['jobname'] = jobnames
+    #dirs = [make_results_dirname(j, parallel) for j in jobnames]
+    #df['results_dir'] = dirs
+    return df
+
+def make_df_for_flag_crossproduct_full(
         agent_list, lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list,
         data_dim_list, data_key_list):
     args_list = []
@@ -88,10 +114,12 @@ def make_df_for_flag_crossproduct(
 def main(args):
     df_flags = make_df_for_flag_crossproduct(
         args.agent_list, args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.model_neurons_list, args.rank_list,
-        args.data_dim_list, args.data_key_list)
+        args.ef_list, args.model_neurons_list, args.rank_list)#
+        #args.data_dim_list, args.data_key_list)
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
     df_flags['dataset'] = args.dataset
+    df_flags['data_dim'] = args.data_dim
+    df_flags['data_key'] = args.data_key
 
     cmd_dict = {}
     for index, row in df_flags.iterrows():
@@ -101,14 +129,25 @@ def main(args):
             row.dataset, row.data_dim, row.data_key)
         cmd_dict[row.jobname] = cmd
 
+    if args.dir == "":
+        data_name = make_dataset_name(args)
+        agent_name = make_agent_name(args)
+        path = Path(args.rootdir, data_name, agent_name)
+        print(f'Creating {str(path)}')
+        path.mkdir(parents=True, exist_ok=True)
+        results_dir = str(path)
+        jobs_dir = results_dir
+    else:
+        path = Path(args.dir)
+        print(f'Creating {str(path)}')
+        path.mkdir(parents=True, exist_ok=True)
+
     # Store csv containing all the flags/commands that are being executed
-    path = Path(args.dir)
-    path.mkdir(parents=True, exist_ok=True)
     fname = Path(path, "flags.csv")
     print("Saving to", fname)
     df_flags.to_csv(fname, index=False) 
 
-    cmds = [{'agent': key, 'command': value} for key, value in cmd_dict.items()]
+    cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
     df_cmds = pd.DataFrame(cmds)
     fname = Path(path, "cmds.csv")
     print("Saving to", fname)
@@ -120,37 +159,45 @@ def main(args):
         studio = Studio()
         studio.install_plugin('jobs')
         job_plugin = studio.installed_plugins['jobs']
-        print(f'Will store results in /teamspace/jobs/[jobname]/work')
+        jobs_dir = '/teamspace/jobs'
+        #print(f'Will store results in /teamspace/jobs/[jobname]/work')
 
         for jobname, cmd in cmd_dict.items():
             print('queuing job', jobname)
+            output_dir = f'{jobs_dir}/{jobname}/work' 
             print(cmd)
+            print(f'saving output to {output_dir}')
             job_plugin.run(cmd, name=jobname)
+            # Need to copy from jobs_dir to results_dir
 
     else:
         #print(f'Storing results in {args.dir}')
         for jobname, cmd in cmd_dict.items():   
-            output_dir = f'{args.dir}/{jobname}'  
+            output_dir = f'{jobs_dir}/{jobname}/work'  
             path = Path(output_dir)
             path.mkdir(parents=True, exist_ok=True)   
             cmd = cmd + f' --dir {output_dir}'
             print('\n\nRunning', cmd)
-            print(f'Storing results in {output_dir}')
+            #print(f'Storing results in {output_dir}')
             os.system(cmd)
+
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dir", type=str, default="", help="directory in which to store results") 
+    parser.add_argument("--rootdir", type=str, default="/teamspace/studios/this_studio/jobs") 
+    parser.add_argument("--dir", type=str, default="")
     parser.add_argument("--parallel", type=bool, default=False)
 
     # Data parameters
-    parser.add_argument("--dataset", type=str, default="linreg")
-    parser.add_argument("--data_dim_list", type=int, nargs="+", default=[10])
-    parser.add_argument("--data_key_list", type=int, nargs="+", default=[0])
+    parser.add_argument("--dataset", type=str, default="linreg", choices=DATASET_NAMES)
+    parser.add_argument("--data_dim", type=int,  default=10)
+    parser.add_argument("--data_key", type=int,  default=0)
+    #parser.add_argument("--data_dim_list", type=int, nargs="+", default=[10])
+    #parser.add_argument("--data_key_list", type=int, nargs="+", default=[0])
     
     # Agent parameters
-    parser.add_argument("--agent_list", type=str, nargs="+", default=["bong-fc"])  # choices=AGENT_NAMES
+    parser.add_argument("--agent_list", type=str, nargs="+", default=["bong_fc"], choices=AGENT_NAMES)
     parser.add_argument("--lr_list", type=float, nargs="+", default=[0.01])
     parser.add_argument("--niter_list", type=int, nargs="+", default=[10])
     parser.add_argument("--nsample_list", type=int, nargs="+", default=[10])
@@ -165,11 +212,19 @@ if __name__ == "__main__":
 
 '''
 
-python run_jobs.py   --agent_list bbb-fc  --lr_list 0.01  \
+python run_jobs.py   --agent_list bbb_fc  --lr_list 0.01  \
     --nsample_list 10 --niter_list 10 --ef_list 0  \
-    --dataset linreg --data_dim_list 10 --dir ~/jobs/linreg10
+    --dataset linreg --data_dim 10 --rootdir ~/jobs
 
-python run_jobs.py   --agent_list bong-fc blr-fc bog-fc bbb-fc --lr_list 0.005 0.01 0.05 \
+python run_jobs.py   --agent_list bong_fc blr_fc bog_fc bbb_fc --lr_list 0.005 0.01 0.05 \
     --nsample_list 10 --niter_list 10 --ef_list 0  \
-    --dataset linreg --data_dim_list 10 --dir ~/jobs/linreg10
+    --dataset linreg --data_dim 10 --rootdir ~/jobs
+
+python run_jobs.py   --agent_list bong_fc bbb_fc --lr_list 0.01 0.05 \
+    --nsample_list 10 --niter_list 10 --ef_list 0  \
+    --dataset linreg --data_dim 10 --rootdir ~/jobs
+
+python plot_jobs.py   --agent_list bong_fc bbb_fc --lr_list 0.01 0.05 \
+    --nsample_list 10 --niter_list 10 --ef_list 0  \
+    --dataset linreg --data_dim 10 --rootdir ~/jobs
 '''
