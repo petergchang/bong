@@ -682,7 +682,9 @@ class fg_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        name = f"bong_fc-MC{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bong_fc-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bong"
+        param = "fc"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -763,7 +765,9 @@ class dlrg_bong:
         rank: int=10,
         **kwargs
     ):
-        name = f"bong_dlr-MC{num_samples}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
+        name = f"bong_dlr-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
+        algo = "bong"
+        param = "dlr"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -843,7 +847,9 @@ class dg_bong:
         *args,
         **kwargs
     ):
-        name = f"bong_dg-MC{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bong_diag-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bong"
+        param = "diag"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -922,7 +928,9 @@ class fg_reparam_bong:
         *args,
         **kwargs
     ):
-        name = f"bong_fc_mom-MC{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bong_fc_mom-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bong"
+        param = "fc_mom"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1000,7 +1008,9 @@ class dg_reparam_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        name = f"bong_diag_mom-MC{num_samples}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"bong_diag_mom-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bong"
+        param = "diag_mom"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)

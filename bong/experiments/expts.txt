@@ -1,0 +1,41 @@
+
+
+ALGO=("bong" "bog" "bbb" "blr")
+PARAM=("fc")
+LIN=(0)
+LR=(0.05 0.1)
+NSAMPLE=(10)
+NITER=(10)
+EF=(0 1)
+DATASET="linreg"
+DATADIM=10
+PREFIX="job"
+
+python run_jobs.py \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NSAMPLE[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX 
+
+
+python run_jobs.py \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NSAMPLE[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --plot 1
+

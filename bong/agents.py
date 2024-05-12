@@ -2,7 +2,7 @@ from functools import partial
 
 from bong.src import bbb, blr, bog, bong
 import pandas as pd
-from bong.util import safestr
+from bong.util import safestr, unsafestr
 
 AGENT_TYPES = ["fg_bong", "fg_l_bong", "fg_rep_bong", "fg_rep_l_bong",
                "fg_blr", "fg_bog", "fg_bbb", "fg_rep_bbb"]
@@ -255,3 +255,27 @@ def make_agent_df(AGENT_DICT):
     df = pd.DataFrame(lst)
     return df
 
+def parse_agent_name(s):
+    # example input: 'bong_fc-MC10-I0-LR0_05-EF1-Lin1-R10'
+    parts = s.split('-')
+    if len(parts)==6:
+        agent, mc, niter, lr, ef, lin = parts
+        rank = 0
+    else:
+        agent, mc, niter, lr, ef, lin, rank = parts
+        rank = rank[1:]
+    mc, niter, lr, ef, lin = mc[2:], niter[1:], lr[2:], ef[2:], lin[3:]
+
+    parts = agent.split('_') # blr_diag or blr_diag_mom into
+    algo = parts[0]
+    param = "_".join(parts[1:])
+    return {
+        'algo': algo,
+        'param': param,
+        'mc': int(mc),
+        'niter': int(niter),
+        'lr': unsafestr(lr),
+        'ef': int(ef),
+        'lin': int(lin),
+        'rank': int(rank)
+        }

@@ -13,7 +13,7 @@ import jax.random as jr
 import numpy as np
 import jax.numpy as jnp
 
-from bong.util import run_rebayes_algorithm
+from bong.util import run_rebayes_algorithm. list_subdirectories
 from bong.agents import AGENT_DICT, AGENT_NAMES
 
 def run_agents_parallel_api(keyroot, agent_queue, data, callback, result_dict={}):
@@ -43,9 +43,7 @@ def run_agents(keyroot, agent_queue, data, callback, result_dict={}):
     result_dict['ntest'] = ntest
     return result_dict
 
-def list_subdirectories(directory):
-    return [name for name in os.listdir(directory)
-            if os.path.isdir(os.path.join(directory, name))]
+
 
 def get_job_dir(parallel):
     # for lightning ai studio

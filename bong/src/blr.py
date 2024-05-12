@@ -750,7 +750,9 @@ class fg_blr:
         num_iter: int=10,
         **kwargs
     ):
-        name = f"blr_fc_MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        name = f"blr_fc-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "blr"
+        param = "fc"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -846,6 +848,8 @@ class dlrg_blr:
         **kwargs
     ):
         name = f"blr_dlr-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
+        algo = "blr"
+        param = "dlr"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -939,6 +943,8 @@ class dg_blr:
         **kwargs
     ):
         name = f"blr_diag-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "blr"
+        param = "diag"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1027,6 +1033,8 @@ class fg_reparam_blr:
         **kwargs
     ):
         name = f"blr_fc_mom-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "blr"
+        param = "fc_mom"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1115,6 +1123,8 @@ class dg_reparam_blr:
         **kwargs
     ):
         name = f"blr_diag_mom-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "blr"
+        param = "diag_mom"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)

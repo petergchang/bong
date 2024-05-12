@@ -27,12 +27,24 @@ from bong.types import Array, ArrayLike, PRNGKey
 _vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inverse
 
 def safestr(lr):
-    '''Convert float to string, replacing . with _, so can be used as a filename'''
+    '''Convert float to string, replacing . with _, so can be used as a filename.
+    0.0056 -> 0_0056, 0.00566 -> 0_0057
+    '''
     lr = float(lr) # convert from string if necessary
     lr_str = f"{round(lr,4)}".replace('.', '_')
     return lr_str
 
 
+def unsafestr(lr_str):
+    '''Convert string to float, replacing _ with .'''
+    lr_str = lr_str.replace('_', '.')
+    return float(lr_str)
+
+
+def list_subdirectories(directory):
+    return [name for name in os.listdir(directory)
+            if os.path.isdir(os.path.join(directory, name))]
+            
 def gaussian_kl_div(mu1, sigma1, mu2, sigma2):
     d = mu1.shape[0]
     _, ld1 = jnp.linalg.slogdet(sigma1)

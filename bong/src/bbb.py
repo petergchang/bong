@@ -966,6 +966,8 @@ class fg_bbb:
         **kwargs
     ):
         name = f"bbb_fc-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bbb"
+        param = "fc"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1061,6 +1063,8 @@ class dlrg_bbb:
         **kwargs
     ):
         name = f"bbb_dlr-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
+        algo = "bbb"
+        param = "dlr"
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -1154,6 +1158,8 @@ class dg_bbb:
         **kwargs
     ):
         name = f"bbb_diag-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bbb"
+        param = "diag"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1246,6 +1252,8 @@ class fg_reparam_bbb:
         **kwargs
     ):
         name = f"bbb_fc_mom-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bbb"
+        param = "fc_mom"
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1338,6 +1346,8 @@ class dg_reparam_bbb:
         **kwargs
     ):
         name = f"bbb_diag_mom-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}-EF{empirical_fisher}-Lin{linplugin}"
+        algo = "bbb"
+        param = "diag_mom"
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)

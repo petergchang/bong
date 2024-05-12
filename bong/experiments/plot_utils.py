@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import jax.numpy as jnp
 from pathlib import Path
+import os
+import matplotlib.image as mpimg
+
+
+from bong.util import list_subdirectories
+from bong.agents import parse_agent_name
 
 def make_marker(name):
     #https://matplotlib.org/stable/api/markers_api.html
@@ -21,7 +27,78 @@ def make_marker(name):
         return markers['bbb']
     else:
         return '.'
-    
+
+marker_types = {
+    'point': '.',
+    'pixel': ',',
+    'circle': 'o',
+    'triangle_down': 'v',
+    'triangle_up': '^',
+    'triangle_left': '<',
+    'triangle_right': '>',
+    'tri_down': '1',
+    'tri_up': '2',
+    'tri_left': '3',
+    'tri_right': '4',
+    'square': 's',
+    'pentagon': 'p',
+    'star': '*',
+    'hexagon1': 'h',
+    'hexagon2': 'H',
+    'plus': '+',
+    'x': 'x',
+    'diamond': 'D',
+    'thin_diamond': 'd',
+    'vline': '|',
+    'hline': '_'
+}
+
+
+
+
+def plot_results_from_images(root_dir, data_dir, agent_dir, metrics=['nll',  'nlpd']):
+    results_dir = f"{root_dir}/{data_dir}/{agent_dir}"
+    ncols = len(metrics)
+    fig, axs = plt.subplots(1, ncols, figsize=(16, 8))
+    for i, metric in enumerate(metrics):
+        fname = f'{results_dir}/{metric}.png'
+        img = mpimg.imread(fname)
+        ax = axs[i]
+        ax.imshow(img)
+        ax.axis('off')
+    ttl = f'{data_dir}/{agent_dir}'
+    y_offset = {1: 1, 2: 0.9, 3: 0.8}
+    fig.suptitle(ttl, y=y_offset[ncols])
+
+
+
+def plot_all_results_from_images(root_dir=None, data_dir=None):
+    if root_dir is None: root_dir = '/teamspace/studios/this_studio/jobs'
+    if data_dir is None: data_dir = 'linreg-dim10-key0'
+    base_dir = f"{root_dir}/{data_dir}"
+    agent_dirs = list_subdirectories(base_dir)
+    #agent_dir = 'A:Any-P:fc-Lin:0-LR:Any-I:10-MC:10-EF:0-R:10-MLP:1'
+    for agent_dir in agent_dirs:
+        plot_result_images(root_dir, data_dir, agent_dir)
+
+
+
+def make_plot_params(agent_name):
+    parts = parse_agent_name(agent_name)
+    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
+    marker = markers[parts['algo']]
+    if (parts['ef']==0) & (parts['lin']==0): linestyle = '-'
+    if (parts['ef']==1) & (parts['lin']==0): linestyle = '--'
+    if (parts['ef']==0) & (parts['lin']==1): linestyle = ':'
+    if (parts['ef']==1) & (parts['lin']==1): linestyle = '-.'
+    #linestyles = {'bong': '-', 'blr': '--', 'bog': '-.', 'bbb': ':'}
+    #markers = {'fc': '+', 'fc_mom': '*', 'diag': '+', 'diag_mom': 'x', 'dlr': 'o'}
+    return {
+            'linestyle': linestyle,
+            'linewidth': 1,
+            'marker': marker,
+            'markersize': 6
+            }
 
 def plot_results_from_files(dir,  metric, save_fig=False):
     fname = f"{dir}/jobs.csv"
@@ -29,7 +106,7 @@ def plot_results_from_files(dir,  metric, save_fig=False):
     jobnames = df['jobname']
 
     fig, ax = plt.subplots(figsize=(5,5))
-    fs = 'x-small'
+    fs = 'x-small' # fontr size for legend
     loc = 'upper right' #'lower left'
 
     for jobname in jobnames:
@@ -39,11 +116,14 @@ def plot_results_from_files(dir,  metric, save_fig=False):
         if np.any(np.isnan(vals)):
             print(f'found NaNs in {metric} in {fname}, skipping')
             continue
-        
+
+        if np.all((vals == 0)):
+            print(f'All 0s in {metric} in {fname}, skipping')
+            continue
+
+
         agent_name = df_res['agent_name'][0] # bong_fc-MC10
-        agent_type = agent_name.split('_')[0]
-        #print(f'plotting {agent_name}, {agent_type}')
-        marker = make_marker(agent_type)
+        plot_params = make_plot_params(agent_name)
         data_name = df_res['dataset_name'][0]
         ttl = f'{metric} on {data_name}'
 
@@ -52,7 +132,7 @@ def plot_results_from_files(dir,  metric, save_fig=False):
         ndx = round(jnp.linspace(0, T-1, num=min(T,30))) #    # extract subset of points for plotting to avoid cluttered markers
         ndx = ndx[2:] #  skip first 2 time steps, since it messes up the vertical scale
 
-        ax.plot(steps[ndx], vals[ndx], label=agent_name, marker=marker)
+        ax.plot(steps[ndx], vals[ndx], label=agent_name, **plot_params)
         ax.grid(True)
         ax.legend(loc=loc, prop={'size': fs})
         ax.set_ylabel(metric)
