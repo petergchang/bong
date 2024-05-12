@@ -8,22 +8,94 @@ from pathlib import Path
 import os
 
 from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name
-from datasets import DATASET_NAMES, make_dataset_name
 from bong.util import safestr
+from plot_utils import plot_results_from_files
 
 cwd = Path(os.getcwd())
 root = cwd
 script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
 
-def make_results_dirname_old(jobname, parallel):
-    # the results artefacts are written (by lightning ai studio) to a certain directory
-    # depending on jobname.
-    if parallel:
-        output_dir = f'/teamspace/jobs/{jobname}/work'
+
+def make_dataset_dirname(args):
+    #if hasattr(args, 'data_dim'):
+    #    data_dim = args.data_dim
+    if args.dataset == "linreg":
+        name = f'linreg-dim{args.data_dim}-key{args.data_key}'
+    elif args.dataset == "mlpreg":
+        name = f'mlpreg-dim{args.data_dim}-mlp{args.data_neurons}-key{args.data_key}'
     else:
-        output_dir = f'/teamspace/studios/this_studio/jobs/{jobname}/work'
-    return output_dir
+        raise Exception(f'Unknown dataset {args.dataset}')
+    return name
+
+
+def make_agent_dirname(args):
+    parts = []
+    if hasattr(args, 'agent_list'):
+        if len(args.agent_list)>1:
+            s =  "Any"
+        else:
+            s = args.agent_list[0]
+    else:
+        s = args.agent
+    parts.append(f"A:{s}")
+
+    if hasattr(args, 'lr_list'):
+        if len(args.lr_list)>1:
+            s =  "Any"
+        else:
+            s = safestr(args.lr_list[0])
+    else:
+        s = safestr(args.lr)
+    parts.append(f"LR:{s}")
+
+    if hasattr(args, 'niter_list'):
+        if len(args.niter_list)>1:
+            s =  "Any"
+        else:
+            s = args.niter_list[0]
+    else:
+        s = args.niter
+    parts.append(f"I:{s}")
+
+    if hasattr(args, 'nsample_list'):
+        if len(args.nsample_list)>1:
+            s =  "Any"
+        else:
+            s = args.nsample_list[0]
+    else:
+        s = args.nsample
+    parts.append(f"MC:{s}")
+
+    if hasattr(args, 'ef_list'):
+        if len(args.ef_list)>1:
+            s =  "Any"
+        else:
+            s = args.ef_list[0]
+    else:
+        s = args.ef
+    parts.append(f"EF:{s}")
+
+    if hasattr(args, 'rank_list'):
+        if len(args.rank_list)>1:
+            s =  "Any"
+        else:
+            s = args.rank_list[0]
+    else:
+        s = args.rank
+    parts.append(f"R:{s}")
+
+    if hasattr(args, 'model_neurons_list'):
+        if len(args.model_neurons_list)>1:
+            s =  "Any"
+        else:
+            s = args.model_neurons_list[0]
+    else:
+        s = args.model_neurons
+    parts.append(f"MLP:{s}")
+
+    name = "-".join(parts)
+    return name
 
 
 
@@ -56,7 +128,7 @@ def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, model_ne
     return cmd
 
 
-def make_df_for_flag_crossproduct(
+def make_df_for_flag_crossproduct(jobprefix, 
         agent_list, lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list):
     args_list = []
     for agent in agent_list:
@@ -74,13 +146,14 @@ def make_df_for_flag_crossproduct(
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
     N = len(df)
-    jobnames = [f'job-{i}' for i in range(N)] 
+    #jobnames = [f'job-{i}' for i in range(N)] 
+    jobnames = [f'{jobprefix}-{i}' for i in range(N)] 
     df['jobname'] = jobnames
     #dirs = [make_results_dirname(j, parallel) for j in jobnames]
     #df['results_dir'] = dirs
     return df
 
-def make_df_for_flag_crossproduct_full(
+def make_df_for_flag_crossproduct_full(jobprefix, 
         agent_list, lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list,
         data_dim_list, data_key_list):
     args_list = []
@@ -103,7 +176,7 @@ def make_df_for_flag_crossproduct_full(
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
     N = len(df)
-    jobnames = [f'job-{i}' for i in range(N)] 
+    jobnames = [f'{jobprefix}-{i}' for i in range(N)] 
     df['jobname'] = jobnames
     #dirs = [make_results_dirname(j, parallel) for j in jobnames]
     #df['results_dir'] = dirs
@@ -112,8 +185,47 @@ def make_df_for_flag_crossproduct_full(
 
 
 def main(args):
+    if args.dir == "":
+        data_dirname = make_dataset_dirname(args)
+        agent_dirname = make_agent_dirname(args)
+        path = Path(args.rootdir, data_dirname, agent_dirname)
+    else:
+        path = Path(args.dir)
+    results_dir = str(path)
+
+    if args.plot:
+        print(f'Writing plots to {results_dir}')
+        for metric in ['kl', 'nll', 'nlpd']:
+            plot_results_from_files(results_dir,  metric, save_fig=True)
+        return
+
+    if args.copy:
+        fname = f"{results_dir}/jobs.csv"
+        df = pd.read_csv(fname)
+        jobnames = df['jobname']
+        jobs_dir = '/teamspace/jobs' # when run in parallel mode
+        for job in jobnames:
+            src = f'{jobs_dir}/{job}/work'
+            dst = f'{results_dir}/{job}'
+            dst_path = Path(dst)
+            print(f'Creating {str(dst_path)}')
+            dst_path.mkdir(parents=True, exist_ok=True)
+
+            cmd = f'cp -r {src} {dst}'
+            print(f'Running {cmd}')
+            os.system(cmd)
+
+            cmd = f'chmod ugo+rwx {dst}'
+            print(f'Running {cmd}')
+            os.system(cmd)
+        return
+
+    # Create new results
+    print(f'Creating {str(path)}')
+    path.mkdir(parents=True, exist_ok=True)
+
     df_flags = make_df_for_flag_crossproduct(
-        args.agent_list, args.lr_list, args.niter_list, args.nsample_list,
+        args.job_prefix, args.agent_list, args.lr_list, args.niter_list, args.nsample_list,
         args.ef_list, args.model_neurons_list, args.rank_list)#
         #args.data_dim_list, args.data_key_list)
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
@@ -129,27 +241,14 @@ def main(args):
             row.dataset, row.data_dim, row.data_key)
         cmd_dict[row.jobname] = cmd
 
-    if args.dir == "":
-        data_name = make_dataset_name(args)
-        agent_name = make_agent_name(args)
-        path = Path(args.rootdir, data_name, agent_name)
-        print(f'Creating {str(path)}')
-        path.mkdir(parents=True, exist_ok=True)
-        results_dir = str(path)
-        jobs_dir = results_dir
-    else:
-        path = Path(args.dir)
-        print(f'Creating {str(path)}')
-        path.mkdir(parents=True, exist_ok=True)
-
     # Store csv containing all the flags/commands that are being executed
-    fname = Path(path, "flags.csv")
-    print("Saving to", fname)
-    df_flags.to_csv(fname, index=False) 
+    #fname = Path(path, "flags.csv")
+    #print("Saving to", fname)
+    #df_flags.to_csv(fname, index=False) 
 
     cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
     df_cmds = pd.DataFrame(cmds)
-    fname = Path(path, "cmds.csv")
+    fname = Path(path, "jobs.csv")
     print("Saving to", fname)
     df_cmds.to_csv(fname, index=False)
 
@@ -168,9 +267,9 @@ def main(args):
             print(cmd)
             print(f'saving output to {output_dir}')
             job_plugin.run(cmd, name=jobname)
-            # Need to copy from jobs_dir to results_dir
 
     else:
+        jobs_dir = results_dir
         #print(f'Storing results in {args.dir}')
         for jobname, cmd in cmd_dict.items():   
             output_dir = f'{jobs_dir}/{jobname}/work'  
@@ -187,10 +286,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rootdir", type=str, default="/teamspace/studios/this_studio/jobs") 
     parser.add_argument("--dir", type=str, default="")
+    parser.add_argument("--job_prefix", type=str, default="job")
     parser.add_argument("--parallel", type=bool, default=False)
+    parser.add_argument("--plot", type=bool, default=False)
+    parser.add_argument("--copy", type=bool, default=False)
 
     # Data parameters
-    parser.add_argument("--dataset", type=str, default="linreg", choices=DATASET_NAMES)
+    parser.add_argument("--dataset", type=str, default="linreg") # ['linreg', 'mlpreg'] 
     parser.add_argument("--data_dim", type=int,  default=10)
     parser.add_argument("--data_key", type=int,  default=0)
     #parser.add_argument("--data_dim_list", type=int, nargs="+", default=[10])
@@ -207,24 +309,67 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
+    print(args)
     
     main(args)
 
 '''
 
-python run_jobs.py   --agent_list bbb_fc  --lr_list 0.01  \
-    --nsample_list 10 --niter_list 10 --ef_list 0  \
-    --dataset linreg --data_dim 10 --rootdir ~/jobs
+AGENTS=("bong_fc" "bog_fc")
+LR=(0.1)
+NSAMPLE=(10)
+NITER=(10)
+EF=(0)
+DATASET="linreg"
+DATDIM=10
+PREFIX="foo-2"
 
-python run_jobs.py   --agent_list bong_fc blr_fc bog_fc bbb_fc --lr_list 0.005 0.01 0.05 \
-    --nsample_list 10 --niter_list 10 --ef_list 0  \
-    --dataset linreg --data_dim 10 --rootdir ~/jobs
+python run_jobs.py \
+    --agent_list ${AGENTS[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NSAMPLE[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX 
+    
+python run_jobs.py \
+    --agent_list ${AGENTS[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NSAMPLE[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX  \
+    --parallel 1
 
-python run_jobs.py   --agent_list bong_fc bbb_fc --lr_list 0.01 0.05 \
-    --nsample_list 10 --niter_list 10 --ef_list 0  \
-    --dataset linreg --data_dim 10 --rootdir ~/jobs
+python run_jobs.py \
+    --agent_list ${AGENTS[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NSAMPLE[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX  \
+    --copy 1
 
-python plot_jobs.py   --agent_list bong_fc bbb_fc --lr_list 0.01 0.05 \
-    --nsample_list 10 --niter_list 10 --ef_list 0  \
-    --dataset linreg --data_dim 10 --rootdir ~/jobs
+python run_jobs.py \
+    --agent_list ${AGENTS[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NSAMPLE[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX  \
+    --plot 1
+
+
 '''

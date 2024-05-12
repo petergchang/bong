@@ -22,14 +22,11 @@ def make_marker(name):
     else:
         return '.'
     
-#'/teamspace/studios/this_studio/jobs/{jobname}/work'
-#f'/teamspace/jobs/{jobname}/work'
-
 
 def plot_results_from_files(dir,  metric, save_fig=False):
-    fname = f"{dir}/flags.csv"
-    df_flags = pd.read_csv(fname)
-    jobnames = df_flags['jobname']
+    fname = f"{dir}/jobs.csv"
+    df = pd.read_csv(fname)
+    jobnames = df['jobname']
 
     fig, ax = plt.subplots(figsize=(5,5))
     fs = 'x-small'

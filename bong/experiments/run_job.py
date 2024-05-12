@@ -13,7 +13,6 @@ from bong.util import run_rebayes_algorithm, gaussian_kl_div
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.agents import AGENT_DICT, AGENT_NAMES
 
-from datasets import DATASET_NAMES
 from linreg_data import make_linreg
 from mlpreg_data import make_mlpreg
 
@@ -88,7 +87,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Data parameters
-    parser.add_argument("--dataset", type=str, default="linreg",  choices=DATASET_NAMES)
+    parser.add_argument("--dataset", type=str, default="linreg") 
     parser.add_argument("--data_dim", type=int, default=10)
     parser.add_argument("--data_neurons", type=str, default="20-20-1") # default is nonlinear generator
     parser.add_argument("--emission_noise", type=float, default=1.0)
