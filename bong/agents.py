@@ -1,3 +1,5 @@
+from functools import partial
+
 from bong.src import bbb, blr, bog, bong
 import pandas as pd
 from bong.util import safestr
@@ -7,6 +9,46 @@ AGENT_TYPES = ["fg_bong", "fg_l_bong", "fg_rep_bong", "fg_rep_l_bong",
 
 
 LR_AGENT_TYPES = ["fg_blr", "fg_bog", "fg_rep_bog", "fg_bbb", "fg_rep_bbb"]
+
+
+DIAG_BONG_DICT = {
+    # BONG
+    "dg-bong": bong.dg_bong,
+    "dg-l-bong": partial(bong.dg_bong, linplugin=True),
+    "dg-rep-bong": bong.dg_reparam_bong,
+    "dg-rep-l-bong": partial(bong.dg_reparam_bong, linplugin=True),
+    # BOG
+    "dg-bog": bog.dg_bog,
+    "dg-l-bog": partial(bog.dg_bog, linplugin=True),
+    "dg-rep-bog": bog.dg_reparam_bog,
+    "dg-rep-l-bog": partial(bog.dg_reparam_bog, linplugin=True),
+    # BBB
+    "dg-bbb": bbb.dg_bbb,
+    "dg-l-bbb": partial(bbb.dg_bbb, linplugin=True),
+    "dg-rep-bbb": bbb.dg_reparam_bbb,
+    "dg-rep-l-bbb": partial(bbb.dg_reparam_bbb, linplugin=True),
+    # BLR
+    "dg-blr": blr.dg_blr,
+    "dg-l-blr": partial(blr.dg_blr, linplugin=True),
+    "dg-rep-blr": blr.dg_reparam_blr,
+    "dg-rep-l-blr": partial(blr.dg_reparam_blr, linplugin=True),
+}
+
+
+DLR_BONG_DICT = {
+    # BONG
+    "dlrg-bong": bong.dlrg_bong,
+    "dlrg-l-bong": partial(bong.dlrg_bong, linplugin=True),
+    # BOG
+    "dlrg-bog": bog.dlrg_bog,
+    "dlrg-l-bog": partial(bog.dlrg_bog, linplugin=True),
+    # BBB
+    "dlrg-bbb": bbb.dlrg_bbb,
+    "dlrg-l-bbb": partial(bbb.dlrg_bbb, linplugin=True),
+    # BLR
+    "dlrg-blr": blr.dlrg_blr,
+    "dlrg-l-blr": partial(blr.dlrg_blr, linplugin=True),
+}
 
 
 BONG_DICT = {

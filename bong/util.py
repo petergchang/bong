@@ -239,15 +239,19 @@ def tune_init_hyperparam(
     X: ArrayLike,
     Y: ArrayLike,
     loss_fn: Callable,
-    hyperparam_name: str,
+    hyperparam_names: Sequence[str],
     n_trials=10,
     minval=-10.0,
     maxval=0.0,
     **init_kwargs,
 ):
     def _objective(trial):
-        init_hp = trial.suggest_float(hyperparam_name, minval, maxval, log=True)
-        hp_kwargs = {hyperparam_name: init_hp}
+        hp_kwargs = {}
+        for hyperparam_name in hyperparam_names:
+            init_hp = trial.suggest_float(
+                hyperparam_name, minval, maxval, log=True
+            )
+            hp_kwargs[hyperparam_name] = init_hp
         rebayes_algorithm = rebayes_algorithm_initializer(
             **hp_kwargs,
             **init_kwargs,
@@ -265,5 +269,3 @@ def tune_init_hyperparam(
     best_trial = study.best_trial
     best_params = best_trial.params
     return best_params
-
-
