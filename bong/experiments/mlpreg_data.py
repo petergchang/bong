@@ -63,9 +63,9 @@ def make_data_mlpreg(args):
     Y_te = generate_ydata_mlpreg(key3, X_te, model, noise_std)
 
     #neuron_str = '_'.join(str(num) for num in nneurons_per_layer)
-    #neuron_str = args.data_neurons
-    #name = f'mlpreg-dim{args.data_dim}-neurons{neuron_str}-key{args.data_key}'
-    name = make_dataset_name(args)
+    neuron_str = args.data_neurons
+    name = f'mlpreg-dim{args.data_dim}-neurons{neuron_str}-key{args.data_key}'
+    #name = make_dataset_name(args)
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data
 

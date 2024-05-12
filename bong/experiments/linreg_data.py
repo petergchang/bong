@@ -13,7 +13,6 @@ from jax.flatten_util import ravel_pytree
 
 from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP
 from bong.src import bbb, blr, bog, bong, experiment_utils
-from datasets import make_dataset_name
 
 
 def generate_xdata_mvn(keyroot, N, d, c=1., scale=1):
@@ -52,8 +51,8 @@ def make_data_linreg(args):
     X_te = generate_xdata_mvn(key3, args.ntest, d)
     Y_te = generate_ydata_linreg(key3, X_te, theta, noise_std)
 
-    #name = f'linreg-dim{args.data_dim}-key{args.data_key}'
-    name = make_dataset_name(args)
+    name = f'linreg-dim{args.data_dim}-key{args.data_key}'
+    #name = make_dataset_name(args)
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data
 

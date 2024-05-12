@@ -41,7 +41,7 @@ def run_agent(key, agent, data, callback):
 def make_results(args):
     if args.dataset == "linreg":
         data, init_kwargs, callback, tune_fn = make_linreg(args)
-    elif args.dataset == "mlpreg":
+    elif args.dataset == "mlpreg": # needs args.model_neurons
         data, init_kwargs, callback, tune_fn = make_mlpreg(args)
     else:
         raise Exception(f'unrecognized dataset {args.dataset}')
@@ -55,7 +55,6 @@ def make_results(args):
                         num_samples = args.nsample,
                         linplugin = args.linplugin,
                         empirical_fisher = args.ef,
-                        model_neurons = args.model_neurons,
                         rank = args.rank
                     )
     key = jr.PRNGKey(args.agent_key)

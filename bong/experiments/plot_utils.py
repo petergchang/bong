@@ -9,7 +9,7 @@ from pathlib import Path
 
 def make_marker(name):
     #https://matplotlib.org/stable/api/markers_api.html
-    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
+    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '+'}
     name = name.lower()
     if "bong" in name:
         return markers['bong']

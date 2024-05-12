@@ -7,7 +7,7 @@ import pandas as pd
 from pathlib import Path
 import os
 
-from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name
+from bong.agents import AGENT_DICT, AGENT_NAMES
 from bong.util import safestr
 from plot_utils import plot_results_from_files
 
@@ -31,14 +31,32 @@ def make_dataset_dirname(args):
 
 def make_agent_dirname(args):
     parts = []
-    if hasattr(args, 'agent_list'):
-        if len(args.agent_list)>1:
+    if hasattr(args, 'algo_list'):
+        if len(args.algo_list)>1:
             s =  "Any"
         else:
-            s = args.agent_list[0]
+            s = args.algo_list[0]
     else:
-        s = args.agent
+        s = args.algo
     parts.append(f"A:{s}")
+
+    if hasattr(args, 'param_list'):
+        if len(args.param_list)>1:
+            s =  "Any"
+        else:
+            s = args.param_list[0]
+    else:
+        s = args.param
+    parts.append(f"P:{s}")
+
+    if hasattr(args, 'lin_list'):
+        if len(args.lin_list)>1:
+            s =  "Any"
+        else:
+            s = args.lin_list[0]
+    else:
+        s = args.lin
+    parts.append(f"Lin:{s}")
 
     if hasattr(args, 'lr_list'):
         if len(args.lr_list)>1:
@@ -129,53 +147,31 @@ def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, model_ne
 
 
 def make_df_for_flag_crossproduct(jobprefix, 
-        agent_list, lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list):
+        algo_list, param_list, lin_list,
+        lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list):
     args_list = []
-    for agent in agent_list:
-        props = AGENT_DICT[agent]
-        for lr in lr_list:
-            for niter in niter_list:
-                for nsample in nsample_list:
-                    for ef in ef_list:
-                        for model_neurons in model_neurons_list:
-                            for rank in rank_list:
-                                args = extract_optional_agent_args(props, lr, niter, nsample, ef, rank)
-                                args['agent'] = agent
-                                args['model_neurons'] = model_neurons
-                                args_list.append(args)
-    df = pd.DataFrame(args_list)
-    df = df.drop_duplicates()
-    N = len(df)
-    #jobnames = [f'job-{i}' for i in range(N)] 
-    jobnames = [f'{jobprefix}-{i}' for i in range(N)] 
-    df['jobname'] = jobnames
-    #dirs = [make_results_dirname(j, parallel) for j in jobnames]
-    #df['results_dir'] = dirs
-    return df
-
-def make_df_for_flag_crossproduct_full(jobprefix, 
-        agent_list, lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list,
-        data_dim_list, data_key_list):
-    args_list = []
-    for agent in agent_list:
-        props = AGENT_DICT[agent]
-        for lr in lr_list:
-            for niter in niter_list:
-                for nsample in nsample_list:
-                    for ef in ef_list:
-                        for model_neurons in model_neurons_list:
-                            for rank in rank_list:
-                                for data_dim in data_dim_list:
-                                    for data_key in data_key_list:
+    for algo in algo_list:
+        for param in param_list:
+            for lin in lin_list:
+                if lin:
+                    agent = f'{algo}_{param}_lin'
+                else:
+                    agent = f'{algo}_{param}'
+                props = AGENT_DICT[agent]
+                for lr in lr_list:
+                    for niter in niter_list:
+                        for nsample in nsample_list:
+                            for ef in ef_list:
+                                for model_neurons in model_neurons_list:
+                                    for rank in rank_list:
                                         args = extract_optional_agent_args(props, lr, niter, nsample, ef, rank)
                                         args['agent'] = agent
                                         args['model_neurons'] = model_neurons
-                                        args['data_dim'] = data_dim
-                                        args['data_key'] = data_key
                                         args_list.append(args)
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
     N = len(df)
+    #jobnames = [f'job-{i}' for i in range(N)] 
     jobnames = [f'{jobprefix}-{i}' for i in range(N)] 
     df['jobname'] = jobnames
     #dirs = [make_results_dirname(j, parallel) for j in jobnames]
@@ -206,18 +202,23 @@ def main(args):
         jobs_dir = '/teamspace/jobs' # when run in parallel mode
         for job in jobnames:
             src = f'{jobs_dir}/{job}/work'
-            dst = f'{results_dir}/{job}'
+            dst = f'{results_dir}/{job}/work'
             dst_path = Path(dst)
             print(f'Creating {str(dst_path)}')
             dst_path.mkdir(parents=True, exist_ok=True)
 
-            cmd = f'cp -r {src} {dst}'
-            print(f'Running {cmd}')
-            os.system(cmd)
-
+            # chnage permissions so we can delete the copied files
             cmd = f'chmod ugo+rwx {dst}'
             print(f'Running {cmd}')
             os.system(cmd)
+
+            fnames = ['results.cvs', 'args.json']
+            for fname in fnames:
+                cmd = f'cp -r {src}/{fname} {dst}/{fname}'
+                print(f'Running {cmd}')
+                os.system(cmd)
+
+         
         return
 
     # Create new results
@@ -225,9 +226,11 @@ def main(args):
     path.mkdir(parents=True, exist_ok=True)
 
     df_flags = make_df_for_flag_crossproduct(
-        args.job_prefix, args.agent_list, args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.model_neurons_list, args.rank_list)#
+        args.job_prefix, args.algo_list, args.param_list, args.lin_list,
+        args.lr_list, args.niter_list, args.nsample_list,
+        args.ef_list, args.model_neurons_list, args.rank_list)
         #args.data_dim_list, args.data_key_list)
+
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
     df_flags['dataset'] = args.dataset
     df_flags['data_dim'] = args.data_dim
@@ -299,7 +302,9 @@ if __name__ == "__main__":
     #parser.add_argument("--data_key_list", type=int, nargs="+", default=[0])
     
     # Agent parameters
-    parser.add_argument("--agent_list", type=str, nargs="+", default=["bong_fc"], choices=AGENT_NAMES)
+    parser.add_argument("--algo_list", type=str, nargs="+", default=["bong"])
+    parser.add_argument("--param_list", type=str, nargs="+", default=["fc"])
+    parser.add_argument("--lin_list", type=int, nargs="+", default=[0])
     parser.add_argument("--lr_list", type=float, nargs="+", default=[0.01])
     parser.add_argument("--niter_list", type=int, nargs="+", default=[10])
     parser.add_argument("--nsample_list", type=int, nargs="+", default=[10])
@@ -315,17 +320,21 @@ if __name__ == "__main__":
 
 '''
 
-AGENTS=("bong_fc" "bog_fc")
-LR=(0.1)
+ALGO=("bong" "bog" "bbb" "blr")
+PARAM=("fc")
+LIN=(0)
+LR=(0.05)
 NSAMPLE=(10)
 NITER=(10)
-EF=(0)
+EF=(0 1)
 DATASET="linreg"
 DATDIM=10
-PREFIX="foo-2"
+PREFIX="job"
 
 python run_jobs.py \
-    --agent_list ${AGENTS[@]} \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
     --lr_list ${LR[@]}  \
     --nsample_list ${NSAMPLE[@]} \
     --niter_list ${NSAMPLE[@]} \
@@ -334,21 +343,12 @@ python run_jobs.py \
     --data_dim $DATADIM \
     --rootdir ~/jobs \
     --job_prefix $PREFIX 
-    
-python run_jobs.py \
-    --agent_list ${AGENTS[@]} \
-    --lr_list ${LR[@]}  \
-    --nsample_list ${NSAMPLE[@]} \
-    --niter_list ${NSAMPLE[@]} \
-    --ef_list ${EF[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX  \
-    --parallel 1
+
 
 python run_jobs.py \
-    --agent_list ${AGENTS[@]} \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
     --lr_list ${LR[@]}  \
     --nsample_list ${NSAMPLE[@]} \
     --niter_list ${NSAMPLE[@]} \
@@ -356,20 +356,7 @@ python run_jobs.py \
     --dataset $DATASET \
     --data_dim $DATADIM \
     --rootdir ~/jobs \
-    --job_prefix $PREFIX  \
-    --copy 1
-
-python run_jobs.py \
-    --agent_list ${AGENTS[@]} \
-    --lr_list ${LR[@]}  \
-    --nsample_list ${NSAMPLE[@]} \
-    --niter_list ${NSAMPLE[@]} \
-    --ef_list ${EF[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX  \
+    --job_prefix $PREFIX \
     --plot 1
-
 
 '''
