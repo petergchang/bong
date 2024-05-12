@@ -32,9 +32,7 @@ def load_mnist_dataset(n_train, n_test):
 
 
 def loss_fn(key, alg, state, em_function, X_val, y_val):
-    y_pred_logits = jnp.mean(
-        jax.vmap(em_function, (None, 0))(state.mean, X_val), axis=0
-    ).ravel()
+    y_pred_logits = jax.vmap(em_function, (None, 0))(state.mean, X_val)
     negloglikhood = optax.softmax_cross_entropy_with_integer_labels(
         y_pred_logits, y_val
     )
@@ -43,15 +41,13 @@ def loss_fn(key, alg, state, em_function, X_val, y_val):
 
 def callback_fn(key, alg, state, x, y, em_function, X_cb, y_cb, num_samples=10):
     # Plugin-LL
-    ypi_pred_logits = jnp.mean(
-        jax.vmap(em_function, (None, 0))(state.mean, X_cb), axis=0
-    ).ravel()
+    ypi_pred_logits = jax.vmap(em_function, (None, 0))(state.mean, X_cb)
     ll_pi = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
         ypi_pred_logits, y_cb
     ))
     
     # Plugin-accuracy
-    ypi_preds = jnp.argmax(y_pred_logits, axis=-1)
+    ypi_preds = jnp.argmax(ypi_pred_logits, axis=-1)
     acc_pi = jnp.mean(ypi_preds == y_cb)
     
     # NLPD-LL
@@ -120,7 +116,7 @@ def tune_agents(key, agents, n_samples, n_iters, init_kwargs,
                         best_hparams = tune_init_hyperparam(
                             key, curr_initializer, X_tune, Y_tune,
                             tune_loss_fn, hyperparams, minval=1e-5,
-                            maxval=1.0, n_trials=20, **init_kwargs
+                            maxval=1.0, **init_kwargs
                         )
                     except:
                         best_hparams = {hparam: 1e-2 for hparam in hyperparams}
@@ -149,8 +145,8 @@ def evaluate_agents(key, agent_queue, X_tr, Y_tr, eval_cb_fn):
         )
         t1 = time.perf_counter()
         result_dict[agent_name] = (t1 - t0, ll_pi, acc_pi, ll, acc)
-        print(f"\tPlugin-LL: {ll_pi:.4f}, Plugin-Acc: {acc_pi:.4f}")
-        print(f"\tNLPD-LL: {ll:.4f}, NLPD-Acc: {acc:.4f}")
+        print(f"\tPlugin-LL: {ll_pi[-1]:.4f}, Plugin-Acc: {acc_pi[-1]:.4f}")
+        print(f"\tNLPD-LL: {ll[-1]:.4f}, NLPD-Acc: {acc[-1]:.4f}")
         print(f"\tTime: {t1 - t0:.2f}s")
         print("=====================================")
     return result_dict
