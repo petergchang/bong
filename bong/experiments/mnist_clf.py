@@ -84,6 +84,7 @@ def initialize_mlp_model(key, features, x):
         "init_mean": flat_params,
         "log_likelihood": log_likelihood,
         "emission_mean_function": em_function,
+        "em_linpi_function": em_linpi_function,
         "emission_cov_function": ec_function,
     }
     return init_kwargs, subkey
@@ -97,6 +98,11 @@ def tune_agents(key, agents, n_samples, n_iters, init_kwargs,
             hyperparams = ["learning_rate", "init_cov"]
         else:
             hyperparams = ["init_cov"]
+        curr_kwargs = {**init_kwargs}
+        if "-l-" in agent:
+            curr_kwargs["emission_mean_function"] = \
+                curr_kwargs["em_linpi_function"]
+        curr_kwargs.pop("em_linpi_function")
         for n_sample in n_samples:
             for n_iter in n_iters:
                 key, subkey = jr.split(key)
@@ -116,7 +122,7 @@ def tune_agents(key, agents, n_samples, n_iters, init_kwargs,
                         best_hparams = tune_init_hyperparam(
                             key, curr_initializer, X_tune, Y_tune,
                             tune_loss_fn, hyperparams, minval=1e-5,
-                            maxval=1.0, **init_kwargs
+                            maxval=1.0, **curr_kwargs
                         )
                     except:
                         best_hparams = {hparam: 1e-2 for hparam in hyperparams}
@@ -125,7 +131,7 @@ def tune_agents(key, agents, n_samples, n_iters, init_kwargs,
                         json.dump(best_hparams, f)
                 curr_agent = BONG_DICT[agent](
                     **best_hparams,
-                    **init_kwargs,
+                    **curr_kwargs,
                     num_samples=n_sample,
                     num_iter=n_iter,
                 )
