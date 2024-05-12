@@ -100,11 +100,13 @@ def load_base_dataset(
 
 def generate_stationary_experiment(
     ntrain: int,
-    nval: int=1_000
+    nval: int=500,
+    ntest: int=1_000,
 ):
     kwargs = {
         "ntrain": ntrain,
         "nval": nval,
+        "ntest": ntest,
     }
     dataset = {
         "load_fn": partial(load_base_dataset, **kwargs),
