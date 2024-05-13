@@ -65,7 +65,7 @@ def compute_prior_post_linreg(args, data):
     cov_post = jnp.linalg.inv(inv_cov0 + data['X_tr'].T @ data['X_tr'] / noise_std**2)
     mu_post = cov_post @ (inv_cov0 @ mu0 + data['X_tr'].T @ data['Y_tr'] / noise_std**2)
     post = {'mu': mu_post, 'cov': cov_post}
-    prior = {'mu': mu0, 'cov': cov0}
+    prior = {'mu': mu0, 'cov': 1.0}
     return prior, post
 
 
@@ -89,7 +89,10 @@ def init_linreg(args, data):
 
     def callback(key, alg, state, x, y, X_cb=data['X_te'], Y_cb=data['Y_te'], n_samples_mc_nlpd=100):
         # KL-div
-        kl_div = gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
+        curr_cov = state.cov
+        if curr_cov.ndim == 1:
+            curr_cov = jnp.diag(state.cov)
+        kl_div = gaussian_kl_div(post['mu'], post['cov'], state.mean, curr_cov)
         # Plugin-NLL
         def _nll(curr_mean, xcb, ycb):
             em = em_function(curr_mean, xcb)
