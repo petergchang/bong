@@ -9,13 +9,10 @@ import numpy as np
 import jax.random as jr
 import jax
 
-from bong.util import run_rebayes_algorithm, gaussian_kl_div, get_gpu_name
-from bong.src import bbb, blr, bog, bong, experiment_utils
+from bong.util import run_rebayes_algorithm, get_gpu_name
 from bong.agents import AGENT_DICT, AGENT_NAMES
-
-from linreg_data import make_linreg
-from mlpreg_data import make_mlpreg
-
+from datasets import make_dataset
+from models import make_model
 
 def run_agent(key, agent, data, callback):
     print(f"Running {agent.name} on {data['name']}")
@@ -40,12 +37,8 @@ def run_agent(key, agent, data, callback):
 
 
 def make_results(args):
-    if args.dataset == "linreg":
-        data, init_kwargs, callback, tune_fn = make_linreg(args)
-    elif args.dataset == "mlpreg": # needs args.model_neurons
-        data, init_kwargs, callback, tune_fn = make_mlpreg(args)
-    else:
-        raise Exception(f'unrecognized dataset {args.dataset}')
+    data = make_dataset(args)
+    init_kwargs, callback = make_model(args, data)
 
     constructor = AGENT_DICT[args.agent]['constructor']
     agent = constructor(
@@ -87,9 +80,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Data parameters
-    parser.add_argument("--dataset", type=str, default="linreg") 
+    parser.add_argument("--dataset", type=str, default="reg") 
     parser.add_argument("--data_dim", type=int, default=10)
-    parser.add_argument("--data_neurons", type=str, default="20-20-1") # default is nonlinear generator
+    parser.add_argument("--dgp", type=str, default="lin_1") # or mlp_20_20_1
     parser.add_argument("--emission_noise", type=float, default=1.0)
     parser.add_argument("--data_key", type=int, default=0)
     parser.add_argument("--ntrain", type=int, default=500)
@@ -106,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--ef", type=int, default=1)
     parser.add_argument("--linplugin", type=int, default=0)
     parser.add_argument("--rank", type=int, default=10)
-    parser.add_argument("--model_neurons", type=str, default="1") # defaut is linear agent 
+    parser.add_argument("--model", type=str, default="lin_1") # or mlp_10_10_1
 
     # results
     parser.add_argument("--dir", type=str, default="", help="directory to store results") 

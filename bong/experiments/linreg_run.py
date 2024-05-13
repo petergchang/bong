@@ -14,9 +14,9 @@ from plot_utils import plot_results_from_dict
 from job_utils import convert_result_dict_to_pandas, split_filename_column,  run_agents
 
 from bong.agents import AGENT_TYPES, LR_AGENT_TYPES, BONG_DICT
-from linreg_data import make_linreg
-
-
+#from linreg_data import make_linreg
+from models import make_model_reg_lin
+from datasets import make_data_reg_lin
 
 def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tune, Y_tune):
     agent_queue = {}
@@ -75,7 +75,9 @@ def make_agent_queue(subkey, args, init_kwargs, tune_kl_loss_fn, X_tune, Y_tune)
 
 
 def make_results_dict(args):
-    data, init_kwargs, callback, tune_obj_fn = make_linreg(args)
+    #data, init_kwargs, callback, tune_obj_fn = make_linreg(args)
+    data = make_data_reg_lin(args)
+    init_kwargs, callback, tune_obj_fn = make_model_reg_lin(args, data)
     X_tune, Y_tune = data['X_tr'], data['Y_tr']
     key = jr.PRNGKey(args.agent_key)
     agent_queue, subkey = make_agent_queue(key, args, init_kwargs, tune_obj_fn, X_tune, Y_tune)

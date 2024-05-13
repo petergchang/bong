@@ -144,7 +144,7 @@ def main(args):
     d = args.param_dim
     if args.dataset == "logreg":
         X_tr, Y_tr, theta = generate_logreg_dataset(key1, args.n_train, d)
-        X_val, Y_val, _ = generate_logreg_dataset(key2, args.n_test, d, theta=theta)
+        X_val, Y_val, _ = generate_logreg_dataset(key2, args.n_val, d, theta=theta)
         X_te, Y_te, _ = generate_logreg_dataset(key3, args.n_test, d, theta=theta)
         # Set up Logistic Regression model
         eps = 1e-5

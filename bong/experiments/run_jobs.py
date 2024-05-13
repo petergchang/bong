@@ -20,12 +20,7 @@ script_dir = os.path.dirname(script_path)
 def make_dataset_dirname(args):
     #if hasattr(args, 'data_dim'):
     #    data_dim = args.data_dim
-    if args.dataset == "linreg":
-        name = f'linreg-dim{args.data_dim}-key{args.data_key}'
-    elif args.dataset == "mlpreg":
-        name = f'mlpreg-dim{args.data_dim}-mlp{args.data_neurons}-key{args.data_key}'
-    else:
-        raise Exception(f'Unknown dataset {args.dataset}')
+    name = f'{args.dataset}-D{args.data_dim}-{args.dgp}'
     return name
 
 
@@ -103,14 +98,14 @@ def make_agent_dirname(args):
         s = args.rank
     parts.append(f"R:{s}")
 
-    if hasattr(args, 'model_neurons_list'):
-        if len(args.model_neurons_list)>1:
+    if hasattr(args, 'model_list'):
+        if len(args.model_list)>1:
             s =  "Any"
         else:
-            s = args.model_neurons_list[0]
+            s = args.model_list[0]
     else:
-        s = args.model_neurons
-    parts.append(f"MLP:{s}")
+        s = args.model
+    parts.append(f"Model:{s}")
 
     name = "-".join(parts)
     return name
@@ -132,23 +127,23 @@ def extract_optional_agent_args(props, learning_rate, num_iter, num_sample, ef, 
     return args
 
 
-def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, model_neurons, rank,
-                            dataset, data_dim, data_key):
+def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, model, rank,
+                            dataset, data_dim, data_key, dgp):
     # We must pass in all flags where we want to override the default in run_job
     #main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_job.py'
     main_name = f'{script_dir}/run_job.py'
     cmd = (
         f'python {main_name} --agent {agent}  --lr {lr}'
         f' --niter {niter} --nsample {nsample} --linplugin {linplugin}'
-        f' --ef {ef} --model_neurons {model_neurons} --rank {rank}'
-        f' --dataset {dataset} --data_dim {data_dim} --data_key {data_key}'
+        f' --ef {ef} --model {model} --rank {rank}'
+        f' --dataset {dataset} --data_dim {data_dim} --data_key {data_key} --dgp {dgp}'
     )
     return cmd
 
 
 def make_df_for_flag_crossproduct(jobprefix, 
         algo_list, param_list, lin_list,
-        lr_list, niter_list, nsample_list, ef_list, model_neurons_list, rank_list):
+        lr_list, niter_list, nsample_list, ef_list, model_list, rank_list):
     args_list = []
     for algo in algo_list:
         for param in param_list:
@@ -162,11 +157,11 @@ def make_df_for_flag_crossproduct(jobprefix,
                     for niter in niter_list:
                         for nsample in nsample_list:
                             for ef in ef_list:
-                                for model_neurons in model_neurons_list:
+                                for model in model_list:
                                     for rank in rank_list:
                                         args = extract_optional_agent_args(props, lr, niter, nsample, ef, rank)
                                         args['agent'] = agent
-                                        args['model_neurons'] = model_neurons
+                                        args['model'] = model
                                         args_list.append(args)
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
@@ -178,69 +173,30 @@ def make_df_for_flag_crossproduct(jobprefix,
     #df['results_dir'] = dirs
     return df
 
-
-
-def main(args):
-    if args.dir == "":
-        data_dirname = make_dataset_dirname(args)
-        agent_dirname = make_agent_dirname(args)
-        path = Path(args.rootdir, data_dirname, agent_dirname)
-    else:
-        path = Path(args.dir)
+def make_and_save_results(args, path):
+    # Make sure we can save results before doing any compute
     results_dir = str(path)
-
-    if args.plot:
-        print(f'Writing plots to {results_dir}')
-        for metric in ['kl', 'nll', 'nlpd']:
-            plot_results_from_files(results_dir,  metric, save_fig=True)
-        return
-
-    if args.copy:
-        fname = f"{results_dir}/jobs.csv"
-        df = pd.read_csv(fname)
-        jobnames = df['jobname']
-        jobs_dir = '/teamspace/jobs' # when run in parallel mode
-        for job in jobnames:
-            src = f'{jobs_dir}/{job}/work'
-            dst = f'{results_dir}/{job}/work'
-            dst_path = Path(dst)
-            print(f'\n Creating {str(dst_path)}')
-            dst_path.mkdir(parents=True, exist_ok=True)
-
-            # chnage permissions so we can delete the copied files
-            cmd = f'chmod ugo+rwx {dst}'
-            print(f'Running {cmd}')
-            os.system(cmd)
-
-            fnames = ['results.csv', 'args.json']
-            for fname in fnames:
-                cmd = f'cp -r {src}/{fname} {dst}/{fname}'
-                print(f'Running {cmd}')
-                os.system(cmd)
-        return
-
-    # Create new results
-    print(f'Creating {str(path)}')
+    print(f'Creating {results_dir}')
     path.mkdir(parents=True, exist_ok=True)
 
     df_flags = make_df_for_flag_crossproduct(
         args.job_prefix, args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.model_neurons_list, args.rank_list)
-        #args.data_dim_list, args.data_key_list)
+        args.ef_list, args.model_list, args.rank_list)
 
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
     df_flags['dataset'] = args.dataset
     df_flags['data_dim'] = args.data_dim
     df_flags['data_key'] = args.data_key
+    df_flags['dgp'] = args.dgp
 
     cmd_dict = {}
     cmd_list = []
     for index, row in df_flags.iterrows():
         cmd = make_unix_cmd_given_flags(
             row.agent, row.lr, row.niter, row.nsample,
-            row.linplugin, row.ef, row.model_neurons, row.dlr_rank, # rank is a reserved word in pandas
-            row.dataset, row.data_dim, row.data_key)
+            row.linplugin, row.ef, row.model, row.dlr_rank, # rank is a reserved word in pandas
+            row.dataset, row.data_dim, row.data_key, row.dgp)
         cmd_dict[row.jobname] = cmd
         cmd_list.append(cmd)
     df_flags['cmd'] = cmd_list
@@ -271,8 +227,10 @@ def main(args):
             output_dir = f'{jobs_dir}/{jobname}/work' 
             print(cmd)
             print(f'saving output to {output_dir}')
-            job_plugin.run(cmd, name=jobname) # run locally
-            #job_plugin.run(cmd, machine=Machine.A10G_X_4, name=jobname)
+            if args.gpu == 'None':
+                job_plugin.run(cmd, name=jobname) # run on local VM
+            elif args.gpu == 'A10G':
+                job_plugin.run(cmd, machine=Machine.A10G, name=jobname)
 
     else:
         jobs_dir = results_dir
@@ -285,7 +243,54 @@ def main(args):
             print('\n Running', cmd)
             #print(f'Storing results in {output_dir}')
             os.system(cmd)
+    
 
+def copy_results(args, path):
+    results_dir = str(path)
+    fname = f"{results_dir}/jobs.csv"
+    df = pd.read_csv(fname)
+    jobnames = df['jobname']
+    jobs_dir = '/teamspace/jobs' # when run in parallel mode
+    for job in jobnames:
+        src = f'{jobs_dir}/{job}/work'
+        dst = f'{results_dir}/{job}/work'
+        dst_path = Path(dst)
+        print(f'\n Creating {str(dst_path)}')
+        dst_path.mkdir(parents=True, exist_ok=True)
+
+        # chnage permissions so we can delete the copied files
+        cmd = f'chmod ugo+rwx {dst}'
+        print(f'Running {cmd}')
+        os.system(cmd)
+
+        fnames = ['results.csv', 'args.json']
+        for fname in fnames:
+            cmd = f'cp -r {src}/{fname} {dst}/{fname}'
+            print(f'Running {cmd}')
+            os.system(cmd)
+
+def main(args):
+    if args.dir == "":
+        data_dirname = make_dataset_dirname(args)
+        agent_dirname = make_agent_dirname(args)
+        path = Path(args.rootdir, data_dirname, agent_dirname)
+    else:
+        path = Path(args.dir)
+    results_dir = str(path)
+
+    if args.plot:
+        print(f'Writing plots to {results_dir}')
+        for metric in ['kl', 'nll', 'nlpd']:
+            plot_results_from_files(results_dir,  metric, save_fig=True)
+        return
+
+    if args.copy:
+        copy_results(args, path)
+        return
+
+    # Not copy, not plot, so do some real work
+    make_and_save_results(args, path)
+   
 
 
 if __name__ == "__main__":
@@ -294,15 +299,17 @@ if __name__ == "__main__":
     parser.add_argument("--dir", type=str, default="")
     parser.add_argument("--job_prefix", type=str, default="job")
     parser.add_argument("--parallel", type=bool, default=False)
+    parser.add_argument("--gpu", type=str, default="None", choices=["None", "A10G"])
     parser.add_argument("--plot", type=bool, default=False)
     parser.add_argument("--copy", type=bool, default=False)
 
+
     # Data parameters
-    parser.add_argument("--dataset", type=str, default="linreg") # ['linreg', 'mlpreg'] 
+    parser.add_argument("--dataset", type=str, default="reg")  
     parser.add_argument("--data_dim", type=int,  default=10)
+    parser.add_argument("--dgp", type=str,  default="lin_1")
     parser.add_argument("--data_key", type=int,  default=0)
-    #parser.add_argument("--data_dim_list", type=int, nargs="+", default=[10])
-    #parser.add_argument("--data_key_list", type=int, nargs="+", default=[0])
+
     
     # Agent parameters
     parser.add_argument("--algo_list", type=str, nargs="+", default=["bong"])
@@ -313,7 +320,8 @@ if __name__ == "__main__":
     parser.add_argument("--nsample_list", type=int, nargs="+", default=[10])
     parser.add_argument("--ef_list", type=int, nargs="+", default=[1])
     parser.add_argument("--rank_list", type=int, nargs="+", default=[10])
-    parser.add_argument("--model_neurons_list", type=str, nargs="+",  default=["1"]) # 10-10-1
+    parser.add_argument("--model_list", type=str, nargs="+", default=["lin_1"]) # mlp_10_10_1
+
 
 
     args = parser.parse_args()
