@@ -17,11 +17,29 @@ import optuna
 import pandas as pd
 import matplotlib.pyplot as plt
 from jax.flatten_util import ravel_pytree
+import subprocess
+
 
 from bong.base import RebayesAlgorithm, State
 from bong.types import Array, ArrayLike, PRNGKey
 
 
+def jax_has_gpu():
+    #https://github.com/google/jax/issues/971
+    try:
+        _ = jax.device_put(jax.numpy.ones(1), device=jax.devices('gpu')[0])
+        return True
+    except:
+        return False
+
+
+def get_gpu_name():
+    if not jax_has_gpu():
+        return 'None'
+    # Run the nvidia-smi command
+    result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'], capture_output=True, text=True)
+    name = result.stdout.strip()
+    return name
 
 
 _vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inverse

@@ -11,13 +11,55 @@ DATASET="linreg"
 DATADIM=10
 PREFIX="job"
 
+ALGO=("bong" "bog" "bbb" "blr")
+PARAM=("dlr")
+LIN=(0)
+LR=(0.05 0.1)
+NSAMPLE=(10)
+NITER=(10)
+EF=(0 1)
+DATASET="linreg"
+DATADIM=10
+PREFIX="job"
+
+#:Any-P:fc_mom-Lin:0-LR:Any-I:10-MC:10-EF:Any-R:10-MLP:1
+ALGO=("bong" "bog" "bbb" "blr")
+PARAM=("fc_mom")
+LIN=(0)
+LR=(0.05 0.1)
+NSAMPLE=(10)
+NITER=(10)
+EF=(0 1)
+DATASET="linreg"
+DATADIM=10
+PREFIX="peter-1"
+
+#A:Any-P:diag-Lin:0-LR:Any-I:10-MC:10-EF:Any-R:10-MLP:1
+ALGO=("bong" "bog" "bbb" "blr")
+PARAM=("diag")
+LIN=(0)
+LR=(0.05 0.1)
+NSAMPLE=(10)
+NITER=(10)
+EF=(0 1)
+DATASET="linreg"
+DATADIM=10
+PREFIX="peter-2"
+
+
+
+
+########## SERIAL MODE
+
+
+
 python run_jobs.py \
     --algo_list ${ALGO[@]} \
     --param_list ${PARAM[@]} \
     --lin_list ${LIN[@]} \
     --lr_list ${LR[@]}  \
     --nsample_list ${NSAMPLE[@]} \
-    --niter_list ${NSAMPLE[@]} \
+    --niter_list ${NITER[@]} \
     --ef_list ${EF[@]}   \
     --dataset $DATASET \
     --data_dim $DATADIM \
@@ -31,7 +73,7 @@ python run_jobs.py \
     --lin_list ${LIN[@]} \
     --lr_list ${LR[@]}  \
     --nsample_list ${NSAMPLE[@]} \
-    --niter_list ${NSAMPLE[@]} \
+    --niter_list ${NITER[@]} \
     --ef_list ${EF[@]}   \
     --dataset $DATASET \
     --data_dim $DATADIM \
@@ -39,3 +81,70 @@ python run_jobs.py \
     --job_prefix $PREFIX \
     --plot 1
 
+########## PARALLEL MODE
+
+python run_jobs.py \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NITER[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --parallel 1
+
+python run_jobs.py \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NITER[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --copy 1
+
+python run_jobs.py \
+    --algo_list ${ALGO[@]} \
+    --param_list ${PARAM[@]} \
+    --lin_list ${LIN[@]} \
+    --lr_list ${LR[@]}  \
+    --nsample_list ${NSAMPLE[@]} \
+    --niter_list ${NITER[@]} \
+    --ef_list ${EF[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --plot 1
+
+### SINGLE JOB
+
+
+AGENT="bong_diag"
+LR=0.05
+NSAMPLE=10
+NITER=10
+EF=0
+DATASET="linreg"
+DATADIM=10
+DIR=/teamspace/studios/this_studio/jobs/foo
+DEBUG=True
+
+python run_job.py \
+    --agent $AGENT \
+    --lr $LR  \
+    --nsample $NSAMPLE \
+    --niter $NITER \
+    --ef $EF   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dir $DIR \
+    --debug $DEBUG

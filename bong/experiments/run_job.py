@@ -9,7 +9,7 @@ import numpy as np
 import jax.random as jr
 import jax
 
-from bong.util import run_rebayes_algorithm, gaussian_kl_div
+from bong.util import run_rebayes_algorithm, gaussian_kl_div, get_gpu_name
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from bong.agents import AGENT_DICT, AGENT_NAMES
 
@@ -19,6 +19,7 @@ from mlpreg_data import make_mlpreg
 
 def run_agent(key, agent, data, callback):
     print(f"Running {agent.name} on {data['name']}")
+    print("Using GPU of type: ", get_gpu_name())
     t0 = time.perf_counter()
     _, (kldiv, nll, nlpd) = jax.block_until_ready(
         run_rebayes_algorithm(key, agent, data['X_tr'], data['Y_tr'], transform=callback)
@@ -110,6 +111,7 @@ if __name__ == "__main__":
     # results
     parser.add_argument("--dir", type=str, default="", help="directory to store results") 
     parser.add_argument("--filename", type=str, default="", help="filename prefix")
+    parser.add_argument("--debug", type=bool, default=False)
     
     args = parser.parse_args()
      # Convert parser flags to dictionary

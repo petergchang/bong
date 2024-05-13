@@ -204,7 +204,7 @@ def main(args):
             src = f'{jobs_dir}/{job}/work'
             dst = f'{results_dir}/{job}/work'
             dst_path = Path(dst)
-            print(f'Creating {str(dst_path)}')
+            print(f'\n Creating {str(dst_path)}')
             dst_path.mkdir(parents=True, exist_ok=True)
 
             # chnage permissions so we can delete the copied files
@@ -212,7 +212,7 @@ def main(args):
             print(f'Running {cmd}')
             os.system(cmd)
 
-            fnames = ['results.cvs', 'args.json']
+            fnames = ['results.csv', 'args.json']
             for fname in fnames:
                 cmd = f'cp -r {src}/{fname} {dst}/{fname}'
                 print(f'Running {cmd}')
@@ -265,11 +265,12 @@ def main(args):
         #print(f'Will store results in /teamspace/jobs/[jobname]/work')
 
         for jobname, cmd in cmd_dict.items():
-            print('queuing job', jobname)
+            print('\n Queuing job', jobname)
             output_dir = f'{jobs_dir}/{jobname}/work' 
             print(cmd)
             print(f'saving output to {output_dir}')
-            job_plugin.run(cmd, name=jobname)
+            job_plugin.run(cmd, name=jobname) # run locally
+            #job_plugin.run(cmd, machine=Machine.A10G_X_4, name=jobname)
 
     else:
         jobs_dir = results_dir
@@ -279,7 +280,7 @@ def main(args):
             path = Path(output_dir)
             path.mkdir(parents=True, exist_ok=True)   
             cmd = cmd + f' --dir {output_dir}'
-            print('\n\nRunning', cmd)
+            print('\n Running', cmd)
             #print(f'Storing results in {output_dir}')
             os.system(cmd)
 
