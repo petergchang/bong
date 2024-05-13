@@ -15,6 +15,7 @@ DGP="lin_1"
 PREFIX="job"
 GPU="None"
 
+#reg-D10-mlp_10_10_1/A:bong-P:fc-Lin:0-LR:0_05-I:10-MC:10-EF:0-R:10-Model:lin_1
 MODEL_LIST=("lin_1")
 ALGO_LIST=("bong")
 PARAM_LIST=("fc")
@@ -25,7 +26,7 @@ NITER_LIST=(10)
 EF_LIST=(0)
 DATASET="reg"
 DATADIM=10
-DGP="mlp_10_10_1" # BROKEN
+DGP="mlp_10_10_1" 
 PREFIX="job"
 GPU="None"
 

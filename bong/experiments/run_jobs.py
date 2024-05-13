@@ -199,7 +199,7 @@ def make_and_save_results(args, path):
             row.dataset, row.data_dim, row.data_key, row.dgp)
         cmd_dict[row.jobname] = cmd
         cmd_list.append(cmd)
-    df_flags['cmd'] = cmd_list
+    #df_flags['cmd'] = cmd_list
     
 
     # Store csv containing all the flags/commands that are being executed

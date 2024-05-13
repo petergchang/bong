@@ -92,6 +92,7 @@ def generate_ydata_mlpreg(keyroot, X, model, noise_std=1.0):
     predictor = model['pred_fn']
     Ymean = jax.vmap(predictor)(X)  # (N,1) for scalar output
     Y = Ymean + jr.normal(key, (N,1)) * noise_std
+    Y = Y.flatten() # convert to (N,)
     return Y
 
 
