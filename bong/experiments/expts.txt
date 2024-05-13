@@ -3,6 +3,17 @@
 ALGO=("bong" "bog" "bbb" "blr")
 PARAM=("fc")
 LIN=(0)
+LR=(0.05)
+NSAMPLE=(10)
+NITER=(10)
+EF=(1)
+DATASET="linreg"
+DATADIM=10
+PREFIX="job"
+
+ALGO=("bong" "bog" "bbb" "blr")
+PARAM=("fc")
+LIN=(0)
 LR=(0.05 0.1)
 NSAMPLE=(10)
 NITER=(10)
@@ -127,7 +138,7 @@ python run_jobs.py \
 
 ### SINGLE JOB
 
-
+#A:Any-P:fc-L-LR:0_05-I:10-MC:10-EF:1-R:10-MLP:1
 AGENT="bong_diag"
 LR=0.05
 NSAMPLE=10

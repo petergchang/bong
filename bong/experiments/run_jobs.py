@@ -217,8 +217,6 @@ def main(args):
                 cmd = f'cp -r {src}/{fname} {dst}/{fname}'
                 print(f'Running {cmd}')
                 os.system(cmd)
-
-         
         return
 
     # Create new results
@@ -237,21 +235,25 @@ def main(args):
     df_flags['data_key'] = args.data_key
 
     cmd_dict = {}
+    cmd_list = []
     for index, row in df_flags.iterrows():
         cmd = make_unix_cmd_given_flags(
             row.agent, row.lr, row.niter, row.nsample,
             row.linplugin, row.ef, row.model_neurons, row.dlr_rank, # rank is a reserved word in pandas
             row.dataset, row.data_dim, row.data_key)
         cmd_dict[row.jobname] = cmd
+        cmd_list.append(cmd)
+    df_flags['cmd'] = cmd_list
+    
 
     # Store csv containing all the flags/commands that are being executed
-    #fname = Path(path, "flags.csv")
-    #print("Saving to", fname)
-    #df_flags.to_csv(fname, index=False) 
+    fname = Path(path, "jobs.csv")
+    print("Saving to", fname)
+    df_flags.to_csv(fname, index=False) 
 
     cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
     df_cmds = pd.DataFrame(cmds)
-    fname = Path(path, "jobs.csv")
+    fname = Path(path, "cmds.csv")
     print("Saving to", fname)
     df_cmds.to_csv(fname, index=False)
 
