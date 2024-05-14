@@ -19,7 +19,7 @@ import tensorflow_probability.substrates.jax as tfp
 from ucimlrepo import fetch_ucirepo
 
 
-from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP
+from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP, make_neuron_str
 from bong.src import bbb, blr, bog, bong, experiment_utils
 
 tfd = tfp.distributions
@@ -27,15 +27,14 @@ MVN = tfd.MultivariateNormalTriL
 
 def make_dataset(args):
     if args.dataset == "reg":
-        dgp = args.dgp[0:3] #lin_1, mlp_20_20_1
-        if dgp == "lin":
+        if args.dgp_type == "lin":
             data = make_data_reg_lin(args)
-        elif dgp == "mlp":
+        elif args.dgp_type == "mlp":
             data = make_data_reg_mlp(args)
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
     elif args.dataset == "cls":
-        if dgp == "lin":
+        if args.dgp_type == "lin":
             data = make_data_cls_lin(args)
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
@@ -68,7 +67,7 @@ def make_data_reg_lin(args):
     d, noise_std = args.data_dim, args.emission_noise
     keyroot = jr.PRNGKey(args.data_key)
     key1, keyroot = jr.split(keyroot)
-    theta = generate_linear_model(key1, args.data_dim)
+    theta = generate_linear_model(key1, d)
     name = f'reg-D{args.data_dim}-lin_1'
 
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
@@ -109,14 +108,13 @@ def generate_mlp(keyroot, d, nneurons = [1,]):
 
 
 def make_data_reg_mlp(args):
-    dgp = args.dgp
-    neurons = [int(n) for n in dgp[4:].split("_")] # mlp_10_10_1 or mlp_1
-    name = f'reg-D{args.data_dim}-{args.dgp}'
+    neurons_str = make_neuron_str(args.dgp_neurons)
+    name = f'reg-D{args.data_dim}-mlp_{neurons_str}'
 
     d, noise_std = args.data_dim, args.emission_noise
     keyroot = jr.PRNGKey(args.data_key)
     key1, keyroot = jr.split(keyroot)
-    model = generate_mlp(key1, args.data_dim, neurons)
+    model = generate_mlp(key1, args.data_dim, args.dgp_neurons)
 
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
     X_tr = generate_xdata_mvn(key1, args.ntrain, d)

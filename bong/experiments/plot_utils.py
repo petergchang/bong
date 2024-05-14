@@ -8,10 +8,8 @@ import jax.numpy as jnp
 from pathlib import Path
 import os
 import matplotlib.image as mpimg
-
-
-from bong.util import list_subdirectories
-from bong.agents import parse_agent_name
+import json
+from bong.agents import parse_agent_full_name
 
 def make_marker(name):
     #https://matplotlib.org/stable/api/markers_api.html
@@ -56,8 +54,8 @@ marker_types = {
 
 
 
-def plot_results_from_images(root_dir, data_dir, agent_dir, metrics=['nll',  'nlpd']):
-    results_dir = f"{root_dir}/{data_dir}/{agent_dir}"
+def plot_results_from_images(root_dir, data_dir, model_dir, agent_dir, metrics=['nll',  'nlpd']):
+    results_dir = f"{root_dir}/{data_dir}/{model_dir}/{agent_dir}"
     ncols = len(metrics)
     fig, axs = plt.subplots(1, ncols, figsize=(16, 8))
     for i, metric in enumerate(metrics):
@@ -72,33 +70,30 @@ def plot_results_from_images(root_dir, data_dir, agent_dir, metrics=['nll',  'nl
 
 
 
-def plot_all_results_from_images(root_dir=None, data_dir=None):
-    if root_dir is None: root_dir = '/teamspace/studios/this_studio/jobs'
-    if data_dir is None: data_dir = 'linreg-dim10-key0'
-    base_dir = f"{root_dir}/{data_dir}"
-    agent_dirs = list_subdirectories(base_dir)
-    #agent_dir = 'A:Any-P:fc-Lin:0-LR:Any-I:10-MC:10-EF:0-R:10-MLP:1'
-    for agent_dir in agent_dirs:
-        plot_result_images(root_dir, data_dir, agent_dir)
 
 
-
-def make_plot_params(agent_name):
-    parts = parse_agent_name(agent_name)
+def make_plot_params(args):
     markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
-    marker = markers[parts['algo']]
-    if (parts['ef']==0) & (parts['lin']==0): linestyle = '-'
-    if (parts['ef']==1) & (parts['lin']==0): linestyle = '--'
-    if (parts['ef']==0) & (parts['lin']==1): linestyle = ':'
-    if (parts['ef']==1) & (parts['lin']==1): linestyle = '-.'
-    #linestyles = {'bong': '-', 'blr': '--', 'bog': '-.', 'bbb': ':'}
-    #markers = {'fc': '+', 'fc_mom': '*', 'diag': '+', 'diag_mom': 'x', 'dlr': 'o'}
+    marker = markers[args['algo']]
+    if (args['ef']==0) & (args['lin']==0): linestyle = '-'
+    if (args['ef']==1) & (args['lin']==0): linestyle = '--'
+    if (args['ef']==0) & (args['lin']==1): linestyle = ':'
+    if (args['ef']==1) & (args['lin']==1): linestyle = '-.'
     return {
             'linestyle': linestyle,
             'linewidth': 1,
             'marker': marker,
             'markersize': 6
             }
+
+def extract_metrics_from_files(dir):
+    fname = f"{dir}/jobs.csv"
+    df = pd.read_csv(fname)
+    jobnames = df['jobname']
+    jobname = jobnames[0]
+    fname = f"{dir}/{jobname}/work/results.csv"
+    df_res = pd.read_csv(fname)
+    return df_res.columns
 
 def plot_results_from_files(dir,  metric, save_fig=False):
     fname = f"{dir}/jobs.csv"
@@ -121,11 +116,15 @@ def plot_results_from_files(dir,  metric, save_fig=False):
             print(f'All 0s in {metric} in {fname}, skipping')
             continue
 
-
-        agent_name = df_res['agent_name'][0] # bong_fc-MC10
-        plot_params = make_plot_params(agent_name)
-        data_name = df_res['dataset_name'][0]
-        ttl = f'{metric} on {data_name}'
+        fname = f"{dir}/{jobname}/work/args.json"
+        with open(fname, 'r') as json_file:
+            args = json.load(json_file)
+        agent_name = args['agent_name']
+        model_name = args['model_name']
+        data_name = args['data_name']
+        parts = parse_agent_full_name(agent_name)
+        plot_params = make_plot_params(parts)
+        ttl = f'{metric} of {model_name} on {data_name}'
 
         T = len(vals)
         steps = jnp.arange(0, T)

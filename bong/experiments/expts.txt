@@ -1,9 +1,12 @@
-# reg-D10-lin_1
+Matplotlib created a temporary cache directory at /tmp/matplotlib-8cbie2jl 
+because the default path (/teamspace/studios/this_studio/.config/matplotlib) is not a writable directory; 
+it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, 
+in particular to speed up the import of Matplotlib and to better support multiprocessing.
 
-#A:bong-P:fc-Lin:0-LR:0_05-I:10-MC:10-EF:0-R:10-Model:lin1
-MODEL_LIST=("lin_1")
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(10 1)
 ALGO_LIST=("bong")
-PARAM_LIST=("fc")
+PARAM_LIST=("diag")
 LIN_LIST=(0)
 LR_LIST=(0.05)
 NSAMPLE_LIST=(10)
@@ -11,30 +14,20 @@ NITER_LIST=(10)
 EF_LIST=(0)
 DATASET="reg"
 DATADIM=10
-DGP="lin_1"
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(500)
 PREFIX="job"
 GPU="None"
 
-#reg-D10-mlp_10_10_1/A:bong-P:fc-Lin:0-LR:0_05-I:10-MC:10-EF:0-R:10-Model:lin_1
-MODEL_LIST=("lin_1")
-ALGO_LIST=("bong")
-PARAM_LIST=("fc")
-LIN_LIST=(0)
-LR_LIST=(0.05)
-NSAMPLE_LIST=(10)
-NITER_LIST=(10)
-EF_LIST=(0)
-DATASET="reg"
-DATADIM=10
-DGP="mlp_10_10_1" 
-PREFIX="job"
-GPU="None"
+
 
 ########## SERIAL MODE
 
 
 python run_jobs.py \
-    --model_list ${MODEL_LIST[@]} \
+    --model_type $MODEL_TYPE \
+    --model_neurons ${MODEL_NEURONS[@]} \
     --algo_list ${ALGO_LIST[@]} \
     --param_list ${PARAM_LIST[@]} \
     --lin_list ${LIN_LIST[@]} \
@@ -44,82 +37,23 @@ python run_jobs.py \
     --ef_list ${EF_LIST[@]}   \
     --dataset $DATASET \
     --data_dim $DATADIM \
-    --dgp $DGP \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons ${DGP_NEURONS[@]} \
+    --ntrain $NTRAIN \
     --rootdir ~/jobs \
     --job_prefix $PREFIX 
 
-python run_jobs.py \
-    --model_list ${MODEL_LIST[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp $DGP \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --plot 1
+
+
+
 
 ########## PARALLEL MODE
-
-
-python run_jobs.py \
-    --model_list ${MODEL_LIST[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp $DGP \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --parallel 1 \
-    --gpu $GPU
-
-python run_jobs.py \
-    --model_list ${MODEL_LIST[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp $DGP \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --copy 1
-
-python run_jobs.py \
-    --model_list ${MODEL_LIST[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp $DGP \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --plot 1
 
 ### SINGLE JOB
 
 
-MODEL="lin_1"
+MODEL_TYPE="lin"
+MODEL_NEURONS=(10 10 1)
 AGENT="bong_fc"
 LR=0.05
 NSAMPLE=10
@@ -127,17 +61,20 @@ NITER=10
 EF=0
 DATASET="reg"
 DATADIM=10
-DGP="lin_1"
+DGP_TYPE="lin"
+DGP_NEURONS=(1)
 DIR=/teamspace/studios/this_studio/jobs/foo
 
 python run_job.py \
     --agent $AGENT \
-    --model $MODEL \
+    --model_type $MODEL_TYPE \
+    --model_neurons ${MODEL_NEURONS[@]} \
     --lr $LR  \
     --nsample $NSAMPLE \
     --niter $NITER \
     --ef $EF   \
     --dataset $DATASET \
     --data_dim $DATADIM \
-    --dgp $DGP \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons ${DGP_NEURONS[@]} \
     --dir $DIR 

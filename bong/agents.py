@@ -255,7 +255,7 @@ def make_agent_df(AGENT_DICT):
     df = pd.DataFrame(lst)
     return df
 
-def parse_agent_name(s):
+def parse_agent_full_name(s):
     # example input: 'bong_fc-MC10-I0-LR0_05-EF1-Lin1-R10'
     parts = s.split('-')
     if len(parts)==6:
@@ -270,6 +270,7 @@ def parse_agent_name(s):
     algo = parts[0]
     param = "_".join(parts[1:])
     return {
+        'name': s, 
         'algo': algo,
         'param': param,
         'mc': int(mc),
@@ -279,3 +280,10 @@ def parse_agent_name(s):
         'lin': int(lin),
         'rank': int(rank)
         }
+
+def make_agent_name_from_parts(algo, param, lin):
+    if lin:
+        agent = f'{algo}_{param}_lin'
+    else:
+        agent = f'{algo}_{param}'
+    return agent

@@ -52,12 +52,20 @@ def safestr(lr):
     lr_str = f"{round(lr,4)}".replace('.', '_')
     return lr_str
 
-
 def unsafestr(lr_str):
     '''Convert string to float, replacing _ with .'''
     lr_str = lr_str.replace('_', '.')
     return float(lr_str)
 
+def make_neuron_str(neurons):
+    s = [str(n) for n in neurons]
+    neurons_str = "_".join(s)
+    return neurons_str
+
+def unmake_neuron_str(s):
+    neurons_str = s.split("_")
+    neurons = [int(n) for n in neurons_str]
+    return neurons
 
 def list_subdirectories(directory):
     return [name for name in os.listdir(directory)
@@ -110,7 +118,7 @@ class MLP(nn.Module):
     #https://flax.readthedocs.io/en/latest/api_reference/flax.linen/layers.html
     features: Sequence[int]
     activation: nn.Module = nn.gelu
-    use_bias: bool = True
+    use_bias: bool = False
     bias_init_fn: nn.initializers = make_bias_initializer('uniform')
     bias_init_fn_first_layer: nn.initializers = make_bias_initializer('uniform')
 

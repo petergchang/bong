@@ -7,9 +7,9 @@ import pandas as pd
 from pathlib import Path
 import os
 
-from bong.agents import AGENT_DICT, AGENT_NAMES
-from bong.util import safestr
-from plot_utils import plot_results_from_files
+from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts
+from bong.util import safestr, make_neuron_str, unmake_neuron_str
+from plot_utils import plot_results_from_files, extract_metrics_from_files
 
 cwd = Path(os.getcwd())
 root = cwd
@@ -18,98 +18,42 @@ script_dir = os.path.dirname(script_path)
 
 
 def make_dataset_dirname(args):
-    #if hasattr(args, 'data_dim'):
-    #    data_dim = args.data_dim
-    name = f'{args.dataset}-D{args.data_dim}-{args.dgp}'
+    neurons_str = make_neuron_str(args.dgp_neurons)
+    name = f'{args.dataset}-D{args.data_dim}-{args.dgp_type}_{neurons_str}'
     return name
 
+def make_model_dirname(args):
+    neurons_str = make_neuron_str(args.model_neurons)
+    name = f'{args.model_type}_{neurons_str}'
+    return name
+
+
+
+def foo(lst):
+    if len(lst)==1:
+        return "Any"
+    else:
+        x = lst[0]
+        if isinstance(x, float):
+            return safestr(x)
+        else:
+            return x
 
 def make_agent_dirname(args):
-    parts = []
-    if hasattr(args, 'algo_list'):
-        if len(args.algo_list)>1:
-            s =  "Any"
-        else:
-            s = args.algo_list[0]
-    else:
-        s = args.algo
-    parts.append(f"A:{s}")
-
-    if hasattr(args, 'param_list'):
-        if len(args.param_list)>1:
-            s =  "Any"
-        else:
-            s = args.param_list[0]
-    else:
-        s = args.param
-    parts.append(f"P:{s}")
-
-    if hasattr(args, 'lin_list'):
-        if len(args.lin_list)>1:
-            s =  "Any"
-        else:
-            s = args.lin_list[0]
-    else:
-        s = args.lin
-    parts.append(f"Lin:{s}")
-
-    if hasattr(args, 'lr_list'):
-        if len(args.lr_list)>1:
-            s =  "Any"
-        else:
-            s = safestr(args.lr_list[0])
-    else:
-        s = safestr(args.lr)
-    parts.append(f"LR:{s}")
-
-    if hasattr(args, 'niter_list'):
-        if len(args.niter_list)>1:
-            s =  "Any"
-        else:
-            s = args.niter_list[0]
-    else:
-        s = args.niter
-    parts.append(f"I:{s}")
-
-    if hasattr(args, 'nsample_list'):
-        if len(args.nsample_list)>1:
-            s =  "Any"
-        else:
-            s = args.nsample_list[0]
-    else:
-        s = args.nsample
-    parts.append(f"MC:{s}")
-
-    if hasattr(args, 'ef_list'):
-        if len(args.ef_list)>1:
-            s =  "Any"
-        else:
-            s = args.ef_list[0]
-    else:
-        s = args.ef
-    parts.append(f"EF:{s}")
-
-    if hasattr(args, 'rank_list'):
-        if len(args.rank_list)>1:
-            s =  "Any"
-        else:
-            s = args.rank_list[0]
-    else:
-        s = args.rank
-    parts.append(f"R:{s}")
-
-    if hasattr(args, 'model_list'):
-        if len(args.model_list)>1:
-            s =  "Any"
-        else:
-            s = args.model_list[0]
-    else:
-        s = args.model
-    parts.append(f"Model:{s}")
-
-    name = "-".join(parts)
+    # Example output: A:bong-P:fc-Lin:0-LR:0_05-I:10-MC:10-EF:0-R:1
+    parts = {
+        'A': foo(args.algo_list),
+        'P': foo(args.param_list),
+        'Lin': foo(args.lin_list),
+        'LR': foo(args.lr_list),
+        'IT': foo(args.niter_list),
+        'MC': foo(args.nsample_list),
+        'EF': foo(args.ef_list),
+        'R': foo(args.rank_list)
+        }
+    parts_str = [f"{name}:{val}" for (name, val) in parts.items()]
+    name = "-".join(parts_str)
     return name
-
 
 
 def extract_optional_agent_args(props, learning_rate, num_iter, num_sample, ef, rank):
@@ -127,90 +71,93 @@ def extract_optional_agent_args(props, learning_rate, num_iter, num_sample, ef, 
     return args
 
 
-def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, model, rank,
-                            dataset, data_dim, data_key, dgp):
+def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, rank,
+                            model_type, model_neurons_str,
+                            dataset, data_dim, dgp_type, dgp_neurons_str, ntrain):
     # We must pass in all flags where we want to override the default in run_job
     #main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_job.py'
     main_name = f'{script_dir}/run_job.py'
+    #model_neurons = unmake_neuron_str(model_neurons_str)
+    #dgp_neurons = unmake_neuron_str(dgp_neurons_str)
     cmd = (
         f'python {main_name} --agent {agent}  --lr {lr}'
         f' --niter {niter} --nsample {nsample} --linplugin {linplugin}'
-        f' --ef {ef} --model {model} --rank {rank}'
-        f' --dataset {dataset} --data_dim {data_dim} --data_key {data_key} --dgp {dgp}'
+        f' --ef {ef} --rank {rank}'
+        f' --model_type {model_type} --model_neurons_str {model_neurons_str}'
+        f' --dataset {dataset} --data_dim {data_dim}'
+        f' --dgp_type {dgp_type} --dgp_neurons_str {dgp_neurons_str}'
+        f' --ntrain {ntrain}'
     )
     return cmd
 
 
+
+
 def make_df_for_flag_crossproduct(jobprefix, 
         algo_list, param_list, lin_list,
-        lr_list, niter_list, nsample_list, ef_list, model_list, rank_list):
+        lr_list, niter_list, nsample_list, ef_list, rank_list):
     args_list = []
     for algo in algo_list:
         for param in param_list:
             for lin in lin_list:
-                if lin:
-                    agent = f'{algo}_{param}_lin'
-                else:
-                    agent = f'{algo}_{param}'
+                agent = make_agent_name_from_parts(algo, param, lin)
                 props = AGENT_DICT[agent]
                 for lr in lr_list:
                     for niter in niter_list:
                         for nsample in nsample_list:
                             for ef in ef_list:
-                                for model in model_list:
-                                    for rank in rank_list:
-                                        args = extract_optional_agent_args(props, lr, niter, nsample, ef, rank)
-                                        args['agent'] = agent
-                                        args['model'] = model
-                                        args_list.append(args)
+                                for rank in rank_list:
+                                    args = extract_optional_agent_args(props, lr, niter, nsample, ef, rank)
+                                    args['agent'] = agent
+                                    args_list.append(args)
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
     N = len(df)
-    #jobnames = [f'job-{i}' for i in range(N)] 
     jobnames = [f'{jobprefix}-{i}' for i in range(N)] 
     df['jobname'] = jobnames
-    #dirs = [make_results_dirname(j, parallel) for j in jobnames]
-    #df['results_dir'] = dirs
     return df
 
 def make_and_save_results(args, path):
     # Make sure we can save results before doing any compute
     results_dir = str(path)
-    print(f'Creating {results_dir}')
+    print(f'Saving job results in {results_dir}')
     path.mkdir(parents=True, exist_ok=True)
 
     df_flags = make_df_for_flag_crossproduct(
         args.job_prefix, args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.model_list, args.rank_list)
+        args.ef_list, args.rank_list)
 
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
     df_flags['dataset'] = args.dataset
     df_flags['data_dim'] = args.data_dim
-    df_flags['data_key'] = args.data_key
-    df_flags['dgp'] = args.dgp
+    df_flags['dgp_type'] = args.dgp_type
+    df_flags['dgp_neurons_str'] = make_neuron_str(args.dgp_neurons)
+    df_flags['model_type'] = args.model_type
+    df_flags['model_neurons_str'] = make_neuron_str(args.model_neurons)
+    df_flags['ntrain'] = args.ntrain
+
 
     cmd_dict = {}
     cmd_list = []
     for index, row in df_flags.iterrows():
         cmd = make_unix_cmd_given_flags(
             row.agent, row.lr, row.niter, row.nsample,
-            row.linplugin, row.ef, row.model, row.dlr_rank, # rank is a reserved word in pandas
-            row.dataset, row.data_dim, row.data_key, row.dgp)
+            row.linplugin, row.ef, row.dlr_rank, 
+            row.model_type, row.model_neurons_str, 
+            row.dataset, row.data_dim, 
+            row.dgp_type, row.dgp_neurons_str, row.ntrain)
         cmd_dict[row.jobname] = cmd
         cmd_list.append(cmd)
     #df_flags['cmd'] = cmd_list
     
 
-    # Store csv containing all the flags/commands that are being executed
     fname = Path(path, "jobs.csv")
-    print("Saving to", fname)
     df_flags.to_csv(fname, index=False) 
 
     cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
     df_cmds = pd.DataFrame(cmds)
     fname = Path(path, "cmds.csv")
-    print("Saving to", fname)
     df_cmds.to_csv(fname, index=False)
 
 
@@ -272,15 +219,17 @@ def copy_results(args, path):
 def main(args):
     if args.dir == "":
         data_dirname = make_dataset_dirname(args)
+        model_dirname = make_model_dirname(args)
         agent_dirname = make_agent_dirname(args)
-        path = Path(args.rootdir, data_dirname, agent_dirname)
+        path = Path(args.rootdir, data_dirname, model_dirname, agent_dirname)
     else:
         path = Path(args.dir)
     results_dir = str(path)
 
     if args.plot:
         print(f'Writing plots to {results_dir}')
-        for metric in ['kl', 'nll', 'nlpd']:
+        metrics = extract_metrics_from_files(results_dir)
+        for metric in metrics:
             plot_results_from_files(results_dir,  metric, save_fig=True)
         return
 
@@ -307,8 +256,9 @@ if __name__ == "__main__":
     # Data parameters
     parser.add_argument("--dataset", type=str, default="reg")  
     parser.add_argument("--data_dim", type=int,  default=10)
-    parser.add_argument("--dgp", type=str,  default="lin_1")
-    parser.add_argument("--data_key", type=int,  default=0)
+    parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
+    parser.add_argument("--dgp_neurons", type=int, nargs="+", default=[20,20,1]) 
+    parser.add_argument("--ntrain", type=int,  default=500)
 
     
     # Agent parameters
@@ -320,7 +270,8 @@ if __name__ == "__main__":
     parser.add_argument("--nsample_list", type=int, nargs="+", default=[10])
     parser.add_argument("--ef_list", type=int, nargs="+", default=[1])
     parser.add_argument("--rank_list", type=int, nargs="+", default=[10])
-    parser.add_argument("--model_list", type=str, nargs="+", default=["lin_1"]) # mlp_10_10_1
+    parser.add_argument("--model_type", type=str, default="lin") # or mlp
+    parser.add_argument("--model_neurons", type=int, nargs="+", default=[10, 10, 1])
 
 
 
