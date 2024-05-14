@@ -318,6 +318,7 @@ def update_ldlrg_bog(
     Returns:
         Updated belief state.
     """
+    num_samples = 1 # using linearized approximation, M=1
     mean, prec_diag, prec_lr = state
     P, L = prec_lr.shape
     y_pred = jnp.atleast_1d(emission_mean_function(mean, x))

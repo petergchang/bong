@@ -236,7 +236,7 @@ AGENT_DICT_MC = {
 def convert_to_linplugin(args):
     args = args.copy()
     args['linplugin'] = 1
-    args['nsample'] = 0
+    args['nsample'] = 0 
     args['ef'] = 0
     return args
 

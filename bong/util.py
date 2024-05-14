@@ -118,7 +118,7 @@ class MLP(nn.Module):
     #https://flax.readthedocs.io/en/latest/api_reference/flax.linen/layers.html
     features: Sequence[int]
     activation: nn.Module = nn.gelu
-    use_bias: bool = False
+    use_bias: bool = True
     bias_init_fn: nn.initializers = make_bias_initializer('uniform')
     bias_init_fn_first_layer: nn.initializers = make_bias_initializer('uniform')
 

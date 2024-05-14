@@ -4,14 +4,15 @@ it is highly recommended to set the MPLCONFIGDIR environment variable to a writa
 in particular to speed up the import of Matplotlib and to better support multiprocessing.
 
 MODEL_TYPE=("mlp")
-MODEL_NEURONS=(10 1)
-ALGO_LIST=("bong")
-PARAM_LIST=("diag")
-LIN_LIST=(0)
+MODEL_NEURONS=(10 10 1)
+ALGO_LIST=("bog")
+PARAM_LIST=("fc" "fc_mom" "diag" "diag_mom" "dlr")
+RANK_LIST=(10)
+LIN_LIST=(1)
 LR_LIST=(0.05)
 NSAMPLE_LIST=(10)
 NITER_LIST=(10)
-EF_LIST=(0)
+EF_LIST=(1)
 DATASET="reg"
 DATADIM=10
 DGP_TYPE="mlp"
@@ -30,6 +31,7 @@ python run_jobs.py \
     --model_neurons ${MODEL_NEURONS[@]} \
     --algo_list ${ALGO_LIST[@]} \
     --param_list ${PARAM_LIST[@]} \
+    --rank_list ${RANK_LIST[@]} \
     --lin_list ${LIN_LIST[@]} \
     --lr_list ${LR_LIST[@]}  \
     --nsample_list ${NSAMPLE_LIST[@]} \
@@ -49,24 +51,26 @@ python run_jobs.py \
 
 ########## PARALLEL MODE
 
-### SINGLE JOB
+############### SINGLE JOB
 
 
-MODEL_TYPE="lin"
+MODEL_TYPE="mlp"
 MODEL_NEURONS=(10 10 1)
-AGENT="bong_fc"
+AGENT="bog_dlr_lin"
+RANK=10
 LR=0.05
 NSAMPLE=10
 NITER=10
-EF=0
+EF=1
 DATASET="reg"
 DATADIM=10
-DGP_TYPE="lin"
-DGP_NEURONS=(1)
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
 DIR=/teamspace/studios/this_studio/jobs/foo
 
 python run_job.py \
     --agent $AGENT \
+    --rank $RANK \
     --model_type $MODEL_TYPE \
     --model_neurons ${MODEL_NEURONS[@]} \
     --lr $LR  \

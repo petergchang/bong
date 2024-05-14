@@ -125,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
     parser.add_argument("--model_neurons", type=int, nargs="+", default=[])
     parser.add_argument("--model_neurons_str", type=str, default="10_10_1") 
-    parser.add_argument("--init_var", type=float, default=0.1)
+    parser.add_argument("--init_var", type=float, default=1.0)
     parser.add_argument("--algo_key", type=int, default=0)
 
     # results

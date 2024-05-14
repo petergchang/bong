@@ -30,7 +30,7 @@ def make_model_dirname(args):
 
 
 def foo(lst):
-    if len(lst)==1:
+    if len(lst)>1:
         return "Any"
     else:
         x = lst[0]
