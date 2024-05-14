@@ -42,8 +42,8 @@ def make_model(args, data):
 def  make_lin_reg(args, data):
     d = args.data_dim
     mu0 = jnp.zeros(d)
-    cov0 = args.init_var * jnp.eye(d) 
-    post = compute_post_linreg(args, data, mu0, cov0) 
+    cov0 = args.init_var
+    post = compute_post_linreg(args, data, mu0, cov0*jnp.eye(d))
     noise_std = args.emission_noise
     name = 'lin_1'
 
@@ -161,7 +161,7 @@ def initialize_mlp_model_reg(key, features, x, init_var, emission_noise):
     d = len(flat_params)
     init_kwargs = {
         "init_mean": flat_params,
-        "init_cov": init_var*jnp.eye(d), # optoonally tune
+        "init_cov": init_var, # optoonally tune
         "log_likelihood": log_likelihood,
         "emission_mean_function": em_function,
         "emission_cov_function": ec_function,
