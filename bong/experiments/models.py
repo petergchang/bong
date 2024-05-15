@@ -60,14 +60,20 @@ def  make_lin_reg(args, data):
         "emission_cov_function": ec_function,
         }
 
-    callback = partial(callback_reg_kl, X_cb=data['X_te'], Y_cb=data['Y_te'], post=post,
+
+    callback = partial(callback_reg, X_te=data['X_te'], Y_te=data['Y_te'],
+                X_val=data['X_val'], Y_val=data['Y_val'], post=None,
         em_function = em_function, ec_function = ec_function, log_likelihood = log_likelihood)
 
+    
     def process_callback(output):
-        kldiv, nll, nlpd = output
-        summary = f"KL-Div: {kldiv[-1]:.4f}, NLL: {nll[-1]:.4f},  NLPD: {nlpd[-1]:.4f}"
-        results = {'kl': kldiv, 'nll': nll, 'nlpd': nlpd}
+        nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
+        s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
+        s_te = f"Test NLL: {nll_te[-1]:.4f},  NLPD: {nlpd_te[-1]:.4f}"
+        summary = s_te + "\n" + s_val 
+        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val}
         return results, summary
+
         
     def tune_kl_loss_fn(key, alg, state):
         return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
@@ -87,7 +93,7 @@ def compute_post_linreg(args, data, mu0, cov0):
     return post
 
 # output = transform(key, rebayes_algorithm, pred_state, x, y)
-def callback_reg_kl(key, alg, state, x, y, X_cb, Y_cb,
+def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
         post, em_function, ec_function, log_likelihood,
         n_samples_mc_nlpd=100):
  
@@ -96,13 +102,19 @@ def callback_reg_kl(key, alg, state, x, y, X_cb, Y_cb,
         em = em_function(curr_mean, xcb)
         ec = ec_function(curr_mean, xcb)
         return -log_likelihood(em, ec, ycb)
-    nll = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_cb, Y_cb))
+    nll_te = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_te, Y_te))
+    nll_val = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_val, Y_val))
 
     # MC-NLPD
     means = alg.sample(key, state, n_samples_mc_nlpd)
-    nlpd = jnp.mean(jax.vmap(
+    nlpd_te = jnp.mean(jax.vmap(
         jax.vmap(_nll, (None, 0, 0)), (0, None, None)
-    )(means, X_cb, Y_cb))
+    )(means, X_te, Y_te))
+
+    means = alg.sample(key, state, n_samples_mc_nlpd)
+    nlpd_val = jnp.mean(jax.vmap(
+        jax.vmap(_nll, (None, 0, 0)), (0, None, None)
+    )(means, X_val, Y_val))
 
     # KL
     if post is not None:
@@ -113,7 +125,7 @@ def callback_reg_kl(key, alg, state, x, y, X_cb, Y_cb,
     else:
         kl_div = None
 
-    return kl_div, nll, nlpd
+    return nll_te, nll_val, nlpd_te, nlpd_val, kl_div
 
 
 
@@ -130,13 +142,16 @@ def make_mlp_reg(args, data):
     ec_function = model_kwargs["emission_cov_function"]
     log_likelihood = model_kwargs["log_likelihood"]
 
-    callback = partial(callback_reg_kl, X_cb=data['X_te'], Y_cb=data['Y_te'], post=None,
+    callback = partial(callback_reg, X_te=data['X_te'], Y_te=data['Y_te'],
+                X_val=data['X_val'], Y_val=data['Y_val'], post=None,
         em_function = em_function, ec_function = ec_function, log_likelihood = log_likelihood)
 
     def process_callback(output):
-        kldiv, nll, nlpd = output
-        summary = f"NLL: {nll[-1]:.4f},  NLPD: {nlpd[-1]:.4f}"
-        results = {'nll': nll, 'nlpd': nlpd}
+        nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
+        s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
+        s_te = f"Test NLL: {nll_te[-1]:.4f},  NLPD: {nlpd_te[-1]:.4f}"
+        summary = s_te + "\n" + s_val 
+        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val}
         return results, summary
 
     d = {'model_kwargs': model_kwargs, 'callback': callback,

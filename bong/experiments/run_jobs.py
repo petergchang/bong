@@ -6,10 +6,11 @@ import itertools
 import pandas as pd
 from pathlib import Path
 import os
+import datetime
 
 from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts
-from bong.util import safestr, make_neuron_str, unmake_neuron_str
-from plot_utils import plot_results_from_files, extract_metrics_from_files
+from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp
+from plot_utils import plot_results, extract_results_from_files, extract_metrics_from_files
 
 cwd = Path(os.getcwd())
 root = cwd
@@ -117,6 +118,7 @@ def make_df_for_flag_crossproduct(jobprefix,
     df['jobname'] = jobnames
     return df
 
+
 def make_and_save_results(args, path):
     # Make sure we can save results before doing any compute
     results_dir = str(path)
@@ -159,6 +161,8 @@ def make_and_save_results(args, path):
     df_cmds = pd.DataFrame(cmds)
     fname = Path(path, "cmds.csv")
     df_cmds.to_csv(fname, index=False)
+    njobs = len(df_cmds)
+    print(f'Running {njobs} jobs, please be patient')
 
 
     if args.parallel:
@@ -169,27 +173,27 @@ def make_and_save_results(args, path):
         jobs_dir = '/teamspace/jobs'
         #print(f'Will store results in /teamspace/jobs/[jobname]/work')
 
+        n = 0
         for jobname, cmd in cmd_dict.items():
-            print('\n Queuing job', jobname)
+            print(f'\n Queuing job {n} of {njobs}:\n{cmd}')
             output_dir = f'{jobs_dir}/{jobname}/work' 
-            print(cmd)
-            print(f'saving output to {output_dir}')
             if args.gpu == 'None':
                 job_plugin.run(cmd, name=jobname) # run on local VM
             elif args.gpu == 'A10G':
                 job_plugin.run(cmd, machine=Machine.A10G, name=jobname)
+            n = n + 1
 
     else:
         jobs_dir = results_dir
-        #print(f'Storing results in {args.dir}')
+        n = 0
         for jobname, cmd in cmd_dict.items():   
             output_dir = f'{jobs_dir}/{jobname}/work'  
             path = Path(output_dir)
             path.mkdir(parents=True, exist_ok=True)   
             cmd = cmd + f' --dir {output_dir}'
-            print('\n Running', cmd)
-            #print(f'Storing results in {output_dir}')
+            print(f'\n Running job {n} of {njobs}:\n{cmd}')
             os.system(cmd)
+            n = n + 1
     
 
 def copy_results(args, path):
@@ -228,9 +232,14 @@ def main(args):
 
     if args.plot:
         print(f'Writing plots to {results_dir}')
+        make_file_with_timestamp(results_dir)
         metrics = extract_metrics_from_files(results_dir)
         for metric in metrics:
-            plot_results_from_files(results_dir,  metric, save_fig=True)
+            results = extract_results_from_files(results_dir,  metric)
+            fig, ax = plot_results(results,  metric)
+            fname = f"{results_dir}/{metric}.png"
+            print(f'Saving figure to {fname}')
+            fig.savefig(fname, bbox_inches='tight', dpi=300)
         return
 
     if args.copy:

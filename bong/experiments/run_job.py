@@ -25,7 +25,8 @@ def run_agent(key, agent, data, model):
     results, summary = model['process_callback'](output)
     t1 = time.perf_counter()
     elapsed = t1-t0
-    print(f"Time {elapsed:.2f}s, {summary}")
+    print(f"Time {elapsed:.2f}s")
+    print(summary)
     #results['time'] = elapsed
     #results['agent_name'] = agent.name
     #results['dataset_name'] = data['name']
@@ -109,8 +110,8 @@ if __name__ == "__main__":
     parser.add_argument("--dgp_neurons_str", type=str, default="20_20_1") 
     parser.add_argument("--emission_noise", type=float, default=1.0)
     parser.add_argument("--ntrain", type=int, default=500)
-    parser.add_argument("--nval", type=int, default=500)
-    parser.add_argument("--ntest", type=int, default=500)
+    parser.add_argument("--nval", type=int, default=1000)
+    parser.add_argument("--ntest", type=int, default=1000)
 
     
     # Model parameters

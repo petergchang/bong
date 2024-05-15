@@ -95,52 +95,100 @@ def extract_metrics_from_files(dir):
     df_res = pd.read_csv(fname)
     return df_res.columns
 
-def plot_results_from_files(dir,  metric, save_fig=False):
+def find_first_true(arr):
+    true_indices = np.where(arr)[0]
+    if true_indices.size > 0:
+        first_true_index = true_indices[0]
+    else:
+        first_true_index = None
+    return first_true_index
+
+def extract_results_from_files(dir,  metric):
     fname = f"{dir}/jobs.csv"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
-
-    fig, ax = plt.subplots(figsize=(5,5))
-    fs = 'x-small' # fontr size for legend
-    loc = 'upper right' #'lower left'
-
+    results = {}
     for jobname in jobnames:
         fname = f"{dir}/{jobname}/work/results.csv"
         df_res = pd.read_csv(fname)
         vals = df_res[metric]
-        if np.any(np.isnan(vals)):
-            print(f'found NaNs in {metric} in {fname}, skipping')
-            continue
-
-        if np.all((vals == 0)):
-            print(f'All 0s in {metric} in {fname}, skipping')
-            continue
-
+        nans = np.isnan(vals)
+        if np.any(nans):
+            T = find_first_true(nans)
+        else:
+            T = len(vals)
+        
         fname = f"{dir}/{jobname}/work/args.json"
         with open(fname, 'r') as json_file:
             args = json.load(json_file)
-        agent_name = args['agent_name']
-        model_name = args['model_name']
-        data_name = args['data_name']
+        d = {
+            'metric': metric,
+            'vals': vals,
+            'valid_len': T,
+            'agent_name': args['agent_name'], 
+            'model_name': args['agent_name'],
+            'data_name': args['data_name'],
+            }
+        results[jobname] = d
+    return results
+
+def extract_stats_from_results(results, qlow=0, qhigh=90, first_step=1):
+    infty = 1e10
+    qlows, qhighs, mins, maxs = [infty], [0], [infty], [0]
+    for i, job in enumerate(results.keys()):
+        res = results[job]
+        vals = res['vals']
+        agent_name = res['agent_name']
+        T = res['valid_len']
+        vals = vals[first_step:T]
+        if len(vals) > 0:
+            q_low, q_high = np.percentile(vals, [qlow, qhigh])
+            qlows.append(q_low)
+            qhighs.append(q_high)
+            mins.append(np.min(vals))
+            maxs.append(np.max(vals))
+    d = {
+        'min': np.min(np.array(mins)),
+        'max': np.max(np.array(maxs)),
+        'qlow': np.min(np.array(qlows)),
+        'qhigh': np.max(np.array(qhighs))
+    }
+    return d
+
+
+def plot_results(results,  metric, qlow=0, qhigh=80, first_step=1):
+    jobnames = results.keys()
+    stats = extract_stats_from_results(results, qlow, qhigh, first_step)
+    fig, ax = plt.subplots(figsize=(6,6))
+    qlows, qhighs = [], []
+    for i, jobname in enumerate(jobnames):
+        res = results[jobname]
+        vals = res['vals']
+        agent_name = res['agent_name']
+        model_name = res['model_name']
+        data_name = res['data_name']
         parts = parse_agent_full_name(agent_name)
         plot_params = make_plot_params(parts)
-        ttl = f'{metric} of {model_name} on {data_name}'
+        ttl = f'{metric} using D:{data_name},  M:{model_name}, A:*'
 
-        T = len(vals)
+        T = res['valid_len']
         steps = jnp.arange(0, T)
         ndx = round(jnp.linspace(0, T-1, num=min(T,30))) #    # extract subset of points for plotting to avoid cluttered markers
-        ndx = ndx[2:] #  skip first 2 time steps, since it messes up the vertical scale
+        ndx = ndx[first_step:] #  skip first 2 time steps, since it messes up the vertical scale
 
         ax.plot(steps[ndx], vals[ndx], label=agent_name, **plot_params)
         ax.grid(True)
-        ax.legend(loc=loc, prop={'size': fs})
+        ax.legend(loc='upper right', prop={'size': 'x-small'})
         ax.set_ylabel(metric)
         ax.set_xlabel('num. training observations')
-        ax.set_title(ttl)
-    if save_fig:
-        fname = f"{dir}/{metric}.png"
-        print(f'Saving figure to {fname}')
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
+        ax.set_title(ttl, fontsize=8)
+        ax.set_ylim(stats['qlow'], 1.1*stats['qhigh']) # truncate outliers
+        
+    return fig, ax
+
+
+
+
 
 def plot_df(df):
     #fname = "/Users/kpmurphy/github/bong/bong/results/baz_parsed.csv"
