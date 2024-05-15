@@ -5,7 +5,7 @@ ALGO_LIST=("bong")
 PARAM_LIST=("fc")
 RANK_LIST=(0)
 LIN_LIST=(0)
-LR_LIST=(0.005 0.01 0.05)
+LR_LIST=(0.01)
 NSAMPLE_LIST=(100)
 NITER_LIST=(10)
 EF_LIST=(0)
@@ -17,7 +17,7 @@ NTRAIN=(500)
 PREFIX="job0"
 GPU="None"
 
-# Ablations. 
+# expt1 
 MODEL_TYPE=("mlp")
 MODEL_NEURONS=(10 1)
 ALGO_LIST=("bong" "blr" "bog" "bbb")
@@ -35,6 +35,64 @@ DGP_NEURONS=(20 20 1)
 NTRAIN=(500)
 PREFIX="job1"
 GPU="None"
+
+# expt2
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(10 1)
+ALGO_LIST=("bong" "blr" "bog" "bbb")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(0.001 0.005 0.01 0.05)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(0)
+DATASET="reg"
+DATADIM=100
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(500)
+PREFIX="expt2"
+GPU="None"
+
+
+# expt3
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(10 1)
+ALGO_LIST=("bong" "blr" "bog" "bbb")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(0.01)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(0)
+DATASET="reg"
+DATADIM=100
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(500)
+PREFIX="expt3"
+MACHINE="A10G"
+
+# expt4
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(10 1)
+ALGO_LIST=("bong" "blr" "bog" "bbb")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(1e-4 5e-4 1e-3 5e-3 1e-2 5e-2 1e-1)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(1)
+DATASET="reg"
+DATADIM=10
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(500)
+PREFIX="expt4"
+MACHINE="A10G"
 
 
 ########## SERIAL MODE
@@ -58,6 +116,26 @@ python run_jobs.py \
     --ntrain $NTRAIN \
     --rootdir ~/jobs \
     --job_prefix $PREFIX 
+
+python run_jobs.py \
+    --model_type $MODEL_TYPE \
+    --model_neurons ${MODEL_NEURONS[@]} \
+    --algo_list ${ALGO_LIST[@]} \
+    --param_list ${PARAM_LIST[@]} \
+    --rank_list ${RANK_LIST[@]} \
+    --lin_list ${LIN_LIST[@]} \
+    --lr_list ${LR_LIST[@]}  \
+    --nsample_list ${NSAMPLE_LIST[@]} \
+    --niter_list ${NITER_LIST[@]} \
+    --ef_list ${EF_LIST[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons ${DGP_NEURONS[@]} \
+    --ntrain $NTRAIN \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --summarize 1
 
 python run_jobs.py \
     --model_type $MODEL_TYPE \
@@ -104,7 +182,7 @@ python run_jobs.py \
     --rootdir ~/jobs \
     --job_prefix $PREFIX \
     --parallel 1 \
-    --machine cpu
+    --machine $MACHINE
 
 python run_jobs.py \
     --model_type $MODEL_TYPE \

@@ -27,10 +27,7 @@ def run_agent(key, agent, data, model):
     elapsed = t1-t0
     print(f"Time {elapsed:.2f}s")
     print(summary)
-    #results['time'] = elapsed
-    #results['agent_name'] = agent.name
-    #results['dataset_name'] = data['name']
-    return results, elapsed
+    return results, elapsed, summary
 
 
 def add_column_of_ones(A):
@@ -64,7 +61,7 @@ def make_results(args):
                         rank = args.rank
                     )
     key = jr.PRNGKey(args.agent_key)
-    results, elapsed = run_agent(key, agent, data, model)
+    results, elapsed, summary = run_agent(key, agent, data, model)
     df = pd.DataFrame(results)
     attributes = parse_agent_full_name(agent.name)
     meta = { # non time-series data
@@ -73,7 +70,8 @@ def make_results(args):
         'agent_name': agent.name,
         'algo': attributes['algo'],
         'param': attributes['param'],
-        'elapsed': elapsed
+        'elapsed': elapsed,
+        'summary': summary,
         }
     return df, meta
 
@@ -94,7 +92,7 @@ def main(args, args_dict):
     results_path = Path(args.dir)
     results_path.mkdir(parents=True, exist_ok=True)
     
-    print("Saving single job results to", args.dir)
+    print("Saving single job results to", results_path)
     # Make sure we can write to the output directory before doing real work\
     fname = Path(results_path, f"dummy.txt")
     with open(fname, 'w') as file:

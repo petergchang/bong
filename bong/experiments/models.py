@@ -136,7 +136,7 @@ def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
 
 def make_mlp_reg(args, data):
     neurons = args.model_neurons
-    name = f'mlp_{make_neuron_str(neurons)}'
+    model_name = f'mlp_{make_neuron_str(neurons)}'
     
     model_kwargs, key = initialize_mlp_model_reg(args.algo_key, neurons,
                         data['X_tr'][0], args.init_var, args.emission_noise, args.use_bias)
@@ -157,7 +157,7 @@ def make_mlp_reg(args, data):
         return results, summary
 
     d = {'model_kwargs': model_kwargs, 'callback': callback,
-        'process_callback': process_callback, 'name': name}
+        'process_callback': process_callback, 'name': model_name}
     return d
 
 def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bias=True):

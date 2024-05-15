@@ -9,9 +9,10 @@ import os
 import datetime
 
 from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts
-from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp
-from plot_utils import plot_results_from_dict, extract_results_from_files
-from plot_utils import extract_metrics_from_files, extract_best_results_by_val_metric
+from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp, move_df_col
+from plot_utils import plot_results_from_dict
+from process_jobs import extract_results_from_files, extract_metrics_from_files, extract_stats_from_results
+from process_jobs import extract_best_results_by_val_metric, create_results_summary
 
 cwd = Path(os.getcwd())
 root = cwd
@@ -28,8 +29,6 @@ def make_model_dirname(args):
     neurons_str = make_neuron_str(args.model_neurons)
     name = f'{args.model_type}_{neurons_str}'
     return name
-
-
 
 def foo(lst):
     if len(lst)>1:
@@ -94,7 +93,6 @@ def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, rank,
 
 
 
-
 def make_df_for_flag_crossproduct(jobprefix, 
         algo_list, param_list, lin_list,
         lr_list, niter_list, nsample_list, ef_list, rank_list):
@@ -115,12 +113,13 @@ def make_df_for_flag_crossproduct(jobprefix,
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
     N = len(df)
-    jobnames = [f'{jobprefix}-{i}' for i in range(N)] 
+    jobnames = [f'{jobprefix}-{i:02}' for i in range(N)] 
     df['jobname'] = jobnames
+    df = move_df_col(df, 'jobname', 0)
     return df
 
 
-def make_and_save_results(args, path):
+def make_results(args, path):
     # Make sure we can save results before doing any compute
     results_dir = str(path)
     print(f'Saving job results in {results_dir}')
@@ -140,9 +139,10 @@ def make_and_save_results(args, path):
     df_flags['model_neurons_str'] = make_neuron_str(args.model_neurons)
     df_flags['ntrain'] = args.ntrain
 
+    fname = Path(path, "jobs.csv")
+    df_flags.to_csv(fname, index=False) 
 
     cmd_dict = {}
-    cmd_list = []
     for index, row in df_flags.iterrows():
         cmd = make_unix_cmd_given_flags(
             row.agent, row.lr, row.niter, row.nsample,
@@ -151,12 +151,7 @@ def make_and_save_results(args, path):
             row.dataset, row.data_dim, 
             row.dgp_type, row.dgp_neurons_str, row.ntrain)
         cmd_dict[row.jobname] = cmd
-        cmd_list.append(cmd)
-    #df_flags['cmd'] = cmd_list
-    
-
-    fname = Path(path, "jobs.csv")
-    df_flags.to_csv(fname, index=False) 
+       
 
     cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
     df_cmds = pd.DataFrame(cmds)
@@ -175,17 +170,19 @@ def make_and_save_results(args, path):
         #print(f'Will store results in /teamspace/jobs/[jobname]/work')
 
         n = 0
+        output = {}
         for jobname, cmd in cmd_dict.items():
             print(f'\n Queuing job {n} of {njobs}:\n{cmd}')
             output_dir = f'{jobs_dir}/{jobname}/work' 
             if args.machine == 'local':
-                job_plugin.run(cmd, name=jobname) # run on local VM
+                output[jobname] = job_plugin.run(cmd, name=jobname) # run on local VM
             elif args.machine == 'A10G':
-                job_plugin.run(cmd, machine=Machine.A10G, name=jobname)
+                output[jobname] = job_plugin.run(cmd, machine=Machine.A10G, name=jobname)
             elif args.machine == 'cpu':
-                job_plugin.run(cmd, machine=Machine.CPU, name=jobname)
+                output[jobname] = job_plugin.run(cmd, machine=Machine.CPU, name=jobname)
             else:
                 raise Exception(f'Unknown machine type {args.machine}')
+            print(f'Requested name {jobname}, given name {output[jobname].name}')
             n = n + 1
 
     else:
@@ -225,8 +222,9 @@ def copy_results(args, path):
             print(f'Running {cmd}')
             os.system(cmd)
 
-def save_plot(results, metric, fname, use_log=False, best=False):
-    fig, ax = plot_results_from_dict(results,  metric)
+def save_plot(results, metric, fname, use_log=False, best=False, first_step=2):
+    stats = extract_stats_from_results(results, first_step=first_step)
+    fig, ax = plot_results_from_dict(results,  metric, stats, first_step=first_step)
     if use_log:
         ax.set_yscale('log')
         fname = fname + "_log"
@@ -249,7 +247,7 @@ def plot_results(args, path):
         
     for metric in metrics:
         results = extract_best_results_by_val_metric(results_dir,  metric)
-        name = f"{results_dir}/{metric}"
+        fname = f"{results_dir}/{metric}"
         save_plot(results, metric, fname, use_log=False, best=True)
         #save_plot(results, metric, fname, use_log=True, best=True)
 
@@ -273,8 +271,16 @@ def main(args):
         copy_results(args, path)
         return
 
+    if args.summarize:
+        df = create_results_summary(results_dir)
+        fname = Path(path, "summary.csv")
+        print(f'Writing to {str(fname)}')
+        df.to_csv(fname, index=False)
+        print(df)
+        return
+
     # Not copy, not plot, so do some real work
-    make_and_save_results(args, path)
+    make_results(args, path)
    
 
 
@@ -287,6 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--machine", type=str, default="local", choices=["local", "cpu", "A10G"])
     parser.add_argument("--plot", type=int, default=0)
     parser.add_argument("--copy", type=int, default=0)
+    parser.add_argument("--summarize", type=int, default=0)
 
 
     # Data parameters
@@ -308,8 +315,6 @@ if __name__ == "__main__":
     parser.add_argument("--rank_list", type=int, nargs="+", default=[10])
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
     parser.add_argument("--model_neurons", type=int, nargs="+", default=[10, 10, 1])
-
-
 
     args = parser.parse_args()
     print(args)

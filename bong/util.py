@@ -47,6 +47,13 @@ def get_gpu_name():
 
 _vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inverse
 
+def move_df_col(df, colname, loc=0):
+    cols = df.columns.tolist()
+    cols.insert(loc, cols.pop(cols.index(colname)))
+    df_reordered = df[cols]
+    return df_reordered
+    
+
 
 def delete_generated_txt_files(directory):
     try:
