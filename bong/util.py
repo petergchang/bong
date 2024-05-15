@@ -6,6 +6,9 @@ from pathlib import Path
 import time
 import re
 import numpy as np
+import datetime
+import pytz
+import os
 
 from flax import linen as nn
 import jax
@@ -43,6 +46,41 @@ def get_gpu_name():
 
 
 _vec_pinv = lambda v: jnp.where(v != 0, 1/jnp.array(v), 0) # Vector pseudo-inverse
+
+
+def delete_generated_txt_files(directory):
+    try:
+        # Iterate over each file in the specified directory
+        for filename in os.listdir(directory):
+            # Check if the file ends with '.txt' and starts with 'generated'
+            if filename.endswith('.txt') and filename.startswith('created-'):
+                # Construct full file path
+                full_path = os.path.join(directory, filename)
+                # Delete the file
+                os.remove(full_path)
+                # Optionally print a confirmation
+                print(f"Deleted: {full_path}")
+    except FileNotFoundError:
+        print(f"The directory {directory} does not exist.")
+    except PermissionError:
+        print(f"Permission denied: cannot delete files in {directory}.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+def make_file_with_timestamp(dir):
+    delete_generated_txt_files(dir)
+
+    now_utc = datetime.datetime.now(pytz.utc)
+    # Convert the current time to PST
+    pst_timezone = pytz.timezone('US/Pacific')
+    now_pst = now_utc.astimezone(pst_timezone)
+    datetime_string = now_pst.strftime("%Y-%m-%d:%H-%M-%S")
+
+    # Create an empty file with the current date-time as its name
+    filename = f"{dir}/created-{datetime_string}.txt"
+    with open(filename, 'w') as file:
+        pass  # This creates an empty file
 
 def safestr(lr):
     '''Convert float to string, replacing . with _, so can be used as a filename.

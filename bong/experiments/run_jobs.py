@@ -10,7 +10,8 @@ import datetime
 
 from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts
 from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp
-from plot_utils import plot_results, extract_results_from_files, extract_metrics_from_files
+from plot_utils import plot_results_from_dict, extract_results_from_files
+from plot_utils import extract_metrics_from_files, extract_best_results_by_val_metric
 
 cwd = Path(os.getcwd())
 root = cwd
@@ -220,6 +221,26 @@ def copy_results(args, path):
             print(f'Running {cmd}')
             os.system(cmd)
 
+def plot_results(args, path):
+    results_dir = str(path)
+    print(f'Writing plots to {results_dir}')
+    make_file_with_timestamp(results_dir)
+    metrics = extract_metrics_from_files(results_dir)
+    for metric in metrics:
+        results = extract_results_from_files(results_dir,  metric)
+        fig, ax = plot_results_from_dict(results,  metric)
+        fname = f"{results_dir}/{metric}.png"
+        print(f'Saving figure to {fname}')
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+
+    for metric in metrics:
+        results = extract_best_results_by_val_metric(results_dir,  metric)
+        fig, ax = plot_results_from_dict(results,  metric, filtered=True)
+        fname = f"{results_dir}/{metric}_best.png"
+        print(f'Saving figure to {fname}')
+        fig.savefig(fname, bbox_inches='tight', dpi=300)
+
+
 def main(args):
     if args.dir == "":
         data_dirname = make_dataset_dirname(args)
@@ -231,15 +252,7 @@ def main(args):
     results_dir = str(path)
 
     if args.plot:
-        print(f'Writing plots to {results_dir}')
-        make_file_with_timestamp(results_dir)
-        metrics = extract_metrics_from_files(results_dir)
-        for metric in metrics:
-            results = extract_results_from_files(results_dir,  metric)
-            fig, ax = plot_results(results,  metric)
-            fname = f"{results_dir}/{metric}.png"
-            print(f'Saving figure to {fname}')
-            fig.savefig(fname, bbox_inches='tight', dpi=300)
+        plot_results(args, path)
         return
 
     if args.copy:
