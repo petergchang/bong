@@ -1,18 +1,33 @@
-Matplotlib created a temporary cache directory at /tmp/matplotlib-8cbie2jl 
-because the default path (/teamspace/studios/this_studio/.config/matplotlib) is not a writable directory; 
-it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, 
-in particular to speed up the import of Matplotlib and to better support multiprocessing.
+# Ablations. 
 
 MODEL_TYPE=("mlp")
 MODEL_NEURONS=(10 10 1)
-ALGO_LIST=("bong" "blr" "bog")
-PARAM_LIST=("fc" "diag")
-RANK_LIST=(10)
-LIN_LIST=(1)
-LR_LIST=(0.01 0.05)
+ALGO_LIST=("bong" "blr" "bog" "bbb")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(0.001 0.005 0.01 0.05 0.1)
 NSAMPLE_LIST=(10)
 NITER_LIST=(10)
-EF_LIST=(1)
+EF_LIST=(0)
+DATASET="reg"
+DATADIM=10
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(500)
+PREFIX="job"
+GPU="None"
+
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(1)
+ALGO_LIST=("bong")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(0.005 0.01 0.05)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(0)
 DATASET="reg"
 DATADIM=10
 DGP_TYPE="mlp"
@@ -22,23 +37,6 @@ PREFIX="job"
 GPU="None"
 
 
-MODEL_TYPE=("lin")
-MODEL_NEURONS=(1)
-ALGO_LIST=("bong" "blr" "bog")
-PARAM_LIST=("fc" "diag")
-RANK_LIST=(10)
-LIN_LIST=(1)
-LR_LIST=(0.01 0.05)
-NSAMPLE_LIST=(10)
-NITER_LIST=(10)
-EF_LIST=(0)
-DATASET="reg"
-DATADIM=10
-DGP_TYPE="lin"
-DGP_NEURONS=(1)
-NTRAIN=(500)
-PREFIX="job"
-GPU="None"
 
 ########## SERIAL MODE
 
@@ -90,24 +88,29 @@ python run_jobs.py \
 
 
 MODEL_TYPE="mlp"
-MODEL_NEURONS=(10 10 1)
-AGENT="bog_dlr_lin"
+MODEL_NEURONS=(1)
+ADD_ONES=0
+USE_BIAS=0
+AGENT="bong_fc"
 RANK=10
-LR=0.05
-NSAMPLE=10
+LR=0.01
+NSAMPLE=100
 NITER=10
-EF=1
+EF=0
 DATASET="reg"
 DATADIM=10
 DGP_TYPE="mlp"
 DGP_NEURONS=(20 20 1)
-DIR=/teamspace/studios/this_studio/jobs/foo
+DIR=/teamspace/studios/this_studio/jobs/debug
+DATA_KEY=0
+
 
 python run_job.py \
     --agent $AGENT \
     --rank $RANK \
     --model_type $MODEL_TYPE \
     --model_neurons ${MODEL_NEURONS[@]} \
+    --use_bias $USE_BIAS \
     --lr $LR  \
     --nsample $NSAMPLE \
     --niter $NITER \
@@ -116,4 +119,5 @@ python run_job.py \
     --data_dim $DATADIM \
     --dgp_type $DGP_TYPE \
     --dgp_neurons ${DGP_NEURONS[@]} \
-    --dir $DIR 
+    --dir $DIR \
+    --data_key $DATA_KEY

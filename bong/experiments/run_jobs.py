@@ -289,7 +289,7 @@ if __name__ == "__main__":
     parser.add_argument("--lin_list", type=int, nargs="+", default=[0])
     parser.add_argument("--lr_list", type=float, nargs="+", default=[0.01])
     parser.add_argument("--niter_list", type=int, nargs="+", default=[10])
-    parser.add_argument("--nsample_list", type=int, nargs="+", default=[10])
+    parser.add_argument("--nsample_list", type=int, nargs="+", default=[100])
     parser.add_argument("--ef_list", type=int, nargs="+", default=[1])
     parser.add_argument("--rank_list", type=int, nargs="+", default=[10])
     parser.add_argument("--model_type", type=str, default="lin") # or mlp

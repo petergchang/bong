@@ -62,7 +62,7 @@ def  make_lin_reg(args, data):
 
 
     callback = partial(callback_reg, X_te=data['X_te'], Y_te=data['Y_te'],
-                X_val=data['X_val'], Y_val=data['Y_val'], post=None,
+                X_val=data['X_val'], Y_val=data['Y_val'], post=post,
         em_function = em_function, ec_function = ec_function, log_likelihood = log_likelihood)
 
     
@@ -70,10 +70,12 @@ def  make_lin_reg(args, data):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
         s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
         s_te = f"Test NLL: {nll_te[-1]:.4f},  NLPD: {nlpd_te[-1]:.4f}"
-        summary = s_te + "\n" + s_val 
-        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val}
+        s_kl = f"KL: {kldiv[-1]:0.4f}"
+        summary = s_kl + "\n" + s_te + "\n" + s_val 
+        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
+                     'kldiv': kldiv, 'kldiv_val': kldiv}
+        # We append kldiv_val just for symmetry, to simplify downstream code
         return results, summary
-
         
     def tune_kl_loss_fn(key, alg, state):
         return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
@@ -137,7 +139,7 @@ def make_mlp_reg(args, data):
     name = f'mlp_{make_neuron_str(neurons)}'
     
     model_kwargs, key = initialize_mlp_model_reg(args.algo_key, neurons,
-                        data['X_tr'][0], args.init_var, args.emission_noise)
+                        data['X_tr'][0], args.init_var, args.emission_noise, args.use_bias)
     em_function = model_kwargs["emission_mean_function"]
     ec_function = model_kwargs["emission_cov_function"]
     log_likelihood = model_kwargs["log_likelihood"]
@@ -158,11 +160,11 @@ def make_mlp_reg(args, data):
         'process_callback': process_callback, 'name': name}
     return d
 
-def initialize_mlp_model_reg(key, features, x, init_var, emission_noise):
+def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bias=True):
     if isinstance(key, int):
         key = jr.key(key)
     key, subkey = jr.split(key)
-    model = MLP(features=features)
+    model = MLP(features=features, use_bias=use_bias)
     params = model.init(key, x)
     flat_params, unflatten_fn = ravel_pytree(params)
     apply_fn = lambda w, x: model.apply(unflatten_fn(w), jnp.atleast_1d(x))
