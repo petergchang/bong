@@ -178,10 +178,14 @@ def make_and_save_results(args, path):
         for jobname, cmd in cmd_dict.items():
             print(f'\n Queuing job {n} of {njobs}:\n{cmd}')
             output_dir = f'{jobs_dir}/{jobname}/work' 
-            if args.gpu == 'None':
+            if args.machine == 'local':
                 job_plugin.run(cmd, name=jobname) # run on local VM
-            elif args.gpu == 'A10G':
+            elif args.machine == 'A10G':
                 job_plugin.run(cmd, machine=Machine.A10G, name=jobname)
+            elif args.machine == 'cpu':
+                job_plugin.run(cmd, machine=Machine.CPU, name=jobname)
+            else:
+                raise Exception(f'Unknown machine type {args.machine}')
             n = n + 1
 
     else:
@@ -221,6 +225,17 @@ def copy_results(args, path):
             print(f'Running {cmd}')
             os.system(cmd)
 
+def save_plot(results, metric, fname, use_log=False, best=False):
+    fig, ax = plot_results_from_dict(results,  metric)
+    if use_log:
+        ax.set_yscale('log')
+        fname = fname + "_log"
+    if best:
+        fname = fname + "_best"
+    fname = fname + ".png"
+    print(f'Saving figure to {fname}')
+    fig.savefig(fname, bbox_inches='tight', dpi=300)
+
 def plot_results(args, path):
     results_dir = str(path)
     print(f'Writing plots to {results_dir}')
@@ -228,17 +243,16 @@ def plot_results(args, path):
     metrics = extract_metrics_from_files(results_dir)
     for metric in metrics:
         results = extract_results_from_files(results_dir,  metric)
-        fig, ax = plot_results_from_dict(results,  metric)
-        fname = f"{results_dir}/{metric}.png"
-        print(f'Saving figure to {fname}')
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
-
+        fname = f"{results_dir}/{metric}"
+        save_plot(results, metric, fname, use_log=False)
+        #save_plot(results, metric, fname, use_log=True)
+        
     for metric in metrics:
         results = extract_best_results_by_val_metric(results_dir,  metric)
-        fig, ax = plot_results_from_dict(results,  metric, filtered=True)
-        fname = f"{results_dir}/{metric}_best.png"
-        print(f'Saving figure to {fname}')
-        fig.savefig(fname, bbox_inches='tight', dpi=300)
+        name = f"{results_dir}/{metric}"
+        save_plot(results, metric, fname, use_log=False, best=True)
+        #save_plot(results, metric, fname, use_log=True, best=True)
+
 
 
 def main(args):
@@ -270,9 +284,9 @@ if __name__ == "__main__":
     parser.add_argument("--dir", type=str, default="")
     parser.add_argument("--job_prefix", type=str, default="job")
     parser.add_argument("--parallel", type=bool, default=False)
-    parser.add_argument("--gpu", type=str, default="None", choices=["None", "A10G"])
-    parser.add_argument("--plot", type=bool, default=False)
-    parser.add_argument("--copy", type=bool, default=False)
+    parser.add_argument("--machine", type=str, default="local", choices=["local", "cpu", "A10G"])
+    parser.add_argument("--plot", type=int, default=0)
+    parser.add_argument("--copy", type=int, default=0)
 
 
     # Data parameters

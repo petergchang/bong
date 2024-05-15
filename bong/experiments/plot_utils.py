@@ -159,7 +159,7 @@ def extract_stats_from_results(results, qlow=0, qhigh=90, first_step=1):
     }
     return d
 
-def plot_results_from_dict(results,  metric, qlow=0, qhigh=80, first_step=1, filtered=False):
+def plot_results_from_dict(results,  metric, qlow=0, qhigh=80, first_step=2, filtered=False):
     jobnames = results.keys()
     stats = extract_stats_from_results(results, qlow, qhigh, first_step)
     fig, ax = plt.subplots(figsize=(6,6))
@@ -178,8 +178,6 @@ def plot_results_from_dict(results,  metric, qlow=0, qhigh=80, first_step=1, fil
             prefix = ''
         ttl = f'{prefix} {metric}. D={data_name}. M={model_name}'
 
-
-
         T = res['valid_len']
         steps = jnp.arange(0, T)
         ndx = round(jnp.linspace(0, T-1, num=min(T,30))) #    # extract subset of points for plotting to avoid cluttered markers
@@ -191,7 +189,7 @@ def plot_results_from_dict(results,  metric, qlow=0, qhigh=80, first_step=1, fil
         ax.set_ylabel(metric)
         ax.set_xlabel('num. training observations')
         ax.set_title(ttl, fontsize=8)
-        ax.set_ylim(stats['qlow'], 1.1*stats['qhigh']) # truncate outliers
+        #ax.set_ylim(stats['qlow'], stats['qhigh']) # truncate outliers
         
     return fig, ax
 
