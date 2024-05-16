@@ -136,6 +136,27 @@ MACHINE="A10G"
 17  expt5-17    bbb_fc-MC100-I10-LR0_01-EF1-Lin0  3208.275781  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
 18  expt5-18    bbb_fc-MC100-I10-LR0_05-EF1-Lin0  3428.981928  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
 
+
+# expt6
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(1)
+ALGO_LIST=("bong" "blr")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(1e-4 5e-4)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(1)
+DATASET="reg"
+DATADIM=10
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(50)
+PREFIX="expt6"
+MACHINE="local"
+DIR=~/jobs/$PREFIX
+
 ########## SERIAL MODE
 
 
@@ -154,9 +175,9 @@ python run_jobs.py \
     --data_dim $DATADIM \
     --dgp_type $DGP_TYPE \
     --dgp_neurons ${DGP_NEURONS[@]} \
-    --ntrain $NTRAIN \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX 
+    --ntrain $NTRAIN  \
+    --job_prefix $PREFIX  \
+    --dir $DIR
 
 
 

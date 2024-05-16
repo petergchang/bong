@@ -93,7 +93,7 @@ def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, rank,
 
 
 
-def make_df_for_flag_crossproduct(jobprefix, 
+def make_df_crossproduct( 
         algo_list, param_list, lin_list,
         lr_list, niter_list, nsample_list, ef_list, rank_list):
     args_list = []
@@ -112,10 +112,6 @@ def make_df_for_flag_crossproduct(jobprefix,
                                     args_list.append(args)
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
-    N = len(df)
-    jobnames = [f'{jobprefix}-{i:02}' for i in range(N)] 
-    df['jobname'] = jobnames
-    df = move_df_col(df, 'jobname', 0)
     return df
 
 
@@ -125,8 +121,8 @@ def make_results(args, path):
     print(f'Saving job results in {results_dir}')
     path.mkdir(parents=True, exist_ok=True)
 
-    df_flags = make_df_for_flag_crossproduct(
-        args.job_prefix, args.algo_list, args.param_list, args.lin_list,
+    df_flags = make_df_crossproduct(
+        args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
         args.ef_list, args.rank_list)
 
@@ -138,6 +134,11 @@ def make_results(args, path):
     df_flags['model_type'] = args.model_type
     df_flags['model_neurons_str'] = make_neuron_str(args.model_neurons)
     df_flags['ntrain'] = args.ntrain
+
+    N = len(df_flags)
+    jobnames = [f'{args.job_prefix}-{i:02}' for i in range(N)] 
+    df_flags['jobname'] = jobnames
+    df_flags = move_df_col(df_flags, 'jobname', 0)
 
     fname = Path(path, "jobs.csv")
     df_flags.to_csv(fname, index=False) 
@@ -275,17 +276,16 @@ def plot_and_save_results(args, path):
     # get results one per agent
     results = extract_best_results_by_val_metric(results_dir,  metrics[0])
     fig, ax = plot_times(results)
-    fname = f"{results_dir}/times.png"
+    fname = f"{results_dir}/times"
     print(f'Saving figure to {fname}')
-    fig.savefig(fname, bbox_inches='tight', dpi=300)
+    fig.savefig('f{fname}.png', bbox_inches='tight', dpi=300)
+    fig.savefig('f{fname}.pdf', bbox_inches='tight', dpi=300)
 
 
 
         
-
-
 def main(args):
-    if args.dir == "":
+    if args.dir == "": # auto-generate directory name
         data_dirname = make_dataset_dirname(args)
         model_dirname = make_model_dirname(args)
         agent_dirname = make_agent_dirname(args)
