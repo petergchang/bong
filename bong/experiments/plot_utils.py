@@ -87,35 +87,53 @@ def make_plot_params(args):
             }
 
 
+def convolve_smooth(time_series, width=5): 
+    kernel = jnp.ones(width) / width
+    smoothed_time_series = jnp.convolve(time_series, kernel, mode='same')
+    return smoothed_time_series
 
-def plot_results_from_dict(results,  metric, stats, first_step=3, filtered=False):
+def add_jitter(x, jitter_amount=0.1):
+    return x + np.random.uniform(-jitter_amount, jitter_amount, size=x.shape)
+
+
+def plot_results(results,  metric, stats, first_step=10, tuned=False, smoothed=False, step_size=5, max_len=1000):
     jobnames = results.keys()
     fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
+    njobs = len(jobnames)
+    fs = (12 if njobs <= 6 else 8)
+    times = {}
     for i, jobname in enumerate(jobnames):
         res = results[jobname]
-        vals = res['vals']
+        vals = res['vals'].to_numpy()
         agent_name = res['agent_name']
         T = len(vals)
         elapsed = 1000*round(res['elapsed']/T, 3)
-        expt_name =  f'{agent_name} [{elapsed} ms/step]'
+        times[agent_name] = elapsed # we assume each agent only occurs once
+        expt_name =  f'{agent_name} [{elapsed:.1f} ms/step]'
         model_name = res['model_name']
         data_name = res['data_name']
         parts = parse_agent_full_name(agent_name)
         plot_params = make_plot_params(parts)
-        if filtered:
-            prefix = 'best'
-        else:
-            prefix = ''
-        ttl = f'{prefix} {metric}. D={data_name}. M={model_name}'
+        ttl = f'Data:{data_name}. Model:{model_name}. Tuned:{tuned}'
 
         T = res['valid_len']
+        T = min(T, max_len)
         steps = jnp.arange(0, T)
-        ndx = round(jnp.linspace(0, T-1, num=min(T,30))) #    # extract subset of points for plotting to avoid cluttered markers
-        ndx = ndx[first_step:] #  skip first 2 time steps, since it messes up the vertical scale
+        ndx = steps[first_step:T:step_size] #  skip first K time steps, since it messes up the vertical scale
+        xs = steps[ndx]
+        ys = vals[ndx]
+        if smoothed:
+            ys = convolve_smooth(ys)
 
-        ax.plot(steps[ndx], vals[ndx], label=expt_name, **plot_params)
+        #ax.plot(xs, ys, markevery=20, label=expt_name, **plot_params)
+        line, = ax.plot(xs, ys, label=expt_name) # **plot_params)
+        markers_on = np.arange(0, len(xs), 10)
+        jittered_x = add_jitter(xs[markers_on])
+        ax.plot(jittered_x, ys[markers_on], marker=plot_params['marker'],
+                 linestyle='None', markersize=8, color=line.get_color())
+
         ax.grid(True)
-        ax.legend(loc='upper right', prop={'size': 12})
+        ax.legend(loc='upper right', prop={'size': fs})
         ax.set_ylabel(metric, fontsize=12)
         ax.set_xlabel('num. training observations', fontsize=12)
         ax.set_title(ttl, fontsize=10)
@@ -124,7 +142,28 @@ def plot_results_from_dict(results,  metric, stats, first_step=3, filtered=False
     return fig, ax
 
 
+def plot_times(results):
+    jobnames = results.keys()
+    fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
+    times = {}
+    for i, jobname in enumerate(jobnames):
+        res = results[jobname]
+        vals = res['vals']
+        expt_name = res['agent_name']
+        parts = parse_agent_full_name(expt_name)
+        short_name = make_agent_name_from_parts(parts['algo'], parts['param'], parts['lin'])
+        T = len(vals)
+        elapsed = 1000*round(res['elapsed']/T, 3)
+        times[short_name] = elapsed # we assume each agent only occurs once
 
+    names, vals = times.keys(), times.values()
+    ax.bar(names, vals)
+    ax.set_ylabel('time (ms) per step')
+    ax.set_title('Running time (in ms) per step', fontsize=12)
+    ax.set_xticks(range(len(names)))  # Set the positions of the ticks
+    ax.set_xticklabels(names, rotation=45, fontsize=10) 
+
+    return fig, ax
 
 
 

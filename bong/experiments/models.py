@@ -45,7 +45,7 @@ def  make_lin_reg(args, data):
     cov0 = args.init_var
     post = compute_post_linreg(args, data, mu0, cov0*jnp.eye(d))
     noise_std = args.emission_noise
-    name = 'lin_1'
+    name = f'lin_1[P={d}]'
 
     log_likelihood = lambda mean, cov, y: \
         jax.scipy.stats.norm.logpdf(y, mean, jnp.sqrt(jnp.diag(cov))).sum()
@@ -108,12 +108,14 @@ def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
     nll_val = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_val, Y_val))
 
     # MC-NLPD
-    means = alg.sample(key, state, n_samples_mc_nlpd)
+    key, subkey = jr.split(key)
+    means = alg.sample(subkey, state, n_samples_mc_nlpd)
     nlpd_te = jnp.mean(jax.vmap(
         jax.vmap(_nll, (None, 0, 0)), (0, None, None)
     )(means, X_te, Y_te))
 
-    means = alg.sample(key, state, n_samples_mc_nlpd)
+    key, subkey = jr.split(key)
+    means = alg.sample(subkey, state, n_samples_mc_nlpd)
     nlpd_val = jnp.mean(jax.vmap(
         jax.vmap(_nll, (None, 0, 0)), (0, None, None)
     )(means, X_val, Y_val))
@@ -136,10 +138,11 @@ def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
 
 def make_mlp_reg(args, data):
     neurons = args.model_neurons
-    model_name = f'mlp_{make_neuron_str(neurons)}'
-    
     model_kwargs, key = initialize_mlp_model_reg(args.algo_key, neurons,
                         data['X_tr'][0], args.init_var, args.emission_noise, args.use_bias)
+    nparams = model_kwargs['nparams']
+    model_name = f'mlp_{make_neuron_str(neurons)}[P={nparams}]'
+
     em_function = model_kwargs["emission_mean_function"]
     ec_function = model_kwargs["emission_cov_function"]
     log_likelihood = model_kwargs["log_likelihood"]
@@ -150,9 +153,7 @@ def make_mlp_reg(args, data):
 
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
-        s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
-        s_te = f"Test NLL: {nll_te[-1]:.4f},  NLPD: {nlpd_te[-1]:.4f}"
-        summary = s_te + "\n" + s_val 
+        summary = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val}
         return results, summary
 
@@ -165,9 +166,11 @@ def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bia
         key = jr.key(key)
     key, subkey = jr.split(key)
     model = MLP(features=features, use_bias=use_bias)
-    params = model.init(key, x)
+    params = model.init(subkey, x)
+    key, subkey = jr.split(key)
     flat_params, unflatten_fn = ravel_pytree(params)
     apply_fn = lambda w, x: model.apply(unflatten_fn(w), jnp.atleast_1d(x))
+    true_pred_fn = lambda x: model.apply(params, jnp.atleast_1d(x))
     
     noise_std = emission_noise
     log_likelihood = lambda mean, cov, y: \
@@ -178,12 +181,14 @@ def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bia
     d = len(flat_params)
     init_kwargs = {
         "init_mean": flat_params,
-        "init_cov": init_var, # optoonally tune
+        "init_cov": init_var,
         "log_likelihood": log_likelihood,
         "emission_mean_function": em_function,
         "emission_cov_function": ec_function,
+        "nparams": d,
+        "true_pred_fn": true_pred_fn
     }
-    return init_kwargs, subkey
+    return init_kwargs, key
 
 #############
 
@@ -192,27 +197,42 @@ def  make_lin_cls(args, data):
 
 #######
 
+    
 def make_mlp_cls(args, data):
-    raise Exception('TODO')
     neurons = args.model_neurons
-    name = f'mlp_{make_neuron_str(neurons)}'
-    
-    model_kwargs, key = \
-            initialize_mlp_model_cls(args.algo_key, neurons, data['X_tr'][0])
-    em_function = init_kwargs["emission_mean_function"]
-    callback = partial(callback_cls, em_function=em_function,
-                         X_cb=data['X_te'], y_cb=data['Y_te'])
-    d = {'model_kwargs': model_kwargs, 'callback': callback, 'tune_fn': None, 'name': name}
-    return d
-    
-def initialize_mlp_model_cls(key, features, x):
+    model_kwargs, key = initialize_mlp_model_cls(args.algo_key, neurons,
+                        data['X_tr'][0], args.init_var, args.use_bias)
+    nparams = model_kwargs['nparams']
+    model_name = f'mlp_{make_neuron_str(neurons)}[P={nparams}]'
+
+    em_function = model_kwargs["emission_mean_function"]
+    callback = partial(callback_cls, X_te=data['X_te'], Y_te=data['Y_te'],
+                X_val=data['X_val'], Y_val=data['Y_val'], em_function = em_function)
+
+    def process_callback(output):
+        nll_te, nll_val, acc_pi_te, acc_pi_val, nlpd_te, nlpd_val, acc_te, acc_val = output
+        summary1 = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
+        summary2 = f"Acc-PI: {acc_pi_te[-1]:.4f}, Acc-MC: {acc_te[-1]:.4f}"
+        summary = summary1 + "\n" + summary2
+        results = {'nll-pi': nll_te, 'nlpd': nlpd_te, 'acc-pi': acc_pi_te, 'acc-mc': acc_te,
+                    'nll-pi_val': nll_val, 'nlpd_val': nlpd_val, 'acc-pi_val': acc_pi_val, 'acc-mc_val': acc_val
+                    }
+        return results, summary
+
+    dct = {'model_kwargs': model_kwargs, 'callback': callback,
+        'process_callback': process_callback, 'name': model_name}
+    return dct
+
+def initialize_mlp_model_cls(key, features, x, init_var, use_bias=True):
     if isinstance(key, int):
         key = jr.key(key)
     key, subkey = jr.split(key)
-    model = MLP(features=features)
-    params = model.init(key, x)
+    model = MLP(features=features, use_bias=use_bias)
+    params = model.init(subkey, x)
     flat_params, unflatten_fn = ravel_pytree(params)
+    d = len(flat_params)
     apply_fn = lambda w, x: model.apply(unflatten_fn(w), jnp.atleast_1d(x))
+    true_pred_fn = lambda x: model.apply(params, jnp.atleast_1d(x))
     log_likelihood = lambda mean, cov, y: -optax.softmax_cross_entropy(mean, y)
     em_function = apply_fn
     em_linpi_function = lambda w, x: jax.nn.softmax(apply_fn(w, x))
@@ -222,12 +242,15 @@ def initialize_mlp_model_cls(key, features, x):
         return jnp.atleast_2d(cov)
     init_kwargs = {
         "init_mean": flat_params,
+        "init_cov": init_var,
         "log_likelihood": log_likelihood,
         "emission_mean_function": em_function,
         "em_linpi_function": em_linpi_function,
         "emission_cov_function": ec_function,
+        "nparams": nparams,
+        "true_pred_fn": true_pred_fn
     }
-    return init_kwargs, subkey
+    return init_kwargs, key
 
 def loss_fn_cls(key, alg, state, em_function, X_val, y_val):
     y_pred_logits = jax.vmap(em_function, (None, 0))(state.mean, X_val)
@@ -236,28 +259,51 @@ def loss_fn_cls(key, alg, state, em_function, X_val, y_val):
     )
     return jnp.mean(negloglikhood)
 
-def callback_cls(key, alg, state, x, y, em_function, X_cb, y_cb, num_samples=10):
+
+def callback_cls(key, alg, state, x, y, em_function, X_te, y_te, X_val, y_val, num_samples=100):
     # Plugin-LL
-    ypi_pred_logits = jax.vmap(em_function, (None, 0))(state.mean, X_cb)
-    ll_pi = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
-        ypi_pred_logits, y_cb
+    ypi_pred_logits_te = jax.vmap(em_function, (None, 0))(state.mean, X_te)
+    ll_pi_te = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
+        ypi_pred_logits_te, y_te
+    ))
+
+    ypi_pred_logits_val = jax.vmap(em_function, (None, 0))(state.mean, X_val)
+    ll_pi_val = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
+        ypi_pred_logits_val, y_val
     ))
     
     # Plugin-accuracy
-    ypi_preds = jnp.argmax(ypi_pred_logits, axis=-1)
-    acc_pi = jnp.mean(ypi_preds == y_cb)
+    ypi_preds_te = jnp.argmax(ypi_pred_logits_te, axis=-1)
+    acc_pi_te = jnp.mean(ypi_preds_te == y_te)
+
+    ypi_preds_val = jnp.argmax(ypi_pred_logits_val, axis=-1)
+    acc_pi_val = jnp.mean(ypi_preds_val == y_val)
     
     # NLPD-LL
-    states = alg.sample(key, state, num_samples)
-    y_pred_logits = jnp.mean(jax.vmap(
+    key, subkey = jr.split(key)
+    states = alg.sample(subkey, state, num_samples)
+    y_pred_logits_te = jnp.mean(jax.vmap(
         jax.vmap(em_function, (None, 0)), (0, None)
-    )(states, X_cb), axis=0)
-    ll = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
-        y_pred_logits, y_cb
+    )(states, X_te), axis=0)
+    ll_te = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
+        y_pred_logits_te, y_te
+    ))
+
+    key, subkey = jr.split(key)
+    states = alg.sample(subkey, state, num_samples)
+    y_pred_logits_val = jnp.mean(jax.vmap(
+        jax.vmap(em_function, (None, 0)), (0, None)
+    )(states, X_val), axis=0)
+    ll_val = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
+        y_pred_logits_val, y_val
     ))
     
     # NLPD-accuracy
-    y_preds = jnp.argmax(y_pred_logits, axis=-1)
-    acc = jnp.mean(y_preds == y_cb)
-    return ll_pi, acc_pi, ll, acc
+    y_preds_te = jnp.argmax(y_pred_logits_te, axis=-1)
+    acc_te = jnp.mean(y_preds_te == y_te)
+
+    y_preds_val = jnp.argmax(y_pred_logits_val, axis=-1)
+    acc_val = jnp.mean(y_preds_val == y_val)
+
+    return -ll_pi_te, -ll_pi_val, acc_pi_te, acc_pi_val, -ll_te, -ll_val, acc_te, acc_val
 

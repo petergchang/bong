@@ -1,0 +1,43 @@
+{
+    "dataset": "reg",
+    "data_dim": 50,
+    "data_key": 0,
+    "dgp_type": "mlp",
+    "dgp_neurons": [
+        20,
+        20,
+        1
+    ],
+    "dgp_neurons_str": "20_20_1",
+    "emission_noise": 1.0,
+    "ntrain": 500,
+    "nval": 500,
+    "ntest": 1000,
+    "add_ones": 0,
+    "agent": "blr_fc",
+    "agent_key": 0,
+    "lr": 0.0001,
+    "niter": 10,
+    "nsample": 100,
+    "ef": 1,
+    "linplugin": 0,
+    "rank": 0,
+    "model_type": "mlp",
+    "model_neurons": [
+        10,
+        1
+    ],
+    "model_neurons_str": "10_1",
+    "use_bias": 1,
+    "init_var": 1.0,
+    "algo_key": 0,
+    "dir": "",
+    "debug": false,
+    "data_name": "reg-D50-mlp_20_20_1",
+    "model_name": "mlp_10_1[P=521]",
+    "agent_name": "blr_fc-MC100-I10-LR0_0001-EF1-Lin0",
+    "algo": "blr",
+    "param": "fc",
+    "elapsed": 555.776806186,
+    "summary": "Test NLL: 1.4332,  NLPD: 2.8180\nVal NLL 1.4426,  NLPD: 2.9008"
+}

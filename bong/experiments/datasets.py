@@ -21,6 +21,8 @@ from ucimlrepo import fetch_ucirepo
 
 from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP, make_neuron_str
 from bong.src import bbb, blr, bog, bong, experiment_utils
+from models import initialize_mlp_model_reg, initialize_mlp_model_cls
+
 
 tfd = tfp.distributions
 MVN = tfd.MultivariateNormalTriL
@@ -36,6 +38,8 @@ def make_dataset(args):
     elif args.dataset == "cls":
         if args.dgp_type == "lin":
             data = make_data_cls_lin(args)
+        elif args.dgp_type == "mlp":
+            data = make_data_cls_mlp(args)
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
     return data
@@ -85,17 +89,16 @@ def make_data_reg_lin(args):
 
 ##########  MLP generators
 
-def generate_ydata_mlpreg(keyroot, X, model, noise_std=1.0):
-    key, keyroot = jr.split(keyroot)
+def generate_ydata_mlp_reg(key, X, predictor, noise_std=1.0):
+    subkey, key = jr.split(key)
     N, d = X.shape
-    predictor = model['pred_fn']
     Ymean = jax.vmap(predictor)(X)  # (N,1) for scalar output
-    Y = Ymean + jr.normal(key, (N,1)) * noise_std
+    Y = Ymean + jr.normal(subkey, (N,1)) * noise_std
     Y = Y.flatten() # convert to (N,)
     return Y
 
 
-def generate_mlp(keyroot, d, nneurons = [1,]):
+def generate_mlp_reg_deprecated(keyroot, d, nneurons = [1,]):
     # nneurons=[1,] refers to scalar output with no hidden units
     key, keyroot = jr.split(keyroot)
     model = MLP(features = nneurons, use_bias=True)
@@ -103,7 +106,7 @@ def generate_mlp(keyroot, d, nneurons = [1,]):
     flat_params, unflatten_fn = ravel_pytree(params)
     apply_fn = lambda w, x: model.apply(unflatten_fn(w), jnp.atleast_1d(x))
     pred_fn = lambda x: model.apply(params, jnp.atleast_1d(x))
-    model_dict = {'model': model, 'params': params, 'flat_params': flat_params, 'apply_fn': apply_fn, 'pred_fn': pred_fn}
+    model_dict = {'model': model, 'params': params, 'flat_params': flat_params, 'apply_fn': apply_fn, 'true_pred_fn': pred_fn}
     return model_dict
 
 
@@ -112,17 +115,20 @@ def make_data_reg_mlp(args):
     name = f'reg-D{args.data_dim}-mlp_{neurons_str}'
 
     d, noise_std = args.data_dim, args.emission_noise
-    keyroot = jr.PRNGKey(args.data_key)
-    key1, keyroot = jr.split(keyroot)
-    model = generate_mlp(key1, args.data_dim, args.dgp_neurons)
+    key = jr.PRNGKey(args.data_key)
+    key0, key = jr.split(key)
+    x = jnp.zeros(d)
+    #model = generate_mlp_reg(key1, args.data_dim, args.dgp_neurons)
+    model, key = initialize_mlp_model_reg(key0, args.dgp_neurons, x, args.init_var, args.emission_noise)
+    predictor = model['true_pred_fn']
 
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
     X_tr = generate_xdata_mvn(key1, args.ntrain, d)
-    Y_tr = generate_ydata_mlpreg(key1, X_tr, model, noise_std)
+    Y_tr = generate_ydata_mlp_reg(key1, X_tr, predictor, noise_std)
     X_val = generate_xdata_mvn(key2, args.nval, d)
-    Y_val = generate_ydata_mlpreg(key2, X_val, model, noise_std)
+    Y_val = generate_ydata_mlp_reg(key2, X_val, predictor, noise_std)
     X_te = generate_xdata_mvn(key3, args.ntest, d)
-    Y_te = generate_ydata_mlpreg(key3, X_te, model, noise_std)
+    Y_te = generate_ydata_mlp_reg(key3, X_te, predictor, noise_std)
 
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data
@@ -176,7 +182,7 @@ def generate_logreg_dataset(
 
 def make_data_cls_lin(args):
     d = args.data_dim
-    name = f'cls-D{args.data_dim}-lin1'
+    name = f'cls-D{args.data_dim}-lin_1'
     keyroot = jr.PRNGKey(args.data_key)
     key1, key2, key3, keyroot = jr.split(keyroot, 4)
     X_tr, Y_tr, theta = generate_logreg_dataset(key1, args.n_train, d)
@@ -184,6 +190,45 @@ def make_data_cls_lin(args):
     X_te, Y_te, _ = generate_logreg_dataset(key3, args.n_test, d, theta=theta)
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
     return data
+
+
+
+##########  MLP generators for classification
+
+def generate_ydata_mlp_cls(key, X, predictor):
+    subkey, key = jr.split(key)
+    N, d = X.shape
+    predictor = predictor
+    Ymean = jax.vmap(predictor)(X)  # (N,1) for scalar output
+    Y = Ymean 
+    #Y = Y.flatten() # convert to (N,)
+    return Y
+
+
+
+def make_data_cls_mlp(args):
+    neurons_str = make_neuron_str(args.dgp_neurons)
+    name = f'cls-D{args.data_dim}-mlp_{neurons_str}'
+
+    d, noise_std = args.data_dim, args.emission_noise
+    key = jr.PRNGKey(args.data_key)
+    key0, key = jr.split(key)
+    x = jnp.zeros(d)
+    model, key = initialize_mlp_model_cls(key0, args.dgp_neurons, x, args.init_var)
+    predictor = model['true_pred_fn']
+
+    key1, key2, key3, key = jr.split(key, 4)
+    X_tr = generate_xdata_mvn(key1, args.ntrain, d)
+    Y_tr = generate_ydata_mlp_cls(key1, X_tr, predictor)
+    X_val = generate_xdata_mvn(key2, args.nval, d)
+    Y_val = generate_ydata_mlp_cls(key2, X_val, predictor)
+    X_te = generate_xdata_mvn(key3, args.ntest, d)
+    Y_te = generate_ydata_mlp_cls(key3, X_te, predictor)
+
+    data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
+    return data
+
+
 
 
 # UCI is unfinished

@@ -10,7 +10,7 @@ import datetime
 
 from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts
 from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp, move_df_col
-from plot_utils import plot_results_from_dict
+from plot_utils import plot_results, plot_times
 from process_jobs import extract_results_from_files, extract_metrics_from_files, extract_stats_from_results
 from process_jobs import extract_best_results_by_val_metric, create_results_summary
 
@@ -203,9 +203,10 @@ def copy_results(args, path):
     fname = f"{results_dir}/jobs.csv"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
-    jobs_dir = '/teamspace/jobs' # when run in parallel mode
+    jobs_dir = '/teamspace/jobs' # when run in parallel mode, all results written here.
     for job in jobnames:
         src = f'{jobs_dir}/{job}/work'
+        src_path = Path(src)
         dst = f'{results_dir}/{job}/work'
         dst_path = Path(dst)
         print(f'\n Creating {str(dst_path)}')
@@ -222,35 +223,65 @@ def copy_results(args, path):
             print(f'Running {cmd}')
             os.system(cmd)
 
-def save_plot(results, metric, fname, use_log=False, best=False, first_step=2):
-    stats = extract_stats_from_results(results, first_step=first_step)
-    fig, ax = plot_results_from_dict(results,  metric, stats, first_step=first_step)
+def save_plot(results_dir, metric, use_log=False, tuned=False, smoothed=False, truncated=False):
+    if tuned:
+        results = extract_best_results_by_val_metric(results_dir,  metric)
+    else:
+        results = extract_results_from_files(results_dir,  metric)
+    stats = extract_stats_from_results(results)
+    if truncated:
+        max_len = 250
+    else:
+        max_len = 1000
+    fig, ax = plot_results(results,  metric, stats, tuned=tuned, smoothed=smoothed, max_len=max_len)
+    fname = f"{results_dir}/{metric}"
     if use_log:
         ax.set_yscale('log')
         fname = fname + "_log"
-    if best:
+    if tuned:
         fname = fname + "_best"
-    fname = fname + ".png"
+    if smoothed:
+        fname = fname + "_smoothed"
+    if truncated:
+        fname = fname + "_truncated"
     print(f'Saving figure to {fname}')
-    fig.savefig(fname, bbox_inches='tight', dpi=300)
+    fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
+    fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
 
-def plot_results(args, path):
+
+
+
+def plot_and_save_results(args, path):
     results_dir = str(path)
     print(f'Writing plots to {results_dir}')
     make_file_with_timestamp(results_dir)
     metrics = extract_metrics_from_files(results_dir)
     for metric in metrics:
-        results = extract_results_from_files(results_dir,  metric)
-        fname = f"{results_dir}/{metric}"
-        save_plot(results, metric, fname, use_log=False)
-        #save_plot(results, metric, fname, use_log=True)
-        
-    for metric in metrics:
-        results = extract_best_results_by_val_metric(results_dir,  metric)
-        fname = f"{results_dir}/{metric}"
-        save_plot(results, metric, fname, use_log=False, best=True)
-        #save_plot(results, metric, fname, use_log=True, best=True)
+        save_plot(results_dir, metric,  use_log=False, tuned=False)
+        save_plot(results_dir, metric,  use_log=False, tuned=True)
+        save_plot(results_dir, metric,  use_log=False, tuned=True, truncated=True)
+        #save_plot(results_dir, metric,  use_log=False, tuned=True, smoothed=True)
 
+        if 0:
+            try:
+                save_plot(results_dir, metric, use_log=True, tuned=False)
+            except Exception as e:
+                print(f'Could not compute logscale plot, error {e}')
+            try:
+                save_plot(results_dir, metric, use_log=True, tuned=True)
+            except Exception as e:
+                print(f'Could not compute logscale plot, error {e}')
+    
+    # get results one per agent
+    results = extract_best_results_by_val_metric(results_dir,  metrics[0])
+    fig, ax = plot_times(results)
+    fname = f"{results_dir}/times.png"
+    print(f'Saving figure to {fname}')
+    fig.savefig(fname, bbox_inches='tight', dpi=300)
+
+
+
+        
 
 
 def main(args):
@@ -264,7 +295,7 @@ def main(args):
     results_dir = str(path)
 
     if args.plot:
-        plot_results(args, path)
+        plot_and_save_results(args, path)
         return
 
     if args.copy:

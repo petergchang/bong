@@ -82,7 +82,8 @@ def make_file_with_timestamp(dir):
     # Convert the current time to PST
     pst_timezone = pytz.timezone('US/Pacific')
     now_pst = now_utc.astimezone(pst_timezone)
-    datetime_string = now_pst.strftime("%Y-%m-%d:%H-%M-%S")
+    #datetime_string = now_pst.strftime("%Y-%m-%d:%H-%M-%S")
+    datetime_string = now_pst.strftime("%H:%M-%Y-%m-%d")
 
     # Create an empty file with the current date-time as its name
     filename = f"{dir}/created-{datetime_string}.txt"

@@ -95,6 +95,47 @@ PREFIX="expt4"
 MACHINE="A10G"
 
 
+# expt5
+MODEL_TYPE=("mlp")
+MODEL_NEURONS=(10 1)
+ALGO_LIST=("bong" "blr" "bog" "bbb")
+PARAM_LIST=("fc")
+RANK_LIST=(0)
+LIN_LIST=(0)
+LR_LIST=(1e-4 5e-4 1e-3 5e-3 1e-2 5e-2)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(1)
+DATASET="reg"
+DATADIM=50
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+NTRAIN=(500)
+PREFIX="expt5"
+MACHINE="A10G"
+
+
+     jobname                          agent_name      elapsed                                            summary
+0   expt5-00       bong_fc-MC100-I1-LR0-EF1-Lin0    32.264191  Test NLL: 1.4308,  NLPD: 1.5086\nVal NLL 1.445...
+1   expt5-01  blr_fc-MC100-I10-LR0_0001-EF1-Lin0   555.776806  Test NLL: 1.4332,  NLPD: 2.8180\nVal NLL 1.442...
+2   expt5-02  blr_fc-MC100-I10-LR0_0005-EF1-Lin0   573.837552  Test NLL: 1.4134,  NLPD: 2.1655\nVal NLL 1.425...
+3   expt5-03   blr_fc-MC100-I10-LR0_001-EF1-Lin0   564.154908  Test NLL: 1.4189,  NLPD: 1.9748\nVal NLL 1.432...
+4   expt5-04   blr_fc-MC100-I10-LR0_005-EF1-Lin0   500.319590  Test NLL: 1.4435,  NLPD: 1.6885\nVal NLL 1.458...
+5   expt5-05    blr_fc-MC100-I10-LR0_01-EF1-Lin0   473.664362  Test NLL: 1.4467,  NLPD: 1.6162\nVal NLL 1.462...
+6   expt5-06    blr_fc-MC100-I10-LR0_05-EF1-Lin0   452.094659  Test NLL: 1.4385,  NLPD: 1.5213\nVal NLL 1.455...
+7   expt5-07   bog_fc-MC100-I1-LR0_0001-EF1-Lin0    37.115446  Test NLL: 1.4218,  NLPD: 2.3365\nVal NLL 1.435...
+8   expt5-08   bog_fc-MC100-I1-LR0_0005-EF1-Lin0    39.267307  Test NLL: 1.4434,  NLPD: 1.7126\nVal NLL 1.457...
+9   expt5-09    bog_fc-MC100-I1-LR0_001-EF1-Lin0    39.917206  Test NLL: 1.4152,  NLPD: 1.6445\nVal NLL 1.426...
+10  expt5-10    bog_fc-MC100-I1-LR0_005-EF1-Lin0   223.443803  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
+11  expt5-11     bog_fc-MC100-I1-LR0_01-EF1-Lin0   230.763383  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
+12  expt5-12     bog_fc-MC100-I1-LR0_05-EF1-Lin0   232.001970  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
+13  expt5-13  bbb_fc-MC100-I10-LR0_0001-EF1-Lin0   562.582693  Test NLL: 1.4870,  NLPD: 1.7142\nVal NLL 1.501...
+14  expt5-14  bbb_fc-MC100-I10-LR0_0005-EF1-Lin0   563.451119  Test NLL: 1.4890,  NLPD: 1.6372\nVal NLL 1.503...
+15  expt5-15   bbb_fc-MC100-I10-LR0_001-EF1-Lin0   571.837984  Test NLL: 1.4935,  NLPD: 1.6319\nVal NLL 1.508...
+16  expt5-16   bbb_fc-MC100-I10-LR0_005-EF1-Lin0   460.923669  Test NLL: 1.4695,  NLPD: 1.6738\nVal NLL 1.484...
+17  expt5-17    bbb_fc-MC100-I10-LR0_01-EF1-Lin0  3208.275781  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
+18  expt5-18    bbb_fc-MC100-I10-LR0_05-EF1-Lin0  3428.981928  Test NLL: nan,  NLPD: nan\nVal NLL nan,  NLPD:...
+
 ########## SERIAL MODE
 
 
@@ -116,6 +157,54 @@ python run_jobs.py \
     --ntrain $NTRAIN \
     --rootdir ~/jobs \
     --job_prefix $PREFIX 
+
+
+
+########## PARALLEL MODE
+
+python run_jobs.py \
+    --model_type $MODEL_TYPE \
+    --model_neurons ${MODEL_NEURONS[@]} \
+    --algo_list ${ALGO_LIST[@]} \
+    --param_list ${PARAM_LIST[@]} \
+    --rank_list ${RANK_LIST[@]} \
+    --lin_list ${LIN_LIST[@]} \
+    --lr_list ${LR_LIST[@]}  \
+    --nsample_list ${NSAMPLE_LIST[@]} \
+    --niter_list ${NITER_LIST[@]} \
+    --ef_list ${EF_LIST[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons ${DGP_NEURONS[@]} \
+    --ntrain $NTRAIN \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --parallel 1 \
+    --machine $MACHINE
+
+
+########### POST-PROCESS
+
+python run_jobs.py \
+    --model_type $MODEL_TYPE \
+    --model_neurons ${MODEL_NEURONS[@]} \
+    --algo_list ${ALGO_LIST[@]} \
+    --param_list ${PARAM_LIST[@]} \
+    --rank_list ${RANK_LIST[@]} \
+    --lin_list ${LIN_LIST[@]} \
+    --lr_list ${LR_LIST[@]}  \
+    --nsample_list ${NSAMPLE_LIST[@]} \
+    --niter_list ${NITER_LIST[@]} \
+    --ef_list ${EF_LIST[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons ${DGP_NEURONS[@]} \
+    --ntrain $NTRAIN \
+    --rootdir ~/jobs \
+    --job_prefix $PREFIX \
+    --copy 1
 
 python run_jobs.py \
     --model_type $MODEL_TYPE \
@@ -158,88 +247,21 @@ python run_jobs.py \
     --plot 1
 
 
-
-########## PARALLEL MODE
-
-
-
-python run_jobs.py \
-    --model_type $MODEL_TYPE \
-    --model_neurons ${MODEL_NEURONS[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --rank_list ${RANK_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp_type $DGP_TYPE \
-    --dgp_neurons ${DGP_NEURONS[@]} \
-    --ntrain $NTRAIN \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --parallel 1 \
-    --machine $MACHINE
-
-python run_jobs.py \
-    --model_type $MODEL_TYPE \
-    --model_neurons ${MODEL_NEURONS[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --rank_list ${RANK_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp_type $DGP_TYPE \
-    --dgp_neurons ${DGP_NEURONS[@]} \
-    --ntrain $NTRAIN \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --copy 1
-
-python run_jobs.py \
-    --model_type $MODEL_TYPE \
-    --model_neurons ${MODEL_NEURONS[@]} \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --rank_list ${RANK_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp_type $DGP_TYPE \
-    --dgp_neurons ${DGP_NEURONS[@]} \
-    --ntrain $NTRAIN \
-    --rootdir ~/jobs \
-    --job_prefix $PREFIX \
-    --plot 1
-
-
 ############### SINGLE JOB
 
 
 MODEL_TYPE="mlp"
-MODEL_NEURONS=(1)
+MODEL_NEURONS=(10 1)
 ADD_ONES=0
-USE_BIAS=0
+USE_BIAS=1
 AGENT="bong_fc"
-RANK=10
-LR=0.01
-NSAMPLE=100
+RANK=0
+LR=0
+NSAMPLE=1000
 NITER=10
 EF=0
 DATASET="reg"
-DATADIM=10
+DATADIM=50
 DGP_TYPE="mlp"
 DGP_NEURONS=(20 20 1)
 DIR=/teamspace/studios/this_studio/jobs/debug

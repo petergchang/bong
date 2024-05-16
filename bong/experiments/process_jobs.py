@@ -21,7 +21,8 @@ def create_results_summary(dir):
         with open(fname, 'r') as json_file:
             args = json.load(json_file)
             #meta[jobname] = args
-            keep = {'agent_name', 'model_name', 'data_name', 'elapsed', 'summary'}
+            #keep = {'agent_name', 'model_name', 'data_name', 'elapsed', 'summary'}
+            keep = {'agent_name',  'elapsed', 'summary'}
             d = {}
             for k in keep:
                 d[k] = args[k]
@@ -36,7 +37,8 @@ def create_results_summary(dir):
         df = pd.concat([df, temp_df], ignore_index=True)
     #df = df.drop(columns=['dir'])
     # Reorder the columns if necessary
-    df = df[['jobname', 'agent_name', 'model_name', 'data_name', 'elapsed', 'summary']]
+    #df = df[['jobname', 'agent_name', 'model_name', 'data_name', 'elapsed', 'summary']]
+    df = df[['jobname', 'agent_name',  'elapsed', 'summary']]
 
     return df
 
