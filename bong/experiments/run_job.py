@@ -63,8 +63,6 @@ def make_results(args):
     key = jr.PRNGKey(args.agent_key)
     results, elapsed, summary = run_agent(key, agent, data, model)
     df = pd.DataFrame(results)
-    parts = parse_agent_full_name(agent.name)
-    agent_name_short = make_agent_name_from_parts(parts['algo'], parts['param'], parts['lin'])
     meta = { # non time-series data
         'data_name': data['name'],
         'data_dim': args.data_dim,
@@ -73,6 +71,7 @@ def make_results(args):
         'model_name': model['name'],
         'model_nparams': model['nparams'],
         'agent_name': agent.name,
+        'agent_full_name': agent.full_name,
         'elapsed': elapsed,
         'summary': summary,
         }

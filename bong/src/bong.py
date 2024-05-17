@@ -682,9 +682,12 @@ class fg_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        name = f"bong_fc-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
-        algo = "bong"
-        param = "fc"
+        full_name = make_full_name("bong", "fc", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        if linplugin:
+            name = f"bong-fc-lin"
+        else:
+           name = f"bong-fc-EF{empirical_fisher}-MC{num_samples}"
+
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -712,7 +715,7 @@ class fg_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name, full_name)
     
 
 class dlrg_bong:
@@ -765,9 +768,12 @@ class dlrg_bong:
         rank: int=10,
         **kwargs
     ):
-        name = f"bong_dlr-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}-R{rank}"
-        algo = "bong"
-        param = "dlr"
+        full_name = make_full_name("bong", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        if linplugin:
+            name = f"bong-dlr{rank}-lin"
+        else:
+           name = f"bong-dlr{rank}-EF{empirical_fisher}-MC{num_samples}"
+
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
         if linplugin:
@@ -796,7 +802,7 @@ class dlrg_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name, full_name)
     
 
 class dg_bong:
@@ -847,9 +853,12 @@ class dg_bong:
         *args,
         **kwargs
     ):
-        name = f"bong_diag-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
-        algo = "bong"
-        param = "diag"
+        full_name = make_full_name("bong", "diag", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        if linplugin:
+            name = f"bong-diag-lin"
+        else:
+           name = f"bong-diag-EF{empirical_fisher}-MC{num_samples}"
+
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -877,7 +886,7 @@ class dg_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name, full_name)
     
     
 class fg_reparam_bong:
@@ -928,9 +937,12 @@ class fg_reparam_bong:
         *args,
         **kwargs
     ):
-        name = f"bong_fc_mom-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
-        algo = "bong"
-        param = "fc_mom"
+        full_name = make_full_name("bong", "fc_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        if linplugin:
+            name = f"bong-fc_mom-lin"
+        else:
+           name = f"bong-fc_mom-EF{empirical_fisher}-MC{num_samples}"
+
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -958,7 +970,7 @@ class fg_reparam_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name, full_name)
     
 
 class dg_reparam_bong:
@@ -1008,9 +1020,12 @@ class dg_reparam_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        name = f"bong_diag_mom-MC{num_samples}-I1-LR0-EF{empirical_fisher}-Lin{linplugin}"
-        algo = "bong"
-        param = "diag_mom"
+        full_name = make_full_name("bong", "diag_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        if linplugin:
+            name = f"bong-diag_mom-lin"
+        else:
+           name = f"bong-diag_mom-EF{empirical_fisher}-MC{num_samples}"
+
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1038,5 +1053,5 @@ class dg_reparam_bong:
                 emission_cov_function, num_samples, empirical_fisher
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name, full_name)
     

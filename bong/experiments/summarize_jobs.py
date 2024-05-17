@@ -8,13 +8,7 @@ import os
 import datetime
 import json
 
-def main(dirname):
-    fname = f"{dirname}/summary.csv"
-    print(f'Writing to {fname}')
-    df = create_summary_df(dirname)
-    df.to_csv(fname, index=False)
-    print(df)
-    return
+
 
 def create_summary_df(dirname):
     fname = f"{dirname}/jobs.csv"
@@ -49,6 +43,14 @@ def create_summary_df(dirname):
     df = df[['jobname', 'agent_name',  'model_name', 'elapsed', 'summary']]
 
     return df
+
+def main(dirname):
+    fname = f"{dirname}/summary.csv"
+    print(f'Writing to {fname}')
+    df = create_summary_df(dirname)
+    df.to_csv(fname, index=False)
+    print(df)
+    return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

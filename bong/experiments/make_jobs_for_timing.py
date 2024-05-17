@@ -10,6 +10,7 @@ from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts, ext
 from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp, move_df_col
 from job_utils import make_unix_cmd_given_flags
 
+
 def make_df_crossproduct(agent_list, model_list, ef_list, lin_list, rank_list):
     args_list = []
     for agent in agent_list:
@@ -17,12 +18,8 @@ def make_df_crossproduct(agent_list, model_list, ef_list, lin_list, rank_list):
                 for ef in ef_list:
                     for lin in lin_list:
                         for rank in rank_list:
-                            if lin:
-                                if ef==1:
-                                    continue # no need to use EF when linearizing
-                            if rank>0:
-                                if ef==0:
-                                    continue # DLR onyl works if EF=1
+                            if (lin==1) and (ef==0): continue # force ef=1 for lin
+                            if (rank>0) and (ef==0): continue # force ef=1 for dlr
                             args = {'agent': agent, 'model_neurons_str': model, 
                                     'ef': ef, 'linplugin': lin, 'dlr_rank': rank}
                             args_list.append(args)
@@ -35,7 +32,7 @@ def main(args):
     print(f'Saving jobs to {results_dir}')
     path = Path(results_dir)
     path.mkdir(parents=True, exist_ok=True)
-
+    
     df = make_df_crossproduct(args.agent_list, args.model_neurons_str_list,
                             args.ef_list, args.lin_list, args.rank_list)
     #df['agent'] = args.agent
