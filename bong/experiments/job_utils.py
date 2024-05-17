@@ -9,38 +9,30 @@ import matplotlib.image as mpimg
 import json
 from bong.agents import parse_agent_full_name, make_agent_name_from_parts
 
-def create_results_summary(dir):
-    fname = f"{dir}/jobs.csv"
-    df = pd.read_csv(fname)
-    jobnames = df['jobname']
 
-    # Create dict of dicts, containing summary results for each experiment
-    meta = {}
-    for jobname in jobnames:
-        fname = f"{dir}/{jobname}/work/args.json"
-        with open(fname, 'r') as json_file:
-            args = json.load(json_file)
-            #meta[jobname] = args
-            #keep = {'agent_name', 'model_name', 'data_name', 'elapsed', 'summary'}
-            keep = {'agent_name',  'elapsed', 'summary'}
-            d = {}
-            for k in keep:
-                d[k] = args[k]
-            meta[jobname] = d
+cwd = Path(os.getcwd())
+root = cwd
+script_path = os.path.abspath(__file__)
+script_dir = os.path.dirname(script_path)
 
-    # Merge dict of dicts into a dataframe
-    df = pd.DataFrame()
-    # Iterate over the outer dictionary and create a DataFrame for each nested dictionary
-    for key, value in meta.items():
-        temp_df = pd.DataFrame([value])
-        temp_df['jobname'] = key
-        df = pd.concat([df, temp_df], ignore_index=True)
-    #df = df.drop(columns=['dir'])
-    # Reorder the columns if necessary
-    #df = df[['jobname', 'agent_name', 'model_name', 'data_name', 'elapsed', 'summary']]
-    df = df[['jobname', 'agent_name',  'elapsed', 'summary']]
-
-    return df
+def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, rank,
+                            model_type, model_neurons_str,
+                            dataset, data_dim, dgp_type, dgp_neurons_str, ntrain):
+    # We must pass in all flags where we want to override the default in run_job
+    #main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_job.py'
+    main_name = f'{script_dir}/run_job.py'
+    #model_neurons = unmake_neuron_str(model_neurons_str)
+    #dgp_neurons = unmake_neuron_str(dgp_neurons_str)
+    cmd = (
+        f'python {main_name} --agent {agent}  --lr {lr}'
+        f' --niter {niter} --nsample {nsample} --linplugin {linplugin}'
+        f' --ef {ef} --rank {rank}'
+        f' --model_type {model_type} --model_neurons_str {model_neurons_str}'
+        f' --dataset {dataset} --data_dim {data_dim}'
+        f' --dgp_type {dgp_type} --dgp_neurons_str {dgp_neurons_str}'
+        f' --ntrain {ntrain}'
+    )
+    return cmd
 
 def extract_metrics_from_files(dir, exclude_val=True):
     fname = f"{dir}/jobs.csv"
@@ -53,7 +45,6 @@ def extract_metrics_from_files(dir, exclude_val=True):
     if exclude_val:
         metrics = [m for m in metrics if "_val" not in m ]
     return metrics
-
 
 
 
@@ -83,11 +74,12 @@ def extract_results_from_files(dir,  metric):
         fname = f"{dir}/{jobname}/work/args.json"
         with open(fname, 'r') as json_file:
             args = json.load(json_file)
+        agent_name = args['agent_name']
         d = {
             'metric': metric,
             'vals': vals,
             'valid_len': T,
-            'agent_name': args['agent_name'], 
+            'agent_name': agent_name,
             'model_name': args['model_name'],
             'data_name': args['data_name'],
             'elapsed': args['elapsed'],
@@ -95,28 +87,7 @@ def extract_results_from_files(dir,  metric):
         results[jobname] = d
     return results
 
-def extract_stats_from_results(results, qlow=0, qhigh=90, first_step=1):
-    infty = 1e10
-    qlows, qhighs, mins, maxs = [infty], [0], [infty], [0]
-    for i, job in enumerate(results.keys()):
-        res = results[job]
-        vals = res['vals']
-        agent_name = res['agent_name']
-        T = res['valid_len']
-        vals = vals[first_step:T]
-        if len(vals) > 0:
-            q_low, q_high = np.percentile(vals, [qlow, qhigh])
-            qlows.append(q_low)
-            qhighs.append(q_high)
-            mins.append(np.min(vals))
-            maxs.append(np.max(vals))
-    d = {
-        'min': np.min(np.array(mins)),
-        'max': np.max(np.array(maxs)),
-        'qlow': np.min(np.array(qlows)),
-        'qhigh': np.max(np.array(qhighs))
-    }
-    return d
+
 
 def get_scores_per_job(results):
     scores = {}

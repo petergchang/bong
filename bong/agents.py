@@ -287,3 +287,19 @@ def make_agent_name_from_parts(algo, param, lin):
     else:
         agent = f'{algo}_{param}'
     return agent
+
+
+
+def extract_optional_agent_args(props, learning_rate, num_iter, num_sample, ef, rank):
+    # Givem all the possible flag values, extract the ones needed for this agent.
+    # This prevents us creating multiple agents with irrelevant arguments that differ,
+    # which would cause us to create unnecessary jobs.
+    args = props.copy()
+    if props['lr'] is None: args['lr'] = learning_rate
+    if props['niter'] is None: args['niter'] = int(num_iter)
+    if props['nsample'] is None: args['nsample'] = int(num_sample)
+    if props['dlr_rank'] is None: args['dlr_rank'] = int(rank)
+    if props['ef'] is None: args['ef']= int(ef) 
+    args['linplugin'] = props['linplugin'] # derived from agent name, not a flag
+    del args['constructor']
+    return args

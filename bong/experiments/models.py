@@ -39,6 +39,54 @@ def make_model(args, data):
 
 #########
 
+
+# output = transform(key, rebayes_algorithm, pred_state, x, y)
+def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
+        post, em_function, ec_function, log_likelihood,
+        n_samples_mc_nlpd=100):
+ 
+    # Plugin-NLL
+    def _nll(curr_mean, xcb, ycb):
+        em = em_function(curr_mean, xcb)
+        ec = ec_function(curr_mean, xcb)
+        return -log_likelihood(em, ec, ycb)
+    nll_te = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_te, Y_te))
+    nll_val = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_val, Y_val))
+
+    # MC-NLPD
+    key, subkey = jr.split(key)
+    means = alg.sample(subkey, state, n_samples_mc_nlpd)
+    nlpd_te = jnp.mean(jax.vmap(
+        jax.vmap(_nll, (None, 0, 0)), (0, None, None)
+    )(means, X_te, Y_te))
+
+    key, subkey = jr.split(key)
+    means = alg.sample(subkey, state, n_samples_mc_nlpd)
+    nlpd_val = jnp.mean(jax.vmap(
+        jax.vmap(_nll, (None, 0, 0)), (0, None, None)
+    )(means, X_val, Y_val))
+
+    # KL
+    if post is not None:
+        curr_cov = state.cov
+        if curr_cov.ndim == 1:
+            curr_cov = jnp.diag(state.cov)
+        kl_div = gaussian_kl_div(post['mu'], post['cov'], state.mean, curr_cov)
+    else:
+        kl_div = None
+
+    return nll_te, nll_val, nlpd_te, nlpd_val, kl_div
+
+def compute_post_linreg(args, data, mu0, cov0):
+    # Compute (batch) true posterior on training set
+    noise_std = args.emission_noise
+    inv_cov0 = jnp.linalg.inv(cov0)
+    cov_post = jnp.linalg.inv(inv_cov0 + data['X_tr'].T @ data['X_tr'] / noise_std**2)
+    mu_post = cov_post @ (inv_cov0 @ mu0 + data['X_tr'].T @ data['Y_tr'] / noise_std**2)
+    post = {'mu': mu_post, 'cov': cov_post}
+    return post
+
+
 def  make_lin_reg(args, data):
     d = args.data_dim
     mu0 = jnp.zeros(d)
@@ -80,57 +128,15 @@ def  make_lin_reg(args, data):
     def tune_kl_loss_fn(key, alg, state):
         return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
     
-    d = {'model_kwargs': model_kwargs, 'callback': callback,
-        'process_callback': process_callback, 'tune_fn': tune_kl_loss_fn,
-        'name': name}
+    d = {
+        'model_kwargs': model_kwargs,
+        'callback': callback,
+        'process_callback': process_callback,
+        'tune_fn': tune_kl_loss_fn,
+        'name': name,
+        'nparams': d,
+        }
     return d
-
-def compute_post_linreg(args, data, mu0, cov0):
-    # Compute (batch) true posterior on training set
-    noise_std = args.emission_noise
-    inv_cov0 = jnp.linalg.inv(cov0)
-    cov_post = jnp.linalg.inv(inv_cov0 + data['X_tr'].T @ data['X_tr'] / noise_std**2)
-    mu_post = cov_post @ (inv_cov0 @ mu0 + data['X_tr'].T @ data['Y_tr'] / noise_std**2)
-    post = {'mu': mu_post, 'cov': cov_post}
-    return post
-
-# output = transform(key, rebayes_algorithm, pred_state, x, y)
-def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
-        post, em_function, ec_function, log_likelihood,
-        n_samples_mc_nlpd=100):
- 
-    # Plugin-NLL
-    def _nll(curr_mean, xcb, ycb):
-        em = em_function(curr_mean, xcb)
-        ec = ec_function(curr_mean, xcb)
-        return -log_likelihood(em, ec, ycb)
-    nll_te = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_te, Y_te))
-    nll_val = jnp.mean(jax.vmap(_nll, (None, 0, 0))(state.mean, X_val, Y_val))
-
-    # MC-NLPD
-    key, subkey = jr.split(key)
-    means = alg.sample(subkey, state, n_samples_mc_nlpd)
-    nlpd_te = jnp.mean(jax.vmap(
-        jax.vmap(_nll, (None, 0, 0)), (0, None, None)
-    )(means, X_te, Y_te))
-
-    key, subkey = jr.split(key)
-    means = alg.sample(subkey, state, n_samples_mc_nlpd)
-    nlpd_val = jnp.mean(jax.vmap(
-        jax.vmap(_nll, (None, 0, 0)), (0, None, None)
-    )(means, X_val, Y_val))
-
-    # KL
-    if post is not None:
-        curr_cov = state.cov
-        if curr_cov.ndim == 1:
-            curr_cov = jnp.diag(state.cov)
-        kl_div = gaussian_kl_div(post['mu'], post['cov'], state.mean, curr_cov)
-    else:
-        kl_div = None
-
-    return nll_te, nll_val, nlpd_te, nlpd_val, kl_div
-
 
 
 #######
@@ -157,8 +163,13 @@ def make_mlp_reg(args, data):
         results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val}
         return results, summary
 
-    d = {'model_kwargs': model_kwargs, 'callback': callback,
-        'process_callback': process_callback, 'name': model_name}
+    d = {
+        'model_kwargs': model_kwargs,
+        'callback': callback,
+        'process_callback': process_callback,
+        'name': model_name,
+        'nparams': model_kwargs['nparams'],
+        }
     return d
 
 def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bias=True):
