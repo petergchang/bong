@@ -25,7 +25,7 @@ def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, rank,
     #dgp_neurons = unmake_neuron_str(dgp_neurons_str)
     cmd = (
         f'python {main_name} --agent {agent}  --lr {lr}'
-        f' --niter {niter} --nsample {nsample} --linplugin {linplugin}'
+        f' --niter {niter} --nsample {nsample} --lin {linplugin}'
         f' --ef {ef} --rank {rank}'
         f' --model_type {model_type} --model_neurons_str {model_neurons_str}'
         f' --dataset {dataset} --data_dim {data_dim}'

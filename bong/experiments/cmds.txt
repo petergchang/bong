@@ -1,0 +1,96 @@
+
+
+python make_jobs_multi_sweep.py \
+    --model_type $MODEL_TYPE \
+    --model_neurons_str $MODEL_NEURONS_STR \
+    --algo_list ${ALGO_LIST[@]} \
+    --param_list ${PARAM_LIST[@]} \
+    --rank_list ${RANK_LIST[@]} \
+    --lin_list ${LIN_LIST[@]} \
+    --lr_list ${LR_LIST[@]}  \
+    --nsample_list ${NSAMPLE_LIST[@]} \
+    --niter_list ${NITER_LIST[@]} \
+    --ef_list ${EF_LIST[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons_str $DGP_NEURONS_STR \
+    --ntrain $NTRAIN  \
+    --dir $DIR \
+    --job_name $JOB_NAME
+
+
+
+python make_jobs_for_timing.py \
+    --agent_list ${AGENT_LIST[@]} \
+    --rank $RANK \
+    --model_type $MODEL_TYPE \
+    --model_neurons_str_list ${MODEL_NEURONS_STR_LIST[@]} \
+    --lr $LR  \
+    --nsample $NSAMPLE \
+    --niter $NITER \
+    --ef_list ${EF_LIST[@]}   \
+    --lin_list ${LIN_LIST[@]} \
+    --rank $RANK \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --ntrain $NTRAIN \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons_str $DGP_NEURONS_STR \
+    --dir $DIR \
+    --job_name $JOB_NAME
+
+
+
+python do_jobs.py --dir $DIR    
+
+python do_jobs.py \
+    --dir $DIR \
+    --parallel 1 \
+    --machine $MACHINE
+
+python copy_jobs.py --dir $DIR 
+
+python summarize_jobs.py --dir $DIR    
+
+python plot_jobs.py --dir $DIR 
+
+python plot_times.py --dir $DIR 
+
+############### SINGLE JOB
+
+
+MODEL_TYPE="mlp"
+MODEL_NEURONS=(10 1)
+ADD_ONES=0
+USE_BIAS=1
+AGENT="bong_fc"
+RANK=0
+LR=0
+NSAMPLE=1000
+NITER=10
+EF=0
+DATASET="reg"
+DATADIM=50
+DGP_TYPE="mlp"
+DGP_NEURONS=(20 20 1)
+DIR=/teamspace/studios/this_studio/jobs/debug
+DATA_KEY=0
+
+
+python run_job.py \
+    --agent $AGENT \
+    --rank $RANK \
+    --model_type $MODEL_TYPE \
+    --model_neurons ${MODEL_NEURONS[@]} \
+    --use_bias $USE_BIAS \
+    --lr $LR  \
+    --nsample $NSAMPLE \
+    --niter $NITER \
+    --ef $EF   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dgp_type $DGP_TYPE \
+    --dgp_neurons ${DGP_NEURONS[@]} \
+    --dir $DIR \
+    --data_key $DATA_KEY

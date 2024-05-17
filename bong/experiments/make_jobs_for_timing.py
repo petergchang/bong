@@ -10,12 +10,22 @@ from bong.agents import AGENT_DICT, AGENT_NAMES, make_agent_name_from_parts, ext
 from bong.util import safestr, make_neuron_str, unmake_neuron_str, make_file_with_timestamp, move_df_col
 from job_utils import make_unix_cmd_given_flags
 
-def make_df_crossproduct(agent_list, model_list):
+def make_df_crossproduct(agent_list, model_list, ef_list, lin_list, rank_list):
     args_list = []
     for agent in agent_list:
         for model in model_list:
-            args = {'agent': agent, 'model_neurons_str': model}
-            args_list.append(args)
+                for ef in ef_list:
+                    for lin in lin_list:
+                        for rank in rank_list:
+                            if lin:
+                                if ef==1:
+                                    continue # no need to use EF when linearizing
+                            if rank>0:
+                                if ef==0:
+                                    continue # DLR onyl works if EF=1
+                            args = {'agent': agent, 'model_neurons_str': model, 
+                                    'ef': ef, 'linplugin': lin, 'dlr_rank': rank}
+                            args_list.append(args)
     df = pd.DataFrame(args_list)
     df = df.drop_duplicates()
     return df
@@ -26,14 +36,15 @@ def main(args):
     path = Path(results_dir)
     path.mkdir(parents=True, exist_ok=True)
 
-    df = make_df_crossproduct(args.agent_list, args.model_neurons_str_list)
+    df = make_df_crossproduct(args.agent_list, args.model_neurons_str_list,
+                            args.ef_list, args.lin_list, args.rank_list)
     #df['agent'] = args.agent
     df['lr'] = args.lr 
     df['niter'] = args.niter
     df['nsample'] = args.nsample
-    df['linplugin'] = args.linplugin
-    df['ef'] = args.ef
-    df['dlr_rank'] = args.rank
+    #df['linplugin'] = args.linplugin
+    #df['ef'] = args.ef
+    #df['dlr_rank'] = args.rank
     df['model_type'] = args.model_type
     #df['model_neurons_str'] = args.model_neurons_str
     df['dataset'] = args.dataset
@@ -46,7 +57,6 @@ def main(args):
     jobnames = [f'{args.job_name}-{i:02}' for i in range(N)] 
     df['jobname'] = jobnames
     df = move_df_col(df, 'jobname', 0)
-
     print(df)
 
     cmd_dict = {}
@@ -68,7 +78,6 @@ def main(args):
     df.to_csv(fname, index=False) 
 
 
-   
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -87,9 +96,12 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--niter", type=int, default=10) 
     parser.add_argument("--nsample", type=int, default=100) 
-    parser.add_argument("--ef", type=int, default=1)
-    parser.add_argument("--linplugin", type=int, default=0)
-    parser.add_argument("--rank", type=int, default=10)
+    #parser.add_argument("--ef", type=int, default=1)
+    parser.add_argument("--ef_list", type=int, nargs="+", default=[1])
+    #parser.add_argument("--linplugin", type=int, default=0)
+    parser.add_argument("--lin_list", type=int, nargs="+", default=[0])
+    #parser.add_argument("--rank", type=int, default=10)
+    parser.add_argument("--rank_list", type=int, nargs="+", default=[0])
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
     #parser.add_argument("--model_neurons_str", type=str, default="")
     parser.add_argument("--model_neurons_str_list", type=str, nargs="+", default="")

@@ -23,7 +23,7 @@ def main(args):
         print(f'\n Creating {str(dst_path)}')
         dst_path.mkdir(parents=True, exist_ok=True)
 
-        # chnage permissions so we can delete the copied files
+        # chnage permissions so we can later on delete the copied files
         cmd = f'chmod ugo+rwx {dst}'
         os.system(cmd)
 
@@ -31,7 +31,10 @@ def main(args):
         for fname in fnames:
             cmd = f'cp -r {src}/{fname} {dst}/{fname}'
             print(f'Running {cmd}')
-            os.system(cmd)
+            try:
+                os.system(cmd)
+            except Exception as e:
+                print(f'Error {e}')
 
 
 if __name__ == "__main__":

@@ -29,8 +29,8 @@ def create_summary_df(dirname):
         with open(fname, 'r') as json_file:
             sub = json.load(json_file)
             #meta[jobname] = args
-            #keep = {'agent_name', 'model_name', 'data_name', 'elapsed', 'summary'}
-            keep = {'agent_name',  'elapsed', 'summary'}
+            keep = {'agent_name', 'model_name',  'elapsed', 'summary'}
+            #keep = {'agent_name',  'elapsed', 'summary'}
             d = {}
             for k in keep:
                 d[k] = sub[k]
@@ -46,7 +46,7 @@ def create_summary_df(dirname):
     #df = df.drop(columns=['dir'])
     # Reorder the columns if necessary
     #df = df[['jobname', 'agent_name', 'model_name', 'data_name', 'elapsed', 'summary']]
-    df = df[['jobname', 'agent_name',  'elapsed', 'summary']]
+    df = df[['jobname', 'agent_name',  'model_name', 'elapsed', 'summary']]
 
     return df
 

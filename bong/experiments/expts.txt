@@ -1,6 +1,6 @@
 
 
-# expt7
+JOB_NAME="expt7_sweep"
 MODEL_TYPE="mlp"
 MODEL_NEURONS_str="1"
 ALGO_LIST=("bong" "blr")
@@ -16,120 +16,100 @@ DATADIM=10
 DGP_TYPE="mlp"
 DGP_NEURONS_STR="20_20_1"
 NTRAIN=50
-JOB_NAME="expt7_sweep"
 DIR=~/jobs/$JOB_NAME
 MACHINE="local"
 
-# expt_timing
+
+JOB_NAME="expt_timing"
 MODEL_TYPE="mlp"
 MODEL_NEURONS_STR_LIST=("1" "10_1")
-AGENT_LIST=("bong_fc" "bog_fc")
+AGENT_LIST=("bong_fc" "bog_fc") 
 RANK=0
 LR=0.001
 NSAMPLE=100
+NITER=1
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+DATASET="reg"
+DATADIM=10
+NTRAIN=500
+DGP_TYPE="mlp"
+DGP_NEURONS_STR="20_20_1"
+DIR=~/jobs/$JOB_NAME
+MACHINE="local"
+
+
+JOB_NAME="expt_timing2"
+MODEL_TYPE="mlp"
+MODEL_NEURONS_STR_LIST=("1" "10_1" "20_1" "30_1")
+AGENT_LIST=("bong_fc" "bog_fc" "blr_fc" "bbb_fc") 
+LR=0.001
+NSAMPLE=100
 NITER=10
-EF=0
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+RANK=0
+DATASET="reg"
+DATADIM=10
+NTRAIN=500
+DGP_TYPE="mlp"
+DGP_NEURONS_STR="20_20_1"
+DIR=~/jobs/$JOB_NAME
+MACHINE="A10G"
+
+JOB_NAME="timingfc"
+MODEL_TYPE="mlp"
+MODEL_NEURONS_STR_LIST=("1" "10_1" "20_1" "30_1")
+AGENT_LIST=("bong_fc" "bog_fc")
+LR=0.001
+NSAMPLE=100
+NITER=10
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+RANK=0
 DATASET="reg"
 DATADIM=10
 NTRAIN=100
 DGP_TYPE="mlp"
 DGP_NEURONS_STR="20_20_1"
-JOB_NAME="expt_timing"
 DIR=~/jobs/$JOB_NAME
-MACHINE="local"
+MACHINE="A10G"
 
-############ NEW
-
-python make_jobs_sweep.py \
-    --model_type $MODEL_TYPE \
-    --model_neurons_str $MODEL_NEURONS_STR \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --rank_list ${RANK_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp_type $DGP_TYPE \
-    --dgp_neurons_str $DGP_NEURONS_STR \
-    --ntrain $NTRAIN  \
-    --dir $DIR \
-    --job_name $JOB_NAME
-
-
-python make_jobs_agentXmodel.py \
-    --agent_list ${AGENT_LIST[@]} \
-    --rank $RANK \
-    --model_type $MODEL_TYPE \
-    --model_neurons_str_list ${MODEL_NEURONS_STR_LIST[@]} \
-    --lr $LR  \
-    --nsample $NSAMPLE \
-    --niter $NITER \
-    --ef $EF   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --ntrain $NTRAIN \
-    --dgp_type $DGP_TYPE \
-    --dgp_neurons_str $DGP_NEURONS_STR \
-    --dir $DIR \
-    --job_name $JOB_NAME
-
-
-python do_jobs.py --dir $DIR    
-
-python do_jobs.py \
-    --dir $DIR \
-    --parallel 1 \
-    --machine $MACHINE
-
-python copy_jobs.py --dir $DIR 
-
-python summarize_jobs.py --dir $DIR    
-
-python plot_jobs.py --dir $DIR 
-
-python plot_times.py --dir $DIR 
-
-
-
-############### SINGLE JOB
-
-
+JOB_NAME="timingfc4"
 MODEL_TYPE="mlp"
-MODEL_NEURONS=(10 1)
-ADD_ONES=0
-USE_BIAS=1
-AGENT="bong_fc"
-RANK=0
-LR=0
-NSAMPLE=1000
+MODEL_NEURONS_STR_LIST=("1" "10_1" "15_1" "20_1" "25_1" "30_1" "35_1")
+AGENT_LIST=("bong_fc" "bog_fc" "blr_fc" "bbb_fc")
+LR=0.001
+NSAMPLE=100
 NITER=10
-EF=0
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+RANK=0
 DATASET="reg"
-DATADIM=50
+DATADIM=10
+NTRAIN=100
 DGP_TYPE="mlp"
-DGP_NEURONS=(20 20 1)
-DIR=/teamspace/studios/this_studio/jobs/debug
-DATA_KEY=0
+DGP_NEURONS_STR="20_20_1"
+DIR=~/jobs/$JOB_NAME
+MACHINE="A10G"
+
+JOB_NAME="expt_timing_dlr"
+MODEL_TYPE="mlp"
+MODEL_NEURONS_STR_LIST=("1" "10_1" "20_1" "30_1")
+AGENT_LIST=("bong_dlr" "bog_dlr" "blr_dlr" "bbb_dlr") 
+LR=0.001
+NSAMPLE=100
+NITER=10
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+RANK=10
+DATASET="reg"
+DATADIM=10
+NTRAIN=500
+DGP_TYPE="mlp"
+DGP_NEURONS_STR="20_20_1"
+DIR=~/jobs/$JOB_NAME
+MACHINE="A10G"
 
 
-python run_job.py \
-    --agent $AGENT \
-    --rank $RANK \
-    --model_type $MODEL_TYPE \
-    --model_neurons ${MODEL_NEURONS[@]} \
-    --use_bias $USE_BIAS \
-    --lr $LR  \
-    --nsample $NSAMPLE \
-    --niter $NITER \
-    --ef $EF   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp_type $DGP_TYPE \
-    --dgp_neurons ${DGP_NEURONS[@]} \
-    --dir $DIR \
-    --data_key $DATA_KEY
 

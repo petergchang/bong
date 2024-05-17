@@ -10,7 +10,7 @@ import jax.random as jr
 import jax
 
 from bong.util import run_rebayes_algorithm, get_gpu_name, unmake_neuron_str
-from bong.agents import AGENT_DICT, AGENT_NAMES, parse_agent_full_name
+from bong.agents import AGENT_DICT, AGENT_NAMES, parse_agent_full_name, make_agent_name_from_parts
 from datasets import make_dataset
 from models import make_model
 
@@ -56,7 +56,7 @@ def make_results(args):
                         learning_rate = args.lr,
                         num_iter = args.niter,
                         num_samples = args.nsample,
-                        linplugin = args.linplugin,
+                        linplugin = args.lin,
                         empirical_fisher = args.ef,
                         rank = args.rank
                     )
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument("--niter", type=int, default=10) 
     parser.add_argument("--nsample", type=int, default=100) 
     parser.add_argument("--ef", type=int, default=1)
-    parser.add_argument("--linplugin", type=int, default=0)
+    parser.add_argument("--lin", type=int, default=0)
     parser.add_argument("--rank", type=int, default=10)
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
     parser.add_argument("--model_neurons", type=int, nargs="+", default=[10, 10, 1])
