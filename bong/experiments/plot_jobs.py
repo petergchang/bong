@@ -43,20 +43,20 @@ def make_marker(name):
         return '.'
 
 
-def make_plot_params(args):
+def make_plot_params(algo, ef, lin):
     markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
-    marker = markers[args['algo']]
-    if (args['ef']==0) & (args['lin']==0):
+    marker = markers[algo]
+    if (ef==0) & (lin==0):
         linestyle = '-'
-    elif (args['ef']==1) & (args['lin']==0):
+    elif (ef==1) & (lin==0): 
         linestyle = '--'
     else:
-       linestyle = '..'
+        linestyle = '-.' # lin==1
     return {
             'linestyle': linestyle,
             'linewidth': 1,
             'marker': marker,
-            'markersize': 6
+            'markersize': 10
             }
 
 
@@ -71,7 +71,8 @@ def convolve_smooth(time_series, width=5):
     return smoothed_time_series
 
 
-def plot_results(results,  metric,  first_step=10, tuned=False, smoothed=False, step_size=5, max_len=1000):
+def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5, max_len=1000,
+                exclude='', include=''):
     jobnames = results.keys()
     fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     njobs = len(jobnames)
@@ -86,11 +87,18 @@ def plot_results(results,  metric,  first_step=10, tuned=False, smoothed=False, 
         elapsed = 1000*round(res['elapsed']/T, 3)
         times[agent_name] = elapsed # we assume each agent only occurs once
         expt_name =  f'{agent_name} [{elapsed:.1f} ms/step]'
-        model_name = res['model_name']
-        data_name = res['data_name']
+
         parts = parse_full_name(full_name)
-        plot_params = make_plot_params(parts)
-        ttl = f'Data:{data_name}. Model:{model_name}. Tuned:{tuned}'
+        algo, ef, lin = parts['algo'], parts['ef'], parts['lin']
+        plot_params = make_plot_params(algo, ef, lin)
+        
+        if len(exclude) > 1:
+            skip_result = eval(exclude)
+            if skip_result: continue
+        if len(include) > 1:
+            keep_result = eval(include)
+            if not keep_result: continue
+
 
         T = res['valid_len']
         T = min(T, max_len)
@@ -101,44 +109,47 @@ def plot_results(results,  metric,  first_step=10, tuned=False, smoothed=False, 
         if smoothed:
             ys = convolve_smooth(ys)
 
-        #ax.plot(xs, ys, markevery=20, label=expt_name, **plot_params)
-        line, = ax.plot(xs, ys, label=expt_name) # **plot_params)
-        markers_on = np.arange(0, len(xs), 10)
-        jittered_x = add_jitter(xs[markers_on])
-        ax.plot(jittered_x, ys[markers_on], marker=plot_params['marker'],
-                 linestyle='None', markersize=12, color=line.get_color())
+        ax.plot(xs, ys, markevery=20, label=expt_name, **plot_params)
+        
+        if 0:
+            line, = ax.plot(xs, ys) #, label=expt_name) # **plot_params)
+            markers_on = np.arange(0, len(xs), 10)
+            jittered_x = add_jitter(xs[markers_on])
+            ax.plot(jittered_x, ys[markers_on], color=line.get_color(), **plot_params, label=expt_name)
 
         ax.grid(True)
         ax.legend(loc='upper right', prop={'size': fs})
         ax.set_ylabel(metric, fontsize=12)
         ax.set_xlabel('num. training observations', fontsize=12)
-        ax.set_title(ttl, fontsize=10)
         #ax.set_ylim(stats['qlow'], stats['qhigh']) # truncate outliers
         
     return fig, ax
 
-def save_plot(results_dir, metric, use_log=False, tuned=False, smoothed=False, truncated=False):
-    if tuned:
-        #results = extract_best_results_by_val_metric(results_dir,  metric)
-        results = None
-    else:
-        results = extract_results_from_files(results_dir,  metric)
+def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, truncated=False, 
+            exclude='', include='', name=''):
+    jobnames = list(results.keys())
+    jobname = jobnames[0]
+    res = results[jobname] # we assume all jobs use the same model and data
+    model_name = res['model_name']
+    data_name = res['data_name']
+
     #stats = extract_stats(results)
-    if truncated:
-        max_len = 250
-    else:
-        max_len = 1000
-    fig, ax = plot_results(results,  metric,  tuned=tuned, smoothed=smoothed, max_len=max_len)
-    fname = f"{results_dir}/{metric}"
+    max_len = (250 if truncated else 1000)
+    fig, ax = plot_timeseries(results,  metric,  smoothed=smoothed, max_len=max_len, 
+            exclude=exclude, include=include)
+    ttl = f'{name} Model {model_name}. Data {data_name}'
+    ax.set_title(ttl, fontsize=10)
+
+    fname = f"{fig_dir}/{metric}"
     if use_log:
         ax.set_yscale('log')
         fname = fname + "_log"
-    if tuned:
-        fname = fname + "_best"
     if smoothed:
         fname = fname + "_smoothed"
     if truncated:
         fname = fname + "_truncated"
+    if len(name)>0:
+        fname = fname + f"_{name}"
     print(f'Saving figure to {fname}')
     fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
     fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
@@ -168,30 +179,25 @@ def extract_stats(results, qlow=0, qhigh=90, first_step=1):
 
 def main(args):
     results_dir = args.dir
-    print(f'Writing plots to {results_dir}')
-    make_file_with_timestamp(results_dir)
-    metrics = extract_metrics_from_files(results_dir)
+    fig_dir = f'{results_dir}/figs'
+    print(f'Writing plots to {fig_dir}')
+    path = Path(fig_dir)
+    path.mkdir(parents=True, exist_ok=True)   
+    #make_file_with_timestamp(results_dir)
+    metrics = extract_metrics_from_files(results_dir, exclude_val=False, jobs_file=args.jobs_file)
     for metric in metrics:
-        save_plot(results_dir, metric,  use_log=False, tuned=False)
-        #save_plot(results_dir, metric,  use_log=False, tuned=True)
-        #save_plot(results_dir, metric,  use_log=False, tuned=True, truncated=True)
-        #save_plot(results_dir, metric,  use_log=False, tuned=True, smoothed=True)
-
-        if 0:
-            try:
-                save_plot(results_dir, metric, use_log=True, tuned=False)
-            except Exception as e:
-                print(f'Could not compute logscale plot, error {e}')
-            try:
-                save_plot(results_dir, metric, use_log=True, tuned=True)
-            except Exception as e:
-                print(f'Could not compute logscale plot, error {e}')
+        results = extract_results_from_files(results_dir,  metric, args.jobs_file)
+        plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include, name=args.name)    
     
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str, default="")
+    parser.add_argument("--jobs_file", type=str, default="jobs.csv")
+    parser.add_argument("--name", type=str, default="")
+    parser.add_argument("--exclude", type=str, default="")
+    parser.add_argument("--include", type=str, default="")
 
     args = parser.parse_args()
     main(args)

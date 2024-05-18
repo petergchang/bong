@@ -33,23 +33,29 @@ def make_plot_params(algo, ef, lin):
 
 def main(args):
     results_dir = args.dir
+
+    fig_dir = f'{results_dir}/figs'
+    print(f'Writing plots to {fig_dir}')
+    path = Path(fig_dir)
+    path.mkdir(parents=True, exist_ok=True) 
+
     fname = f"{results_dir}/jobs.csv"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
     pt_dict_per_agent = {} #(param, time) pair per agent
-    agent_name_list = []
-    full_agent_name_dict = {}
+    full_name_dict = {}
     for i, jobname in enumerate(jobnames):
-        fname = f"{results_dir}/{jobname}/work/args.json"
+        fname = f"{results_dir}/jobs/{jobname}/args.json"
+        if not os.path.isfile(fname):
+            print(f'This file does not exist, skipping:', fname)
+            continue
         with open(fname, 'r') as json_file:
             res = json.load(json_file)
 
         full_name = res['agent_full_name']
-        parts = parse_full_name(full_name)
-        algo, param, lin, ef, rank = parts['algo'], parts['param'], parts['lin'], parts['ef'], parts['rank']   
-        agent_name = f'{algo}_{param}_Lin{lin}_EF{ef}_R{rank}'
-        agent_name_list.append(agent_name)
-        full_agent_name_dict[agent_name] = full_name 
+        agent_name = res['agent_name']
+        full_name_dict[agent_name] = full_name # so we can later retrieve attributes
+
         nparams = res['model_nparams']
         T = res['ntrain']
         elapsed = res['elapsed']
@@ -62,7 +68,7 @@ def main(args):
             times_per_param = {nparams: steptime}
             pt_dict_per_agent[agent_name] = times_per_param
 
-    agent_names = full_agent_name_dict.keys()
+    agent_names = full_name_dict.keys()
     nparams_per_agent = {}
     times_per_agent = {}
     for agent in agent_names:
@@ -70,23 +76,32 @@ def main(args):
         nparams_per_agent[agent] = np.array(list(times_per_param.keys()))
         times_per_agent[agent] = np.array(list(times_per_param.values()))
     
-
-    fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
-    fname = f"{results_dir}/times"
+    fig, ax = make_figure(nparams_per_agent, times_per_agent, full_name_dict)
+    fname = f"{fig_dir}/times"
     print(f'Saving figure to {fname}')
+    fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
+    fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
+
+    fig, ax = make_figure(nparams_per_agent, times_per_agent, full_name_dict)
+    ax.set_yscale('log')
+    fname = f"{fig_dir}/times_log"
+    print(f'Saving figure to {fname}')
+    fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
+    fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
+
+def make_figure(nparams_per_agent, times_per_agent, full_name_per_agent):
+    agent_names = full_name_per_agent.keys()
+    fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     for agent in agent_names:
-        agent_name_long = full_agent_name_dict[agent]
+        agent_name_long = full_name_per_agent[agent]
         parts = parse_full_name(agent_name_long)
         algo, param, lin, ef = parts['algo'], parts['param'], parts['lin'], parts['ef']
         kwargs = make_plot_params(algo, ef, lin)
-        ax.plot(nparams_per_agent[agent], times_per_agent[agent], label=agent_name_long, **kwargs)
+        ax.plot(nparams_per_agent[agent], times_per_agent[agent], label=agent, **kwargs)
     ax.grid()
     ax.legend()
     ax.set_ylabel("Elapsed time per step (sec)")
     ax.set_xlabel("Num. parameters")
-    fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
-    fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
-
     return fig, ax
 
 

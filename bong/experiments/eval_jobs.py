@@ -16,7 +16,7 @@ def replace_nan_with_infty(x):
     else:
         return x
 
-def create_df(results_dir):
+def create_eval_df(results_dir):
     nlpd_te_results = extract_results_from_files(results_dir,  'nlpd')
     nlpd_val_results = extract_results_from_files(results_dir,  'nlpd_val')
     jobnames = nlpd_te_results.keys()
@@ -47,13 +47,28 @@ def create_df(results_dir):
     df = pd.DataFrame(data)
     return df
 
+def create_merged_df(results_dir):
+    df_eval = pd.read_csv(f'{results_dir}/eval.csv')
+    df_jobs = pd.read_csv(f'{results_dir}/jobs.csv')
+    #print(df_jobs.columns)
+    #df_jobs = df_jobs.drop(columns=['command'])
+    df_jobs = df_jobs.drop(columns=['dataset', 'data_dim', 'dgp_type', 'dgp_str', 'ntrain'])
+    df_jobs  = df_jobs.drop(columns=['model_type', 'model_str'])
+    df = pd.merge(df_jobs, df_eval, on='jobname', how='inner')
+    return df
+
 
 def main(dirname):
     fname = f"{dirname}/eval.csv"
     print(f'Writing to {fname}')
-    df = create_df(dirname)
-    df.to_csv(fname, index=False)
-    print(df)
+    df_eval = create_eval_df(dirname)
+    df_eval.to_csv(fname, index=False)
+
+    fname = f"{dirname}/jobs_with_eval.csv"
+    print(f'Writing to {fname}')
+    df_merged = create_merged_df(dirname)
+    df_merged.to_csv(fname, index=False)
+    
     return
 
 if __name__ == "__main__":

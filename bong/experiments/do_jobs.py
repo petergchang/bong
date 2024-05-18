@@ -51,11 +51,11 @@ def main(args):
             else:
                 raise Exception(f'Unknown machine type {args.machine}')
             output_per_job[jobname] = result
-            print(result)
             real_jobname[jobname] = output_per_job[jobname].name
             n = n + 1
-        print('Actual names of launched jobs')
-        print(real_jobname)
+        #print('Actual names of launched jobs')
+        #for (k,v) in real_jobname.items():
+        #    print(k, '->', v)
 
     else:
         import subprocess
@@ -63,7 +63,8 @@ def main(args):
 
         n = 0
         for jobname, cmd in cmd_dict.items():   
-            results_dir = f'{args.dir}/{jobname}/work'  
+            #results_dir = f'{args.dir}/{jobname}/work'  
+            results_dir = f'{args.dir}/jobs/{jobname}'
             path = Path(results_dir)
             path.mkdir(parents=True, exist_ok=True)   
             cmd = cmd + f' --dir {results_dir}'

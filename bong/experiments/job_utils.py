@@ -77,8 +77,8 @@ def make_df_crossproduct(
     return df_unique
 
 
-def extract_metrics_from_files(dir, exclude_val=True):
-    fname = f"{dir}/jobs.csv"
+def extract_metrics_from_files(dir, exclude_val=True, jobs_file="jobs.csv"):
+    fname = f"{dir}/{jobs_file}"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
     jobname = jobnames[0]
@@ -92,13 +92,16 @@ def extract_metrics_from_files(dir, exclude_val=True):
 
 
 
-def extract_results_from_files(dir,  metric):
-    fname = f"{dir}/jobs.csv"
+def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):
+    fname = f"{dir}/{jobs_file}"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
     results = {}
     for jobname in jobnames:
         fname = f"{dir}/{jobname}/work/results.csv"
+        if not os.path.isfile(fname):
+            print(f'This file does not exist, skipping:', fname)
+            continue
         df_res = pd.read_csv(fname)
         vals = df_res[metric]
         nans = np.isnan(vals)

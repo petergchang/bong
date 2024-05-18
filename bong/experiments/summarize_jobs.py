@@ -19,7 +19,10 @@ def create_summary_df(dirname):
     # Create dict of dicts, containing summary results for each experiment
     meta = {}
     for jobname in jobnames:
-        fname = f"{args.dir}/{jobname}/work/args.json"
+        fname = f"{args.dir}/jobs/{jobname}/args.json"
+        if not os.path.isfile(fname):
+            print(f'This file does not exist, skipping:', fname)
+            continue
         with open(fname, 'r') as json_file:
             sub = json.load(json_file)
             #meta[jobname] = args

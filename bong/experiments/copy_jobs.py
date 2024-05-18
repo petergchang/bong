@@ -18,7 +18,7 @@ def main(args):
     for job in jobnames:
         src = f'{jobs_dir}/{job}/work'
         src_path = Path(src)
-        dst = f'{results_dir}/{job}/work'
+        dst = f'{results_dir}/jobs/{job}'
         dst_path = Path(dst)
         print(f'\n Creating {str(dst_path)}')
         dst_path.mkdir(parents=True, exist_ok=True)
