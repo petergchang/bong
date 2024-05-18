@@ -4,12 +4,12 @@
 
 
 
-JOB_NAME="sweep1"
+JOB_NAME="sweep2"
 MODEL_TYPE="mlp"
 MODEL_STR="2_1"
-ALGO_LIST=("bong" "bog" "blr" "bbb") 
+ALGO_LIST=("bong" "bog") 
 PARAM_LIST=("dlr") 
-LR_LIST=(0.001)
+LR_LIST=(0.001 0.005 0.01)
 NSAMPLE_LIST=(100)
 NITER_LIST=(10)
 EF_LIST=(0 1)
@@ -17,7 +17,7 @@ LIN_LIST=(0 1)
 RANK_LIST=(1)
 DATASET="reg"
 DATADIM=5
-NTRAIN=50
+NTRAIN=500
 DGP_TYPE="mlp"
 DGP_STR="20_20_1"
 DIR=~/jobs/$JOB_NAME

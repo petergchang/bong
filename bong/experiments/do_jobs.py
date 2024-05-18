@@ -9,18 +9,20 @@ import os
 import datetime
 
 
+      
+
 def main(args):
-    fname = f"{args.dir}/jobs.csv"
+    fname = f"{args.dir}/cmds.csv"
     df_cmds = pd.read_csv(fname)
     njobs = len(df_cmds)
     print(f'Running {njobs} jobs, please be patient')
 
     # As a precaution, we make a copy of jobs.csv 
-    src = f'{args.dir}/jobs.csv'
-    dst = f'{args.dir}/jobs-original.csv'
-    cmd = f'cp {src} {dst}' # keep copy of original
-    print(cmd)
-    os.system(cmd)
+    #src = f'{args.dir}/jobs.csv'
+    #dst = f'{args.dir}/jobs-original.csv'
+    #cmd = f'cp {src} {dst}' # keep copy of original
+    #print(cmd)
+    #os.system(cmd)
 
     cmd_dict = {}
     for index, row in df_cmds.iterrows():

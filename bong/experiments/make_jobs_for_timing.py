@@ -32,7 +32,10 @@ def main(args):
     jobnames = [f'{args.job_name}-{i:02}' for i in range(N)] 
     df['jobname'] = jobnames
     df = move_df_col(df, 'jobname', 0)
-    print(df)
+
+    fname = Path(path, f"jobs.csv")
+    print(f'Saving to {str(fname)}')
+    df.to_csv(fname, index=False) 
 
     cmd_dict = {}
     cmd_list = []
@@ -45,12 +48,13 @@ def main(args):
             row.dgp_type, row.dgp_str, row.ntrain)
         cmd_dict[row.jobname] = cmd
         cmd_list.append(cmd)
-    df['command'] = cmd_list
+    #df['command'] = cmd_list
        
+    cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
+    df_cmds = pd.DataFrame(cmds)
+    fname = Path(path, "cmds.csv")
+    df_cmds.to_csv(fname, index=False)
 
-    fname = Path(path, f"jobs.csv")
-    print(f'Saving to {str(fname)}')
-    df.to_csv(fname, index=False) 
 
 
 

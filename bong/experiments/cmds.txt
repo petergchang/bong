@@ -1,6 +1,6 @@
 
 
-python make_jobs_multi_sweep.py \
+python make_jobs_for_sweep.py \
     --model_type $MODEL_TYPE \
     --model_str $MODEL_STR \
     --algo_list ${ALGO_LIST[@]} \
@@ -52,6 +52,10 @@ python do_jobs.py \
 python copy_jobs.py --dir $DIR 
 
 python summarize_jobs.py --dir $DIR    
+
+python eval_jobs.py --dir $DIR 
+
+python find_best_jobs.py --dir $DIR 
 
 python plot_jobs.py --dir $DIR 
 

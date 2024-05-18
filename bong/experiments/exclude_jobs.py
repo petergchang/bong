@@ -21,7 +21,6 @@ def main(args):
     condition = (df['agent'] == "blr_dlr") & (df['linplugin'] == 0)
 
 
-
     indices_to_drop = df[condition].index
     df_filtered = df.drop(indices_to_drop)
 
