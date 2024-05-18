@@ -103,15 +103,34 @@ def unsafestr(lr_str):
     lr_str = lr_str.replace('_', '.')
     return float(lr_str)
 
-def make_neuron_str(neurons):
-    s = [str(n) for n in neurons]
-    neurons_str = "_".join(s)
-    return neurons_str
+def make_full_name(algo, param, rank, linplugin, ef, nsamples, niter, lr):
+    s = f"{algo}-{param}-R{rank}-Lin{linplugin}-EF{ef}-MC{nsamples}-I{niter}-LR{safestr(lr)}"
+    return s
 
-def unmake_neuron_str(s):
-    neurons_str = s.split("_")
-    neurons = [int(n) for n in neurons_str]
-    return neurons
+def parse_full_name(s):
+    parts = s.split('-')
+    algo, param, rank, lin, ef, mc, niter, lr = parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7]
+    mc, niter, lr, ef, lin, rank = mc[2:], niter[1:], lr[2:], ef[2:], lin[3:], rank[1:] # strip off text prefix
+    return {
+        'full_name': s, 
+        'algo': algo,
+        'param': param,
+        'rank': int(rank),
+        'lin': int(lin),
+        'ef': int(ef),
+        'mc': int(mc),
+        'niter': int(niter),
+        'lr': unsafestr(lr),
+        }
+        
+    
+def find_first_true(arr):
+    true_indices = np.where(arr)[0]
+    if true_indices.size > 0:
+        first_true_index = true_indices[0]
+    else:
+        first_true_index = None
+    return first_true_index
 
 def list_subdirectories(directory):
     return [name for name in os.listdir(directory)

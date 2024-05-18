@@ -2,7 +2,7 @@
 
 python make_jobs_multi_sweep.py \
     --model_type $MODEL_TYPE \
-    --model_neurons_str $MODEL_NEURONS_STR \
+    --model_str $MODEL_STR \
     --algo_list ${ALGO_LIST[@]} \
     --param_list ${PARAM_LIST[@]} \
     --rank_list ${RANK_LIST[@]} \
@@ -14,7 +14,7 @@ python make_jobs_multi_sweep.py \
     --dataset $DATASET \
     --data_dim $DATADIM \
     --dgp_type $DGP_TYPE \
-    --dgp_neurons_str $DGP_NEURONS_STR \
+    --dgp_str $DGP_STR \
     --ntrain $NTRAIN  \
     --dir $DIR \
     --job_name $JOB_NAME
@@ -22,9 +22,10 @@ python make_jobs_multi_sweep.py \
 
 
 python make_jobs_for_timing.py \
-    --agent_list ${AGENT_LIST[@]} \
+    --algo_list ${ALGO_LIST[@]} \
+    --param_list ${PARAM_LIST[@]} \
     --model_type $MODEL_TYPE \
-    --model_neurons_str_list ${MODEL_NEURONS_STR_LIST[@]} \
+    --model_str_list ${MODEL_STR_LIST[@]} \
     --lr $LR  \
     --nsample $NSAMPLE \
     --niter $NITER \
@@ -35,7 +36,7 @@ python make_jobs_for_timing.py \
     --data_dim $DATADIM \
     --ntrain $NTRAIN \
     --dgp_type $DGP_TYPE \
-    --dgp_neurons_str $DGP_NEURONS_STR \
+    --dgp_str $DGP_STR \
     --dir $DIR \
     --job_name $JOB_NAME
 
@@ -62,36 +63,36 @@ python exclude_jobs.py --dir $DIR
 
 
 MODEL_TYPE="mlp"
-MODEL_NEURONS=(10 1)
-ADD_ONES=0
-USE_BIAS=1
-AGENT="bong_fc"
-RANK=0
-LR=0
-NSAMPLE=1000
+MODEL_NEURONS=(2 1)
+ALGO="bog"
+PARAM="fc"
+LIN=1
+RANK=10
+LR=0.1
+NSAMPLE=10
 NITER=10
 EF=0
 DATASET="reg"
-DATADIM=50
+DATADIM=5
 DGP_TYPE="mlp"
 DGP_NEURONS=(20 20 1)
+NTRAIN=50
 DIR=/teamspace/studios/this_studio/jobs/debug
-DATA_KEY=0
-
 
 python run_job.py \
-    --agent $AGENT \
+    --algo $ALGO \
+    --param $PARAM \
     --rank $RANK \
+    --lin $LIN \
     --model_type $MODEL_TYPE \
     --model_neurons ${MODEL_NEURONS[@]} \
-    --use_bias $USE_BIAS \
     --lr $LR  \
     --nsample $NSAMPLE \
     --niter $NITER \
     --ef $EF   \
     --dataset $DATASET \
     --data_dim $DATADIM \
+    --ntrain $NTRAIN \
     --dgp_type $DGP_TYPE \
     --dgp_neurons ${DGP_NEURONS[@]} \
-    --dir $DIR \
-    --data_key $DATA_KEY
+    --dir $DIR 

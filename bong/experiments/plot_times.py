@@ -11,9 +11,7 @@ import jax.numpy as jnp
 import json
 
 from job_utils import extract_results_from_files, extract_metrics_from_files
-from bong.agents import parse_agent_full_name, make_agent_name_from_parts
-
-
+from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
 
 
 def make_plot_params(algo, ef, lin):
@@ -35,24 +33,23 @@ def make_plot_params(algo, ef, lin):
 
 def main(args):
     results_dir = args.dir
-
     fname = f"{results_dir}/jobs.csv"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
-    pt_dict_per_agent = {}
+    pt_dict_per_agent = {} #(param, time) pair per agent
     agent_name_list = []
     full_agent_name_dict = {}
     for i, jobname in enumerate(jobnames):
         fname = f"{results_dir}/{jobname}/work/args.json"
         with open(fname, 'r') as json_file:
             res = json.load(json_file)
-        agent_name_long = res['agent_name']
-        parts = parse_agent_full_name(agent_name_long)
-        algo, param, lin, ef, rank = parts['algo'], parts['param'], parts['lin'], parts['ef'], parts['rank']
+
+        full_name = res['agent_full_name']
+        parts = parse_full_name(full_name)
+        algo, param, lin, ef, rank = parts['algo'], parts['param'], parts['lin'], parts['ef'], parts['rank']   
         agent_name = f'{algo}_{param}_Lin{lin}_EF{ef}_R{rank}'
         agent_name_list.append(agent_name)
-        full_agent_name_dict[agent_name] = agent_name_long 
-        model_name = res['model_name']
+        full_agent_name_dict[agent_name] = full_name 
         nparams = res['model_nparams']
         T = res['ntrain']
         elapsed = res['elapsed']
@@ -65,13 +62,12 @@ def main(args):
             times_per_param = {nparams: steptime}
             pt_dict_per_agent[agent_name] = times_per_param
 
-    #agent_names = set(agent_name_list)
     agent_names = full_agent_name_dict.keys()
-    params_per_agent = {}
+    nparams_per_agent = {}
     times_per_agent = {}
     for agent in agent_names:
         times_per_param = pt_dict_per_agent[agent]
-        params_per_agent[agent] = np.array(list(times_per_param.keys()))
+        nparams_per_agent[agent] = np.array(list(times_per_param.keys()))
         times_per_agent[agent] = np.array(list(times_per_param.values()))
     
 
@@ -80,10 +76,10 @@ def main(args):
     print(f'Saving figure to {fname}')
     for agent in agent_names:
         agent_name_long = full_agent_name_dict[agent]
-        parts = parse_agent_full_name(agent_name_long)
+        parts = parse_full_name(agent_name_long)
         algo, param, lin, ef = parts['algo'], parts['param'], parts['lin'], parts['ef']
         kwargs = make_plot_params(algo, ef, lin)
-        ax.plot(params_per_agent[agent], times_per_agent[agent], label=agent_name_long, **kwargs)
+        ax.plot(nparams_per_agent[agent], times_per_agent[agent], label=agent_name_long, **kwargs)
     ax.grid()
     ax.legend()
     ax.set_ylabel("Elapsed time per step (sec)")

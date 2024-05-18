@@ -19,7 +19,8 @@ import tensorflow_probability.substrates.jax as tfp
 from ucimlrepo import fetch_ucirepo
 
 
-from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP, make_neuron_str
+from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP
+from job_utils import make_neuron_str, parse_neuron_str
 from bong.src import bbb, blr, bog, bong, experiment_utils
 from models import initialize_mlp_model_reg, initialize_mlp_model_cls
 
@@ -101,15 +102,16 @@ def generate_ydata_mlp_reg(key, X, predictor, noise_std=1.0):
 
 
 def make_data_reg_mlp(args):
-    neurons_str = make_neuron_str(args.dgp_neurons)
+    neurons_str = args.dgp_str
     name = f'reg-D{args.data_dim}-mlp_{neurons_str}'
+    neurons = parse_neuron_str(neurons_str)
 
     d, noise_std = args.data_dim, args.emission_noise
     key = jr.PRNGKey(args.data_key)
     key0, key = jr.split(key)
     x = jnp.zeros(d)
     #model = generate_mlp_reg(key1, args.data_dim, args.dgp_neurons)
-    model, key = initialize_mlp_model_reg(key0, args.dgp_neurons, x, args.init_var, args.emission_noise)
+    model, key = initialize_mlp_model_reg(key0, neurons, x, args.init_var, args.emission_noise)
     predictor = model['true_pred_fn']
 
     key1, key2, key3, key = jr.split(key, 4)
@@ -197,14 +199,15 @@ def generate_ydata_mlp_cls(key, X, predictor):
 
 
 def make_data_cls_mlp(args):
-    neurons_str = make_neuron_str(args.dgp_neurons)
+    neurons_str = args.dgp_str
     name = f'cls-D{args.data_dim}-mlp_{neurons_str}'
+    neurons = parse_neuron_str(neurons_str)
 
     d, noise_std = args.data_dim, args.emission_noise
     key = jr.PRNGKey(args.data_key)
     key0, key = jr.split(key)
     x = jnp.zeros(d)
-    model, key = initialize_mlp_model_cls(key0, args.dgp_neurons, x, args.init_var)
+    model, key = initialize_mlp_model_cls(key0, neurons, x, args.init_var)
     predictor = model['true_pred_fn']
 
     key1, key2, key3, key = jr.split(key, 4)

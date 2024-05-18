@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import optax
 import tensorflow_probability.substrates.jax as tfp
 
-from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP, make_neuron_str
+from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP
+from job_utils import  make_neuron_str, parse_neuron_str
 from bong.src import bbb, blr, bog, bong, experiment_utils
 
 
@@ -143,11 +144,11 @@ def  make_lin_reg(args, data):
 
 
 def make_mlp_reg(args, data):
-    neurons = args.model_neurons
+    neurons = parse_neuron_str(args.model_str)
     model_kwargs, key = initialize_mlp_model_reg(args.algo_key, neurons,
                         data['X_tr'][0], args.init_var, args.emission_noise, args.use_bias)
     nparams = model_kwargs['nparams']
-    model_name = f'mlp_{make_neuron_str(neurons)}[P={nparams}]'
+    model_name = f'mlp_{args.model_str}[P={nparams}]'
 
     em_function = model_kwargs["emission_mean_function"]
     ec_function = model_kwargs["emission_cov_function"]
@@ -210,11 +211,11 @@ def  make_lin_cls(args, data):
 
     
 def make_mlp_cls(args, data):
-    neurons = args.model_neurons
+    neurons = parse_neuron_str(args.model_str)
     model_kwargs, key = initialize_mlp_model_cls(args.algo_key, neurons,
                         data['X_tr'][0], args.init_var, args.use_bias)
     nparams = model_kwargs['nparams']
-    model_name = f'mlp_{make_neuron_str(neurons)}[P={nparams}]'
+    model_name = f'mlp_{args.model_str}[P={nparams}]'
 
     em_function = model_kwargs["emission_mean_function"]
     callback = partial(callback_cls, X_te=data['X_te'], Y_te=data['Y_te'],

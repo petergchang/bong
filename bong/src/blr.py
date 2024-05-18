@@ -11,7 +11,7 @@ from bong.src.bong import (
     sample_fg_bong
 )
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
-from bong.util import fast_svd, hess_diag_approx, safestr
+from bong.util import fast_svd, hess_diag_approx, safestr, make_full_name
 
 
 class BLRState(NamedTuple):
@@ -750,7 +750,8 @@ class fg_blr:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("blr", "fc", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("blr", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"blr-fc-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:
@@ -947,8 +948,9 @@ class dg_blr:
         learning_rate: float=1e-1,
         num_iter: int=10,
         **kwargs
-    ):
-        full_name = make_full_name("blr", "diag", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+    ):  
+        rank = 0
+        full_name = make_full_name("blr", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"blr-diag-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:
@@ -1041,7 +1043,8 @@ class fg_reparam_blr:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("blr", "fc_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("blr", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"blr-fc_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:
@@ -1134,7 +1137,8 @@ class dg_reparam_blr:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("blr", "diag_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("blr", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"blr-diag_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:

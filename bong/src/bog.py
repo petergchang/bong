@@ -11,7 +11,7 @@ from bong.src.bong import (
     sample_fg_bong
 )
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
-from bong.util import hess_diag_approx, safestr
+from bong.util import hess_diag_approx, safestr, make_full_name
 
 
 class BOGState(NamedTuple):
@@ -698,8 +698,9 @@ class fg_bog:
         learning_rate: float=1e-1,
         **kwargs,
     ):
-
-        full_name = make_full_name("bog", "fc", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate)
+        rank = 0
+        num_iter = 1
+        full_name = make_full_name("bog", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bog-fc-lin-LR{safestr(learning_rate)}"
         else:
@@ -789,8 +790,8 @@ class dlrg_bog:
         rank: int=10,
         **kwargs,
     ):
-
-        full_name = make_full_name("bog", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate)
+        num_iter = 1
+        full_name = make_full_name("bog", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bog-dlr{rank}-lin-LR{safestr(learning_rate)}"
         else:
@@ -878,7 +879,9 @@ class dg_bog:
         learning_rate: float=1e-1,
         **kwargs,
     ):
-        full_name = make_full_name("bog", "diag", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate)
+        rank = 0
+        num_iter = 1
+        full_name = make_full_name("bog", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bog-diag-lin-LR{safestr(learning_rate)}"
         else:
@@ -913,7 +916,7 @@ class dg_bog:
                 learning_rate
             )   
         
-        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name)
+        return RebayesAlgorithm(init_fn, pred_fn, update_fn, cls.sample, name, full_name)
     
     
 class fg_reparam_bog:
@@ -966,7 +969,9 @@ class fg_reparam_bog:
         learning_rate: float=1e-1,
         **kwargs,
     ):
-        full_name = make_full_name("bog", "fc_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate)
+        rank = 0
+        num_iter = 1
+        full_name = make_full_name("bog", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bog-fc_mom-lin-LR{safestr(learning_rate)}"
         else:
@@ -1053,7 +1058,9 @@ class dg_reparam_bog:
         learning_rate: float=1e-1,
         **kwargs,
     ):
-        full_name = make_full_name("bog", "diag_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate)
+        rank = 0
+        num_iter = 1
+        full_name = make_full_name("bog", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bog-diag_mom-lin-LR{safestr(learning_rate)}"
         else:

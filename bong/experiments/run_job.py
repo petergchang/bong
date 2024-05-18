@@ -9,8 +9,9 @@ import numpy as np
 import jax.random as jr
 import jax
 
-from bong.util import run_rebayes_algorithm, get_gpu_name, unmake_neuron_str
-from bong.agents import AGENT_DICT, AGENT_NAMES, parse_agent_full_name, make_agent_name_from_parts
+from bong.util import run_rebayes_algorithm, get_gpu_name
+#from bong.agents import AGENT_DICT, AGENT_NAMES, parse_agent_full_name, make_agent_name_from_parts
+from bong.agents import make_agent_constructor
 from datasets import make_dataset
 from models import make_model
 
@@ -49,7 +50,9 @@ def make_results(args):
 
     model = make_model(args, data)
 
-    constructor = AGENT_DICT[args.agent]['constructor']
+    #name = f'{args.algo}_{args.param}' # eg bong-fc_mom, must match keys of AGENT_DICT
+    #constructor = AGENT_DICT[name]['constructor']
+    constructor = make_agent_constructor(args.algo, args.param)
     agent = constructor(
                         **model['model_kwargs'],
                         agent_key = args.agent_key,
@@ -79,17 +82,6 @@ def make_results(args):
 
 
 def main(args, args_dict):
-    if args.dgp_neurons_str == "":
-        assert len(args.dgp_neurons) >= 1
-    else:
-        args.dgp_neurons = unmake_neuron_str(args.dgp_neurons_str)
-        args_dict['dgp_neurons'] = args.dgp_neurons
-
-    if args.model_neurons_str == "":
-        assert len(args.model_neurons) >= 1
-    else:
-        args.model_neurons = unmake_neuron_str(args.model_neurons_str)
-        args_dict['model_neurons'] = args.model_neurons
 
     results_path = Path(args.dir)
     results_path.mkdir(parents=True, exist_ok=True)
@@ -121,8 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_dim", type=int, default=10)
     parser.add_argument("--data_key", type=int, default=0)
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
-    parser.add_argument("--dgp_neurons", type=int, nargs="+", default=[20, 20, 1]) 
-    parser.add_argument("--dgp_neurons_str", type=str, default="") # 20_20_1 
+    parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
     parser.add_argument("--emission_noise", type=float, default=1.0)
     parser.add_argument("--ntrain", type=int, default=500)
     parser.add_argument("--nval", type=int, default=500)
@@ -131,7 +122,9 @@ if __name__ == "__main__":
 
     
     # Model parameters
-    parser.add_argument("--agent", type=str, default="bong_fc", choices=AGENT_NAMES)
+    #parser.add_argument("--agent", type=str, default="bong_fc", choices=AGENT_NAMES)
+    parser.add_argument("--algo", type=str, default="bong")
+    parser.add_argument("--param", type=str, default="fc")
     parser.add_argument("--agent_key", type=int, default=0)
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--niter", type=int, default=10) 
@@ -140,8 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--lin", type=int, default=0)
     parser.add_argument("--rank", type=int, default=10)
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
-    parser.add_argument("--model_neurons", type=int, nargs="+", default=[10, 10, 1])
-    parser.add_argument("--model_neurons_str", type=str, default="")
+    parser.add_argument("--model_str", type=str, default="")
     parser.add_argument("--use_bias", type=int, default=1) 
     parser.add_argument("--init_var", type=float, default=1.0)
     parser.add_argument("--algo_key", type=int, default=0)

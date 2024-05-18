@@ -9,13 +9,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import jax.numpy as jnp
 
-from bong.agents import parse_agent_full_name, make_agent_name_from_parts
 from job_utils import extract_results_from_files, extract_metrics_from_files
-from job_utils import extract_best_results_by_val_metric
-from bong.util import make_file_with_timestamp
+from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
 
 
-def plot_results_from_images(root_dir, data_dir, model_dir, agent_dir, metrics=['nll',  'nlpd']):
+def plot_results_from_images_old(root_dir, data_dir, model_dir, agent_dir, metrics=['nll',  'nlpd']):
     results_dir = f"{root_dir}/{data_dir}/{model_dir}/{agent_dir}"
     ncols = len(metrics)
     fig, axs = plt.subplots(1, ncols, figsize=(16, 8))
@@ -46,12 +44,14 @@ def make_marker(name):
 
 
 def make_plot_params(args):
-    markers = {'bong': 'o', 'blr': 's', 'bog': '+', 'bbb': '*'}
+    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
     marker = markers[args['algo']]
-    if (args['ef']==0) & (args['lin']==0): linestyle = '-'
-    if (args['ef']==1) & (args['lin']==0): linestyle = '--'
-    if (args['ef']==0) & (args['lin']==1): linestyle = ':'
-    if (args['ef']==1) & (args['lin']==1): linestyle = '-.'
+    if (args['ef']==0) & (args['lin']==0):
+        linestyle = '-'
+    elif (args['ef']==1) & (args['lin']==0):
+        linestyle = '--'
+    else:
+       linestyle = '..'
     return {
             'linestyle': linestyle,
             'linewidth': 1,
@@ -81,13 +81,14 @@ def plot_results(results,  metric,  first_step=10, tuned=False, smoothed=False, 
         res = results[jobname]
         vals = res['vals'].to_numpy()
         agent_name = res['agent_name']
+        full_name = res['agent_full_name']
         T = len(vals)
         elapsed = 1000*round(res['elapsed']/T, 3)
         times[agent_name] = elapsed # we assume each agent only occurs once
         expt_name =  f'{agent_name} [{elapsed:.1f} ms/step]'
         model_name = res['model_name']
         data_name = res['data_name']
-        parts = parse_agent_full_name(agent_name)
+        parts = parse_full_name(full_name)
         plot_params = make_plot_params(parts)
         ttl = f'Data:{data_name}. Model:{model_name}. Tuned:{tuned}'
 
@@ -118,7 +119,8 @@ def plot_results(results,  metric,  first_step=10, tuned=False, smoothed=False, 
 
 def save_plot(results_dir, metric, use_log=False, tuned=False, smoothed=False, truncated=False):
     if tuned:
-        results = extract_best_results_by_val_metric(results_dir,  metric)
+        #results = extract_best_results_by_val_metric(results_dir,  metric)
+        results = None
     else:
         results = extract_results_from_files(results_dir,  metric)
     #stats = extract_stats(results)
@@ -171,8 +173,8 @@ def main(args):
     metrics = extract_metrics_from_files(results_dir)
     for metric in metrics:
         save_plot(results_dir, metric,  use_log=False, tuned=False)
-        save_plot(results_dir, metric,  use_log=False, tuned=True)
-        save_plot(results_dir, metric,  use_log=False, tuned=True, truncated=True)
+        #save_plot(results_dir, metric,  use_log=False, tuned=True)
+        #save_plot(results_dir, metric,  use_log=False, tuned=True, truncated=True)
         #save_plot(results_dir, metric,  use_log=False, tuned=True, smoothed=True)
 
         if 0:

@@ -11,8 +11,7 @@ from bong.src.bong import (
     sample_fg_bong
 )
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
-from bong.util import fast_svd, hess_diag_approx, safestr
-
+from bong.util import fast_svd, hess_diag_approx, safestr, make_full_name
 
 class BBBState(NamedTuple):
     """Belief state of a BBB agent.
@@ -965,7 +964,8 @@ class fg_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("bbb", "fc", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("bbb", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bbb-fc-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:
@@ -1162,7 +1162,8 @@ class dg_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("bbb", "diag", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("bbb", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bbb-diag-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:
@@ -1260,7 +1261,8 @@ class fg_reparam_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("bbb", "fc_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("bbb", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bbb-fc_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:
@@ -1359,7 +1361,8 @@ class dg_reparam_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        full_name = make_full_name("bbb", "diag_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
+        rank = 0
+        full_name = make_full_name("bbb", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bbb-diag_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
         else:

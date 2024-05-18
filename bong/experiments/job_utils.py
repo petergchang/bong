@@ -7,32 +7,75 @@ from pathlib import Path
 import os
 import matplotlib.image as mpimg
 import json
-from bong.agents import parse_agent_full_name, make_agent_name_from_parts
-
+from bong.util import find_first_true
+from bong.agents import make_agent_args
 
 cwd = Path(os.getcwd())
 root = cwd
 script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
 
-def make_unix_cmd_given_flags(agent, lr, niter, nsample, linplugin, ef, rank,
-                            model_type, model_neurons_str,
-                            dataset, data_dim, dgp_type, dgp_neurons_str, ntrain):
+def make_neuron_str(neurons):
+    s = [str(n) for n in neurons]
+    neurons_str = "_".join(s)
+    return neurons_str
+
+def parse_neuron_str(s):
+    neurons_str = s.split("_")
+    neurons = [int(n) for n in neurons_str]
+    return neurons
+
+
+
+def make_unix_cmd_given_flags(algo, param, lr, niter, nsample, linplugin, ef, rank,
+                            model_type, model_str,
+                            dataset, data_dim, dgp_type, dgp_str, ntrain):
     # We must pass in all flags where we want to override the default in run_job
     #main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_job.py'
     main_name = f'{script_dir}/run_job.py'
     #model_neurons = unmake_neuron_str(model_neurons_str)
     #dgp_neurons = unmake_neuron_str(dgp_neurons_str)
     cmd = (
-        f'python {main_name} --agent {agent}  --lr {lr}'
+        f'python {main_name} --algo {algo} --param {param} --lr {lr}'
         f' --niter {niter} --nsample {nsample} --lin {linplugin}'
         f' --ef {ef} --rank {rank}'
-        f' --model_type {model_type} --model_neurons_str {model_neurons_str}'
+        f' --model_type {model_type} --model_str {model_str}'
         f' --dataset {dataset} --data_dim {data_dim}'
-        f' --dgp_type {dgp_type} --dgp_neurons_str {dgp_neurons_str}'
+        f' --dgp_type {dgp_type} --dgp_str {dgp_str}'
         f' --ntrain {ntrain}'
     )
     return cmd
+
+def make_df_crossproduct( 
+        algo_list, param_list, lin_list,
+        lr_list, niter_list, nsample_list, ef_list, rank_list, model_str_list):
+    args_list = []
+    all_args_list = []
+    for algo in algo_list:
+        for param in param_list:
+            for lin in lin_list:
+                for lr in lr_list:
+                    for niter in niter_list:
+                        for nsample in nsample_list:
+                            for ef in ef_list:
+                                for rank in rank_list:
+                                    for model_str in model_str_list:
+                                        all_args = {'algo': algo, 'param': param, 'lin': lin, 'lr': lr, 
+                                                'niter': niter, 'nsample': nsample,  'ef': ef, 'dlr_rank': rank, 
+                                                'model_str': model_str}
+                                        all_args_list.append(all_args)        
+                                        
+                                        if (param == 'dlr') and (lin==0) and (ef == 0): continue # sanpled Hessians not implemented for DLR
+
+                                        args = make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr)
+                                        args['model_str'] = model_str
+                                        args_list.append(args)
+    #df = pd.DataFrame(all_args_list)
+    df = pd.DataFrame(args_list)
+    df_unique = df.drop_duplicates(df)
+    df_unique = df_unique.reset_index(drop=True)
+    return df_unique
+
 
 def extract_metrics_from_files(dir, exclude_val=True):
     fname = f"{dir}/jobs.csv"
@@ -48,13 +91,6 @@ def extract_metrics_from_files(dir, exclude_val=True):
 
 
 
-def find_first_true(arr):
-    true_indices = np.where(arr)[0]
-    if true_indices.size > 0:
-        first_true_index = true_indices[0]
-    else:
-        first_true_index = None
-    return first_true_index
 
 def extract_results_from_files(dir,  metric):
     fname = f"{dir}/jobs.csv"
@@ -74,12 +110,12 @@ def extract_results_from_files(dir,  metric):
         fname = f"{dir}/{jobname}/work/args.json"
         with open(fname, 'r') as json_file:
             args = json.load(json_file)
-        agent_name = args['agent_name']
         d = {
             'metric': metric,
             'vals': vals,
             'valid_len': T,
-            'agent_name': agent_name,
+            'agent_name': args['agent_name'],
+            'agent_full_name': args['agent_full_name'],
             'model_name': args['model_name'],
             'data_name': args['data_name'],
             'elapsed': args['elapsed'],
@@ -87,77 +123,3 @@ def extract_results_from_files(dir,  metric):
         results[jobname] = d
     return results
 
-
-
-def get_scores_per_job(results):
-    scores = {}
-    for (job, res) in results.items():
-        vals = res['vals']
-        T = res['valid_len']
-        if T < len(vals):
-            scores[job] = 1e10
-        else:
-            eval_step = int(0.5*T) # pick half way through validation as the metric to optimize
-            scores[job] = vals[eval_step]
-    return scores
-
-def get_scores_and_expts_per_agent(results, job_scores):
-    agent_scores, agent_expts, agent_jobs = {}, {}, {}
-    for (job, res) in results.items():
-        expt = res['agent_name']
-        parts = parse_agent_full_name(expt)
-        name = make_agent_name_from_parts(parts['algo'], parts['param'], parts['lin'])
-        job_score = job_scores[job]
-        if name in agent_scores:
-            agent_scores[name].append(job_score)
-            agent_expts[name].append(expt)
-            agent_jobs[name].append(job)
-        else:
-            agent_scores[name] = [job_score]
-            agent_expts[name] = [expt]
-            agent_jobs[name] = [job]
-    return agent_scores, agent_expts, agent_jobs
-
-def get_best_expt_per_agent(agent_scores, agent_expts):
-    agent_names = agent_scores.keys()
-    agent_best_expt = {}
-    for agent in agent_names:
-        scores = np.array(agent_scores[agent])
-        i = np.argmin(scores)
-        expts = agent_expts[agent]
-        agent_best_expt[agent] = expts[i]
-    return agent_best_expt
-
-def filter_results_by_best(results, best_expt_per_agent):
-    best_expts = best_expt_per_agent.values()
-    filtered = {}
-    jobnames = results.keys()
-    for i, jobname in enumerate(jobnames):
-        res = results[jobname]
-        expt_name = res['agent_name']
-        if expt_name in best_expts:
-            filtered[jobname] = results[jobname]
-    return filtered
-
-def extract_best_results_by_val_metric(dir, metric):
-    results = extract_results_from_files(dir,  metric)
-    metric_val = f'{metric}_val'
-    results_val = extract_results_from_files(dir,  metric_val)
-    job_scores = get_scores_per_job(results_val)
-    agent_scores, agent_expts, agent_jobs = get_scores_and_expts_per_agent(results, job_scores)
-    best_expt_per_agent = get_best_expt_per_agent(agent_scores, agent_expts)
-    filtered = filter_results_by_best(results, best_expt_per_agent)
-    return filtered
-
-def test_filtering():
-    root_dir = '/teamspace/studios/this_studio/jobs'
-    data_dir = 'reg-D10-mlp_20_20_1'
-    model_dir = 'mlp_10_10_1'
-    agent_dir = 'A:Any-P:Any-Lin:1-LR:Any-IT:10-MC:10-EF:1-R:10'
-    dir = f'{root_dir}/{data_dir}/{model_dir}/{agent_dir}'
-
-    metric = 'nll'
-    results = extract_results_from_files(dir,  metric)
-    best_results = extract_best_results_by_val_metric(dir, metric)
-    plot_results_from_dict(results, metric)
-    plot_results_from_dict(best_results, metric)

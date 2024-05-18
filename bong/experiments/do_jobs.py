@@ -62,14 +62,13 @@ def main(args):
         n = 0
         for jobname, cmd in cmd_dict.items():   
             results_dir = f'{args.dir}/{jobname}/work'  
-            path = Path(output_dir)
+            path = Path(results_dir)
             path.mkdir(parents=True, exist_ok=True)   
             cmd = cmd + f' --dir {results_dir}'
             print(f'\n Running job {n} of {njobs}:\n{cmd}')
-            res = subprocess.run(cmd, capture_output=True, text=True)
+            res = subprocess.run(cmd, capture_output=True, text=True, shell=True)
             #os.system(cmd)
-            result = res.stdout
-            output_per_job[jobame] = result
+            output_per_job[jobname] = f"returncode: {res.returncode}\n stdout: {res.stdout}\n stderr: {res.stderr}"
             n = n + 1
 
     df = pd.DataFrame({'jobname': output_per_job.keys(), 'output': output_per_job.values()})

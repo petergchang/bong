@@ -1,61 +1,45 @@
 
 
-JOB_NAME="expt7_sweep"
+
+
+
+
+JOB_NAME="sweep1"
 MODEL_TYPE="mlp"
-MODEL_NEURONS_str="1"
-ALGO_LIST=("bong" "blr")
-PARAM_LIST=("fc")
-RANK_LIST=(0)
-LIN_LIST=(0)
-LR_LIST=(1e-4 5e-4)
+MODEL_STR="2_1"
+ALGO_LIST=("bong" "bog" "blr" "bbb") 
+PARAM_LIST=("dlr") 
+LR_LIST=(0.001)
 NSAMPLE_LIST=(100)
 NITER_LIST=(10)
-EF_LIST=(1)
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+RANK_LIST=(1)
 DATASET="reg"
-DATADIM=10
-DGP_TYPE="mlp"
-DGP_NEURONS_STR="20_20_1"
+DATADIM=5
 NTRAIN=50
+DGP_TYPE="mlp"
+DGP_STR="20_20_1"
 DIR=~/jobs/$JOB_NAME
 MACHINE="local"
 
 
-
-JOB_NAME="timingfc4"
+JOB_NAME="timing1"
 MODEL_TYPE="mlp"
-MODEL_NEURONS_STR_LIST=("1" "10_1" "15_1" "20_1" "25_1" "30_1" "35_1")
-AGENT_LIST=("bong_fc" "bog_fc" "blr_fc" "bbb_fc")
+MODEL_STR_LIST=("2_1" "10_1")
+ALGO_LIST=("bong" "bog") 
+PARAM_LIST=("diag") 
 LR=0.001
 NSAMPLE=100
 NITER=10
 EF_LIST=(0 1)
 LIN_LIST=(0 1)
-RANK=0
+RANK_LIST=(1 10)
 DATASET="reg"
-DATADIM=10
-NTRAIN=100
+DATADIM=5
+NTRAIN=50
 DGP_TYPE="mlp"
-DGP_NEURONS_STR="20_20_1"
+DGP_STR="20_20_1"
 DIR=~/jobs/$JOB_NAME
-MACHINE="A10G"
-
-
-
-JOB_NAME="timingdlrr10"
-MODEL_TYPE="mlp"
-MODEL_NEURONS_STR_LIST=("1" "10_1" "15_1" "20_1" "25_1" "30_1")
-AGENT_LIST=("bong_dlr" "bog_dlr" "blr_dlr" "bbb_dlr") 
-LR=0.001
-NSAMPLE=100
-NITER=10
-EF_LIST=(0 1)
-LIN_LIST=(0 1)
-RANK_LIST=(10)
-DATASET="reg"
-DATADIM=10
-NTRAIN=500
-DGP_TYPE="mlp"
-DGP_NEURONS_STR="20_20_1"
-DIR=~/jobs/$JOB_NAME
-MACHINE="A10G"
+MACHINE="local"
 

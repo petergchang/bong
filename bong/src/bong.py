@@ -6,7 +6,7 @@ import jax.random as jr
 
 from bong.base import RebayesAlgorithm
 from bong.types import ArrayLikeTree, ArrayTree, PRNGKey
-from bong.util import fast_svd, hess_diag_approx, sample_dlr
+from bong.util import fast_svd, hess_diag_approx, sample_dlr, make_full_name
 
 
 class BONGState(NamedTuple):
@@ -682,7 +682,10 @@ class fg_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        full_name = make_full_name("bong", "fc", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        rank = 0
+        num_iter = 1
+        learning_rate = 0
+        full_name = make_full_name("bong", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bong-fc-lin"
         else:
@@ -768,7 +771,9 @@ class dlrg_bong:
         rank: int=10,
         **kwargs
     ):
-        full_name = make_full_name("bong", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        num_iter = 1
+        learning_rate = 0
+        full_name = make_full_name("bong", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bong-dlr{rank}-lin"
         else:
@@ -853,7 +858,10 @@ class dg_bong:
         *args,
         **kwargs
     ):
-        full_name = make_full_name("bong", "diag", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        rank = 0
+        num_iter = 1
+        learning_rate = 0
+        full_name = make_full_name("bong", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bong-diag-lin"
         else:
@@ -937,7 +945,10 @@ class fg_reparam_bong:
         *args,
         **kwargs
     ):
-        full_name = make_full_name("bong", "fc_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        rank = 0
+        num_iter = 1
+        learning_rate = 0
+        full_name = make_full_name("bong", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bong-fc_mom-lin"
         else:
@@ -1020,7 +1031,10 @@ class dg_reparam_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        full_name = make_full_name("bong", "diag_mom", rank=0, linplugin, empirical_fisher, num_samples, num_iter=1, learning_rate=0)
+        rank = 0
+        num_iter = 1
+        learning_rate = 0
+        full_name = make_full_name("bong", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
         if linplugin:
             name = f"bong-diag_mom-lin"
         else:
