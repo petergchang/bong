@@ -154,9 +154,9 @@ def add_jitter(x, jitter_amount=0.1):
     return x + np.random.uniform(-jitter_amount, jitter_amount, size=x.shape)
 
 
-def convolve_smooth(time_series, width=5): 
+def convolve_smooth(time_series, width=5, mode='valid'): 
     kernel = jnp.ones(width) / width
-    smoothed_time_series = jnp.convolve(time_series, kernel, mode='same')
+    smoothed_time_series = jnp.convolve(time_series, kernel, mode=mode)
     return smoothed_time_series
 
 
@@ -254,6 +254,7 @@ class MLP(nn.Module):
     features: Sequence[int]
     activation: nn.Module = nn.gelu
     use_bias: bool = True
+    use_bias_first_layer: bool = True
     bias_init_fn: nn.initializers = make_bias_initializer('uniform')
     bias_init_fn_first_layer: nn.initializers = make_bias_initializer('uniform')
 
@@ -261,9 +262,9 @@ class MLP(nn.Module):
     def __call__(self, x):
         x = x.ravel()
         if len(self.features) == 1: # linear model
-            x = nn.Dense(self.features[-1], use_bias=self.use_bias, bias_init=self.bias_init_fn_first_layer)(x)
+            x = nn.Dense(self.features[-1], use_bias=self.use_bias_first_layer, bias_init=self.bias_init_fn_first_layer)(x)
         else:
-            x = self.activation(nn.Dense(self.features[0], use_bias=self.use_bias, bias_init=self.bias_init_fn_first_layer)(x))
+            x = self.activation(nn.Dense(self.features[0], use_bias=self.use_bias_first_layer, bias_init=self.bias_init_fn_first_layer)(x))
             for feat in self.features[1:-1]:
                 x = self.activation(nn.Dense(feat, use_bias=self.use_bias, bias_init=self.bias_init_fn)(x))
             x = nn.Dense(self.features[-1], use_bias=self.use_bias, bias_init=self.bias_init_fn)(x)

@@ -19,6 +19,7 @@ import tensorflow_probability.substrates.jax as tfp
 from ucimlrepo import fetch_ucirepo
 import os
 
+
 from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP
 from job_utils import make_neuron_str, parse_neuron_str
 from bong.src import bbb, blr, bog, bong, experiment_utils
@@ -29,8 +30,8 @@ tfd = tfp.distributions
 MVN = tfd.MultivariateNormalTriL
 
 def add_column_of_ones(A):
-    ones_column = np.ones((A.shape[0], 1))
-    A_with_ones = np.hstack((A, ones_column))
+    ones_column = jnp.ones((A.shape[0], 1))
+    A_with_ones = jnp.hstack((A, ones_column))
     return A_with_ones
 
 def add_ones_to_covariates(data):
@@ -39,34 +40,35 @@ def add_ones_to_covariates(data):
     data['X_te'] = add_column_of_ones(data['X_te'])
     return data
 
-def make_dataset(args):
+def make_dataset(key, args):
     if args.dataset == "reg":
         if args.dgp_type == "lin":
-            data = make_data_reg_lin(args)
+            key, data = make_data_reg_lin(key, args)
         elif args.dgp_type == "mlp":
-            data = make_data_reg_mlp(args)
+            key, data = make_data_reg_mlp(key, args)
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
     elif args.dataset == "cls":
         if args.dgp_type == "lin":
-            data = make_data_cls_lin(args)
+            key, data = make_data_cls_lin(key, args)
         elif args.dgp_type == "mlp":
-            data = make_data_cls_mlp(args)
+            key, data = make_data_cls_mlp(key. args)
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
     elif args.dataset == "sarcos":
-        data = make_sarcos_data(args.ntrain, args.nval, args.ntest)
+        key, data = get_sarcos_data(key, args)
 
-    if args.add_ones:
-        data = add_ones_to_covariates(data)
-        args.data_dim = args.data_dim + 1
-    return data
+    return key, data
 
 ### SARCOS robot arm data
 
 
-def get_sarcos_data(ntrain, nval, ntest):
+def get_sarcos_data(key, args):
     # https://gaussianprocess.org/gpml/data/
+    # We add column of 1s by default to match linreg results in sarcos_demo.py
+    # But if passing to a neural net with a bias term, this is unnecessary
+    ntrain, nval, ntest = args.ntrain, args.nval, args.ntest
+    print('get sarcos', ntrain, nval, ntest)
     import scipy.io
     cwd = Path(os.getcwd())
     root = cwd
@@ -76,48 +78,74 @@ def get_sarcos_data(ntrain, nval, ntest):
     folder = f'{script_dir}/../data/'
 
     mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv.mat') # (44484, 28)
-    data_train = mat_data['sarcos_inv']
+    data_train = jnp.array(mat_data['sarcos_inv'])
     max_ntrain = data_train.shape[0] 
-    assert ntrain < max_ntrain
-    idx_tr = np.arange(0, ntrain)
+
+    # Shuffle the rows
+    key, subkey = jr.split(key)
+    perm = jr.permutation(subkey, max_ntrain)
+    data_train = data_train[perm]
+
+    if ntrain == 0:
+        ntrain = max_ntrain
+    else:
+        ntrain = min(ntrain, max_ntrain)
+    idx_tr = jnp.arange(0, ntrain)
     X_tr = data_train[idx_tr, :21]
     Y_tr = data_train[idx_tr, 21] # column 22
 
-
-    if nval > 0:
-        idx_val = np.arange(ntrain, ntrain+nval)
+    if (nval == 0) or (ntrain+nval > max_ntrain):
+        X_val, Y_val = X_tr, Y_tr
+    else:
+        idx_val = jnp.arange(ntrain, ntrain+nval)
         X_val = data_train[idx_val, :21]
         Y_val = data_train[idx_val, 21] # column 22
-    else:
-        X_val, Y_val = X_tr, Y_tr
 
     mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv_test.mat') # (4449, 28)
-    data_test = mat_data['sarcos_inv_test']
+    data_test = jnp.array(mat_data['sarcos_inv_test'])
     max_ntest = data_test.shape[0] 
-    assert ntest < max_ntest
-    if ntest == 0: ntest = max_ntest # Use full test set
-    idx_te = np.arange(0, ntest)
+    if ntest == 0:
+        ntest = max_ntest 
+    else:
+        ntest = min(ntest, max_ntest)
+    idx_te = jnp.arange(0, ntest)
     X_te = data_test[idx_te, :21]
     Y_te = data_test[idx_te, 21] # column 22
 
     name = 'sarcos'
-    # We return X_train (full data) for debugging
+    # We also return "raw" data, such as X_train, for debugging (see sarcos_demo.py)
     data = {
         'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name, 
-        'X_train': data_train[:, :21], 'Y_train': data_train[:, 22],
-        'X_test': data_test[:, :21], 'Y_test': data_test[:, 22],
+        'X_train_raw': data_train[:, :21], 'Y_train_raw': data_train[:, 21],
+        'X_test_raw': data_test[:, :21], 'Y_test_raw': data_test[:, 21],
     }
+    data = standardize_xy_data(data, add_ones=True)
+    # Need to set add_ones=True otherwise get the error
+    #jax.errors.TracerArrayConversionError: The numpy.ndarray conversion
+    # # method __array__() was called on traced array with shape int32[].
+
+    return key, data
+
+
+def standardize_xy_data(data, add_ones): 
+    data = data.copy()
+    scaler = preprocessing.StandardScaler().fit(data['X_tr'])
+    Xtrain = scaler.transform(data['X_tr'])
+    Xval = scaler.transform(data['X_val'])
+    Xtest = scaler.transform(data['X_te'])
+    if add_ones:
+        Xtrain = add_column_of_ones(Xtrain)
+        Xval = add_column_of_ones(Xval)
+        Xtest = add_column_of_ones(Xtest)
+    ytrain, yval, ytest = data['Y_tr'], data['Y_val'], data['Y_te']
+    mu_y, v_y = jnp.mean(ytrain), jnp.var(ytrain)
+    ytrain, yval, ytest = ytrain - mu_y, yval - mu_y, ytest - mu_y
+    data['X_tr'], data['Y_tr'] = Xtrain, ytrain
+    data['X_val'], data['Y_val'] = Xval, yval
+    data['X_te'], data['Y_te'] = Xtest, ytest
     return data
 
 
-def standardize_data(data, add_ones=True): #WIP
-    scaler = preprocessing.StandardScaler().fit(data['X_train'])
-    Xtrain = scaler.transform(data['X_train'])
-    Xtrain = add_col_ones(scaler.transform(data['X_train']))
-    Xtest = add_col_ones(scaler.transform(data['X_test']))
-    ytrain, ytest = data['Y_train'], data['Y_test']
-    mu_y, v_y = jnp.mean(ytrain), jnp.var(ytrain)
-    ytrain, ytest = ytrain - mu_y, ytest - mu_y
 
 ### LINREG generators
 
@@ -142,9 +170,8 @@ def generate_ydata_linreg(key, X, theta, noise_std=1.0):
     return Y
 
 
-def make_data_reg_lin(args):
+def make_data_reg_lin(key, args):
     d, noise_std = args.data_dim, args.emission_noise
-    key = jr.PRNGKey(args.data_key)
     key0, key = jr.split(key)
     theta = generate_linear_model(key0, d)
     name = f'reg-D{args.data_dim}-lin_1'
@@ -159,7 +186,7 @@ def make_data_reg_lin(args):
 
 
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
-    return data
+    return key, data
 
 
 ##########  MLP generators
@@ -175,17 +202,16 @@ def generate_ydata_mlp_reg(key, X, predictor, noise_std=1.0):
 
 
 
-def make_data_reg_mlp(args):
+def make_data_reg_mlp(key, args):
     neurons_str = args.dgp_str
     name = f'reg-D{args.data_dim}-mlp_{neurons_str}'
     neurons = parse_neuron_str(neurons_str)
 
     d, noise_std = args.data_dim, args.emission_noise
-    key = jr.PRNGKey(args.data_key)
     key0, key = jr.split(key)
     x = jnp.zeros(d)
     #model = generate_mlp_reg(key1, args.data_dim, args.dgp_neurons)
-    model, key = initialize_mlp_model_reg(key0, neurons, x, args.init_var, args.emission_noise)
+    key, model= initialize_mlp_model_reg(key0, neurons, x, args.init_var, args.emission_noise)
     predictor = model['true_pred_fn']
 
     key1, key2, key3, key = jr.split(key, 4)
@@ -197,7 +223,7 @@ def make_data_reg_mlp(args):
     Y_te = generate_ydata_mlp_reg(key3, X_te, predictor, noise_std)
 
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
-    return data
+    return key, data
 
 ### LOGREG generators
 
@@ -246,16 +272,15 @@ def generate_logreg_dataset(
     Y = jr.bernoulli(keys[3], probs) 
     return X, Y, theta
 
-def make_data_cls_lin(args):
+def make_data_cls_lin(key, args):
     d = args.data_dim
     name = f'cls-D{args.data_dim}-lin_1'
-    key = jr.PRNGKey(args.data_key)
     key1, key2, key3, key = jr.split(key, 4)
     X_tr, Y_tr, theta = generate_logreg_dataset(key1, args.n_train, d)
     X_val, Y_val, _ = generate_logreg_dataset(key2, args.n_val, d, theta=theta)
     X_te, Y_te, _ = generate_logreg_dataset(key3, args.n_test, d, theta=theta)
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
-    return data
+    return key, data
 
 
 
@@ -272,13 +297,12 @@ def generate_ydata_mlp_cls(key, X, predictor):
 
 
 
-def make_data_cls_mlp(args):
+def make_data_cls_mlp(key, args):
     neurons_str = args.dgp_str
     name = f'cls-D{args.data_dim}-mlp_{neurons_str}'
     neurons = parse_neuron_str(neurons_str)
 
     d, noise_std = args.data_dim, args.emission_noise
-    key = jr.PRNGKey(args.data_key)
     key0, key = jr.split(key)
     x = jnp.zeros(d)
     model, key = initialize_mlp_model_cls(key0, neurons, x, args.init_var)
@@ -293,7 +317,7 @@ def make_data_cls_mlp(args):
     Y_te = generate_ydata_mlp_cls(key3, X_te, predictor)
 
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
-    return data
+    return key, data
 
 
 

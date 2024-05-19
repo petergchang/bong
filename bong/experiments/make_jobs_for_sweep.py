@@ -17,10 +17,11 @@ def main(args):
     print(f'Saving jobs to {results_dir}')
     path.mkdir(parents=True, exist_ok=True)
 
+
     df = make_df_crossproduct(
         args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.rank_list, [args.model_str])
+        args.ef_list, args.rank_list, [args.model_str], args.key_list)
 
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
     df['dataset'] = args.dataset
@@ -29,6 +30,7 @@ def main(args):
     df['dgp_str'] = args.dgp_str 
     df['model_type'] = args.model_type
     df['ntrain'] = args.ntrain
+    df['ntest'] = args.ntest
 
     N = len(df)
     jobnames = [f'{args.job_name}-{i:02}' for i in range(N)] 
@@ -47,7 +49,7 @@ def main(args):
             row.lin, row.ef, row.dlr_rank, 
             row.model_type, row.model_str, 
             row.dataset, row.data_dim, 
-            row.dgp_type, row.dgp_str, row.ntrain)
+            row.dgp_type, row.dgp_str, row.ntrain, row.ntest, row.key)
         cmd_dict[row.jobname] = cmd
         cmd_list.append(cmd)
     #df['command'] = cmd_list
@@ -68,12 +70,14 @@ if __name__ == "__main__":
     parser.add_argument("--job_name", type=str)
 
     # Data parameters
+    parser.add_argument("--key_list", type=int, nargs="+", default=[0])
     parser.add_argument("--dataset", type=str, default="reg")  
     parser.add_argument("--data_dim", type=int,  default=10)
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
     parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
     parser.add_argument("--ntrain", type=int,  default=500)
-    
+    parser.add_argument("--ntest", type=int,  default=500)
+
     # Agent parameters
     parser.add_argument("--algo_list", type=str, nargs="+", default=["bong"])
     parser.add_argument("--param_list", type=str, nargs="+", default=["fc"])

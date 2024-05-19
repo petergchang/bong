@@ -31,16 +31,19 @@ def run_agent(key, agent, data, model):
     return results, elapsed, summary
 
 
-def make_results(args):
-    data = make_dataset(args)
-    model = make_model(args, data)
+def make_results(key, args):
+    key, subkey = jr.split(key)
+    key, data = make_dataset(subkey, args)
+    key, subkey = jr.split(key)
+    key, model = make_model(subkey, args, data)
 
     #name = f'{args.algo}_{args.param}' # eg bong-fc_mom, must match keys of AGENT_DICT
     #constructor = AGENT_DICT[name]['constructor']
     constructor = make_agent_constructor(args.algo, args.param)
+    key, subkey = jr.split(key)
     agent = constructor(
                         **model['model_kwargs'],
-                        agent_key = args.agent_key,
+                        agent_key = subkey,
                         learning_rate = args.lr,
                         num_iter = args.niter,
                         num_samples = args.nsample,
@@ -48,8 +51,8 @@ def make_results(args):
                         empirical_fisher = args.ef,
                         rank = args.rank
                     )
-    key = jr.PRNGKey(args.agent_key)
-    results, elapsed, summary = run_agent(key, agent, data, model)
+    key, subkey = jr.split(key)
+    results, elapsed, summary = run_agent(subkey, agent, data, model)
     df = pd.DataFrame(results)
     meta = { # non time-series data
         'data_name': data['name'],
@@ -63,11 +66,15 @@ def make_results(args):
         'elapsed': elapsed,
         'summary': summary,
         }
-    return df, meta
+    return df, meta, key
 
 
 def main(args, args_dict):
-
+    if isinstance(args.key, int):
+        key = jr.PRNGKey(args.key)
+    else:
+        key = args.key
+    args.key = -1 # prevent accidently using it
     results_path = Path(args.dir)
     results_path.mkdir(parents=True, exist_ok=True)
     
@@ -78,7 +85,7 @@ def main(args, args_dict):
         # Write an empty string to the file
         file.write('')
 
-    df, meta = make_results(args)
+    df, meta, key = make_results(key, args)
 
     fname = Path(results_path, f"args.json")
     args_dict = args_dict | meta
@@ -96,21 +103,20 @@ if __name__ == "__main__":
     # Data parameters
     parser.add_argument("--dataset", type=str, default="reg") 
     parser.add_argument("--data_dim", type=int, default=10)
-    parser.add_argument("--data_key", type=int, default=0)
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
     parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
-    parser.add_argument("--emission_noise", type=float, default=1.0)
+    parser.add_argument("--emission_noise", type=float, default=-1)
     parser.add_argument("--ntrain", type=int, default=500)
     parser.add_argument("--nval", type=int, default=500)
     parser.add_argument("--ntest", type=int, default=1000)
     parser.add_argument("--add_ones", type=int, default=0)
+    parser.add_argument("--linreg_baseline", type=int, default=0)
 
     
     # Model parameters
     #parser.add_argument("--agent", type=str, default="bong_fc", choices=AGENT_NAMES)
     parser.add_argument("--algo", type=str, default="bong")
     parser.add_argument("--param", type=str, default="fc")
-    parser.add_argument("--agent_key", type=int, default=0)
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--niter", type=int, default=10) 
     parser.add_argument("--nsample", type=int, default=100) 
@@ -120,12 +126,13 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
     parser.add_argument("--model_str", type=str, default="")
     parser.add_argument("--use_bias", type=int, default=1) 
-    parser.add_argument("--init_var", type=float, default=1.0)
-    parser.add_argument("--algo_key", type=int, default=0)
+    parser.add_argument("--use_bias_layer1", type=int, default=1) 
+    parser.add_argument("--init_var", type=float, default=0.1)
 
     # results
     parser.add_argument("--dir", type=str, default="", help="directory to store results") 
     parser.add_argument("--debug", type=bool, default=False)
+    parser.add_argument("--key", type=int, default=0)
     
     args = parser.parse_args()
      # Convert parser flags to dictionary

@@ -19,24 +19,24 @@ from job_utils import  make_neuron_str, parse_neuron_str
 from bong.src import bbb, blr, bog, bong, experiment_utils
 
 
-def make_model(args, data):
-    if args.dataset == "reg":
+def make_model(key, args, data):
+    if (args.dataset == "reg" or args.dataset == "sarcos"):
         if args.model_type == "lin":
-            model = make_lin_reg(args, data)
+            key, model = make_lin_reg(key, args, data)
         elif args.model_type == "mlp":
-            model = make_mlp_reg(args, data)
+            key, model = make_mlp_reg(key, args, data)
         else:
             raise Exception(f'Unknown model {args.model_type}')
     elif args.dataset == "cls":
         if args.model_type == "lin":
-            model = make_lin_cls(args, data) 
+            key, model = make_lin_cls(key, args, data) 
         elif args.model_type == "mlp":
-            model = make_mlp_cls(args, data)
+            key, model = make_mlp_cls(key, args, data)
         else:
             raise Exception(f'Unknown model {args.model_type}')
     else:
         raise Exception(f'Unknown dataset {args.dataset}') # ToDO
-    return model
+    return key, model
 
 ######### Regressiom helpers
 
@@ -44,29 +44,47 @@ gauss_log_likelihood = lambda mean, cov, y: \
     jax.scipy.stats.norm.logpdf(y, mean, jnp.sqrt(jnp.diag(cov))).sum()
 
 
-def nll_gauss(params, x, y):
-    mu_y, v_y, w = params
+def nll_gauss(mu_y, v_y, x, y):
     m = mu_y * jnp.eye(1)
     c = v_y * jnp.eye(1)
     return -gauss_log_likelihood(m, c, y)
 
-def nll_linreg(params, x, y):
-    mu_y, v_y, w = params
+def nll_linreg(w, sigma2, x, y):
     m = jnp.dot(w, x) * jnp.eye(1)
-    c = v_y * jnp.eye(1)
+    c = sigma2 * jnp.eye(1)
     return -gauss_log_likelihood(m, c, y)
 
-
-def compute_regression_baselines(Xtrain, ytrain, Xtest, ytest):
+def fit_gauss_baseline(Xtrain, ytrain):
     mu_y, v_y = jnp.mean(ytrain), jnp.var(ytrain)
-    #  model = sklearn.linear_model.LinearRegression() 
-    w, residuals, rank, s = jnp.linalg.lstsq(Xtrain, ytrain, rcond=None) # model.fit(Xtrain, ytrain)
-    #prediction = Xtest @ w # prediction = model.predict(Xtest)
-    params = (mu_y, v_y, w)
+    return mu_y, v_y
 
-    nll_te_gauss = jnp.mean(jax.vmap(nll_gauss, (None, 0, 0))(params, Xtest, ytest))
-    nll_te_linreg = jnp.mean(jax.vmap(nll_linreg, (None, 0, 0))(params, Xtest, ytest))
-    return params, nll_te_gauss, nll_te_linreg
+
+def fit_linreg_baseline(Xtrain, ytrain, method='lstsq'):
+    N, D = Xtrain.shape
+    if method=='lstsq':
+        if N>1000:
+            print(f'fit_linreg_baseline is a batch solver, slow with N={N}')
+        w, sum_sq_residuals, rank, s = jnp.linalg.lstsq(Xtrain, ytrain, rcond=None) 
+        sum_sq_residuals = sum_sq_residuals[0] # convert to scala
+    elif method == 'sgd':
+        from sklearn.linear_model import SGDRegressor
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.pipeline import make_pipeline
+
+        sgd = SGDRegressor(max_iter=1000, tol=1e-3, fit_intercept=False) # We assume column of 1s has been added
+        pipeline = make_pipeline(StandardScaler(), sgd)
+        #pipeline = make_pipeline(sgd) # we assume pre-standardized
+        pipeline.fit(Xtrain, ytrain)
+        w = pipeline.named_steps['sgdregressor'].coef_
+        #bias = pipeline.named_steps['sgdregressor'].intercept_
+        assert(len(w)==D)
+        yhat = Xtrain @ w
+        sum_sq_residuals = jnp.sum(jnp.square(yhat - ytrain))
+    else:
+        raise Exception(f'Unrecognized method {method}')
+    
+    sigma2 = sum_sq_residuals/N
+    return w, sigma2
 
 # output = transform(key, rebayes_algorithm, pred_state, x, y)
 def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
@@ -114,27 +132,41 @@ def compute_post_linreg(args, data, mu0, cov0):
     post = {'mu': mu_post, 'cov': cov_post}
     return post
 
+def compute_reg_baselines(args, data):
+    N = data['X_tr'].shape[0]
+    noise_var = args.emission_noise
+    results = {}
+    mu_y, sigma2 = fit_gauss_baseline(data['X_tr'], data['Y_tr'])
+    results['nll_te_gauss_learned_var'] = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, sigma2, data['X_te'], data['Y_te']))
+    results['nll_te_gauss_fixed_var'] = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, noise_var, data['X_te'], data['Y_te']))
 
-def  make_lin_reg(args, data):
-    d = args.data_dim
-    noise_std = args.emission_noise
+    if args.linreg_baseline:
+        w, sigma2 = fit_linreg_baseline(data['X_tr'], data['Y_tr'])
+        results['nll_te_linreg_learned_var'] = jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, sigma2, data['X_te'], data['Y_te']))
+        results['nll_te_linreg_fixed_var'] = jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, noise_var, data['X_te'], data['Y_te']))
+    else:
+        results['nll_te_linreg_learned_var'] = 0.0
+        results['nll_te_linreg_fixed_var'] = 0.0    
+
+    return  results
+       
+
+
+def  make_lin_reg(key, args, data):
+    del key
+    #d = args.data_dim
+    d = data['X_tr'].shape[1] # in case we added a column of 1s
+    obs_var = args.emission_noise
+    if obs_var == -1:
+        obs_var = 0.1*jnp.var(data['Y_tr']) # set approximate scale
     name = f'lin_1[P={d}]'
 
     mu0 = jnp.zeros(d)
     cov0 = args.init_var
     post = compute_post_linreg(args, data, mu0, cov0*jnp.eye(d))
 
-
-    # Sec 2.5 of https://gaussianprocess.org/gpml/chapters/RW2.pdf
-    #This loss can be standardized by subtracting
-    #the loss that would be obtained under the trivial model which predicts using
-    #a Gaussian with the mean and variance of the training data
-
-    linreg_params, nlpd_te_gauss, nlpd_te_linreg = \
-        compute_regression_baselines(data['X_tr'], data['Y_tr'], data['X_te'], data['Y_te'])
-
     em_function = lambda w, x: w @ x
-    ec_function = lambda w, x: noise_std * jnp.eye(1)
+    ec_function = lambda w, x: obs_var * jnp.eye(1) # fixed observation 
 
     model_kwargs = {
         "init_mean": mu0,
@@ -149,6 +181,8 @@ def  make_lin_reg(args, data):
                 X_val=data['X_val'], Y_val=data['Y_val'], post=post,
         em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
+    baselines = compute_reg_baselines(args, data)
+
     
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
@@ -159,15 +193,17 @@ def  make_lin_reg(args, data):
 
         results = {'nll': nll_te, 'nlpd': nlpd_te,   
                     'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                    'kldiv': kldiv, 'kldiv_val': kldiv, # add dummy kldiv_val for symmetry
-                     'nlpd_baseline_gauss': nlpd_te_gauss, 'nlpd_baseline_linreg': nlpd_te_linreg
+                    'kldiv': kldiv, 'kldiv_val': kldiv,
+                    'nlpd_baseline-linreg': baselines['nll_te_linreg_fixed_var'],
         }
+
+        
         return results, summary
         
     def tune_kl_loss_fn(key, alg, state):
         return gaussian_kl_div(post['mu'], post['cov'], state.mean, state.cov)
     
-    d = {
+    dct = {
         'model_kwargs': model_kwargs,
         'callback': callback,
         'process_callback': process_callback,
@@ -175,21 +211,24 @@ def  make_lin_reg(args, data):
         'name': name,
         'nparams': d,
         }
-    return d
+    return key, dct
 
 
 #######
 
 
-def make_mlp_reg(args, data):
+def make_mlp_reg(key, args, data):
     neurons = parse_neuron_str(args.model_str)
-    model_kwargs, key = initialize_mlp_model_reg(args.algo_key, neurons,
-                        data['X_tr'][0], args.init_var, args.emission_noise, args.use_bias)
+    obs_var = args.emission_noise
+    if obs_var == -1:
+        obs_var = 0.1*jnp.var(data['Y_tr']) # set approximate scale
+        print('estimated noise variance', obs_var)
+    key, subkey = jr.split(key)
+    key, model_kwargs = initialize_mlp_model_reg(subkey, neurons,
+                        data['X_tr'][0], args.init_var, obs_var, args.use_bias, args.use_bias_layer1)
     nparams = model_kwargs['nparams']
     model_name = f'mlp_{args.model_str}[P={nparams}]'
 
-    linreg_params, nlpd_te_gauss, nlpd_te_linreg = \
-        compute_regression_baselines(data['X_tr'], data['Y_tr'], data['X_te'], data['Y_te'])
 
     em_function = model_kwargs["emission_mean_function"]
     ec_function = model_kwargs["emission_cov_function"]
@@ -199,11 +238,14 @@ def make_mlp_reg(args, data):
                 X_val=data['X_val'], Y_val=data['Y_val'], post=None,
         em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
+    #baselines = compute_reg_baselines(args, data)
+
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
         summary = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                   'nlpd_baseline_gauss': nlpd_te_gauss, 'nlpd_baseline_linreg': nlpd_te_linreg}
+                    #'nlpd_baseline-linreg': baselines['nll_te_linreg_fixed_var'],
+                   }
         return results, summary
 
     dct = {
@@ -213,36 +255,34 @@ def make_mlp_reg(args, data):
         'name': model_name,
         'nparams': model_kwargs['nparams'],
         }
-    return dct
+    return key, dct
 
-def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bias=True):
+def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bias=True,  use_bias_layer1=True):
     if isinstance(key, int):
         key = jr.key(key)
     key, subkey = jr.split(key)
-    model = MLP(features=features, use_bias=use_bias)
+    model = MLP(features=features, use_bias=use_bias, use_bias_first_layer=use_bias_layer1)
     params = model.init(subkey, x)
     key, subkey = jr.split(key)
     flat_params, unflatten_fn = ravel_pytree(params)
     apply_fn = lambda w, x: model.apply(unflatten_fn(w), jnp.atleast_1d(x))
     true_pred_fn = lambda x: model.apply(params, jnp.atleast_1d(x))
     
-    noise_std = emission_noise
-    log_likelihood = lambda mean, cov, y: \
-        jax.scipy.stats.norm.logpdf(y, mean, jnp.sqrt(jnp.diag(cov))).sum()
-    em_function = apply_fn # lambda w, x: w @ x
-    ec_function = lambda w, x: noise_std * jnp.eye(1)
+    noise_var = emission_noise
+    em_function = apply_fn 
+    ec_function = lambda w, x: noise_var * jnp.eye(1)
 
     d = len(flat_params)
     init_kwargs = {
         "init_mean": flat_params,
         "init_cov": init_var,
-        "log_likelihood": log_likelihood,
+        "log_likelihood": gauss_log_likelihood,
         "emission_mean_function": em_function,
         "emission_cov_function": ec_function,
         "nparams": d,
         "true_pred_fn": true_pred_fn
     }
-    return init_kwargs, key
+    return key, init_kwargs
 
 #############
 
@@ -252,9 +292,10 @@ def  make_lin_cls(args, data):
 #######
 
     
-def make_mlp_cls(args, data):
+def make_mlp_cls(key, args, data):
     neurons = parse_neuron_str(args.model_str)
-    model_kwargs, key = initialize_mlp_model_cls(args.algo_key, neurons,
+    key, subkey = jr.split(key)
+    key, model_kwargs = initialize_mlp_model_cls(subkey, neurons,
                         data['X_tr'][0], args.init_var, args.use_bias)
     nparams = model_kwargs['nparams']
     model_name = f'mlp_{args.model_str}[P={nparams}]'
@@ -275,7 +316,7 @@ def make_mlp_cls(args, data):
 
     dct = {'model_kwargs': model_kwargs, 'callback': callback,
         'process_callback': process_callback, 'name': model_name}
-    return dct
+    return key, dct
 
 def initialize_mlp_model_cls(key, features, x, init_var, use_bias=True):
     if isinstance(key, int):
@@ -304,7 +345,7 @@ def initialize_mlp_model_cls(key, features, x, init_var, use_bias=True):
         "nparams": nparams,
         "true_pred_fn": true_pred_fn
     }
-    return init_kwargs, key
+    return key, init_kwargs
 
 def loss_fn_cls(key, alg, state, em_function, X_val, y_val):
     y_pred_logits = jax.vmap(em_function, (None, 0))(state.mean, X_val)

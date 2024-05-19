@@ -8,8 +8,9 @@ import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import jax.numpy as jnp
+import matplotlib.cm as cm
 
-from job_utils import extract_results_from_files, extract_metrics_from_files
+from job_utils import extract_results_from_files, extract_metrics_from_files, append_results_with_baselines
 from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
 from bong.util import add_jitter, convolve_smooth, make_plot_params
 
@@ -46,29 +47,32 @@ def make_marker(name):
 
 
 
-def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5, max_len=1000,
+def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5, max_len=100_000,
                 exclude='', include=''):
     jobnames = results.keys()
     fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     njobs = len(jobnames)
     fs = (12 if njobs <= 6 else 8)
-    times = {}
+    njobs = len(jobnames)
+    colors = cm.tab20(np.linspace(0, 1, njobs))
     for i, jobname in enumerate(jobnames):
         res = results[jobname]
-        vals = res['vals'].to_numpy()
+        vals = res['vals']
         agent_name = res['agent_name']
         full_name = res['agent_full_name']
         T = len(vals)
-        elapsed = 1000*round(res['elapsed']/T, 3)
-        times[agent_name] = elapsed # we assume each agent only occurs once
-        expt_name =  f'{agent_name} [{elapsed:.1f} ms/step]'
+        #elapsed = 1000*round(res['elapsed']/T) # milliseconds per step
+        elapsed = res['elapsed'] #/T # iseconds per step
 
+        
         if full_name == 'baseline':
-            plot_params = {}
+            plot_params = {'linestyle': ':', 'linewidth': 2}
+            expt_name =  f'{agent_name}'
         else:
             parts = parse_full_name(full_name)
             algo, ef, lin = parts['algo'], parts['ef'], parts['lin']
             plot_params = make_plot_params(algo, ef, lin)
+            expt_name =  f'{agent_name} [{elapsed:.1f} s]'
         
         if len(exclude) > 1:
             skip_result = eval(exclude)
@@ -85,9 +89,12 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         xs = steps[ndx]
         ys = vals[ndx]
         if smoothed:
-            ys = convolve_smooth(ys)
+            ys = convolve_smooth(ys, width=5, mode='valid')
+            # eed to truncate xs for valid kernel
+            xs = xs[2:]
+            xs = xs[:-2]
 
-        ax.plot(xs, ys, markevery=20, label=expt_name, **plot_params)
+        ax.plot(xs, ys, markevery=20, label=expt_name, color=colors[i], **plot_params)
         
         if 0:
             line, = ax.plot(xs, ys) #, label=expt_name) # **plot_params)
@@ -104,7 +111,7 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
     return fig, ax
 
 def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, truncated=False, 
-            exclude='', include='', name=''):
+            exclude='', include='', name='', first_step=5):
     jobnames = list(results.keys())
     jobname = jobnames[0]
     res = results[jobname] # we assume all jobs use the same model and data
@@ -112,9 +119,9 @@ def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, trun
     data_name = res['data_name']
 
     #stats = extract_stats(results)
-    max_len = (250 if truncated else 1000)
+    max_len = (250 if truncated else 100_000)
     fig, ax = plot_timeseries(results,  metric,  smoothed=smoothed, max_len=max_len, 
-            exclude=exclude, include=include)
+            exclude=exclude, include=include, first_step=first_step)
     ttl = f'{name} Model {model_name}. Data {data_name}'
     ax.set_title(ttl, fontsize=10)
 
@@ -162,10 +169,14 @@ def main(args):
     path = Path(fig_dir)
     path.mkdir(parents=True, exist_ok=True)   
     #make_file_with_timestamp(results_dir)
-    metrics = extract_metrics_from_files(results_dir, exclude_val=False, jobs_file=args.jobs_file)
+    metrics = extract_metrics_from_files(results_dir,  jobs_file=args.jobs_file, exclude_val=False)
     for metric in metrics:
         results = extract_results_from_files(results_dir,  metric, args.jobs_file)
-        plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include, name=args.name)    
+        results = append_results_with_baselines(results, results_dir,  metric, args.jobs_file)
+        plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
+                    name=args.name, first_step=args.first_step)    
+        plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
+                    name=args.name, first_step=args.first_step, smoothed=True) 
     
 
 
@@ -174,6 +185,7 @@ if __name__ == "__main__":
     parser.add_argument("--dir", type=str, default="")
     parser.add_argument("--jobs_file", type=str, default="jobs.csv")
     parser.add_argument("--name", type=str, default="")
+    parser.add_argument("--first_step", type=int, default=5)
     parser.add_argument("--exclude", type=str, default="")
     parser.add_argument("--include", type=str, default="")
 

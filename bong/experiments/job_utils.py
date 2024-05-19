@@ -29,10 +29,10 @@ def parse_neuron_str(s):
 
 def make_unix_cmd_given_flags(algo, param, lr, niter, nsample, linplugin, ef, rank,
                             model_type, model_str,
-                            dataset, data_dim, dgp_type, dgp_str, ntrain):
+                            dataset, data_dim, dgp_type, dgp_str, ntrain, ntest, key):
     # We must pass in all flags where we want to override the default in run_job
     #main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_job.py'
-    main_name = f'{script_dir}/run_job.py'
+    main_name = f'{script_dir}/do_job.py'
     #model_neurons = unmake_neuron_str(model_neurons_str)
     #dgp_neurons = unmake_neuron_str(dgp_neurons_str)
     cmd = (
@@ -42,15 +42,15 @@ def make_unix_cmd_given_flags(algo, param, lr, niter, nsample, linplugin, ef, ra
         f' --model_type {model_type} --model_str {model_str}'
         f' --dataset {dataset} --data_dim {data_dim}'
         f' --dgp_type {dgp_type} --dgp_str {dgp_str}'
-        f' --ntrain {ntrain}'
+        f' --ntrain {ntrain} --ntest {ntest} --key {key}'
     )
     return cmd
 
 def make_df_crossproduct( 
         algo_list, param_list, lin_list,
-        lr_list, niter_list, nsample_list, ef_list, rank_list, model_str_list):
+        lr_list, niter_list, nsample_list, ef_list, rank_list,
+        model_str_list, key_list):
     args_list = []
-    all_args_list = []
     for algo in algo_list:
         for param in param_list:
             for lin in lin_list:
@@ -60,24 +60,24 @@ def make_df_crossproduct(
                             for ef in ef_list:
                                 for rank in rank_list:
                                     for model_str in model_str_list:
-                                        all_args = {'algo': algo, 'param': param, 'lin': lin, 'lr': lr, 
-                                                'niter': niter, 'nsample': nsample,  'ef': ef, 'dlr_rank': rank, 
-                                                'model_str': model_str}
-                                        all_args_list.append(all_args)        
-                                        
-                                        if (param == 'dlr') and (lin==0) and (ef == 0): continue # sanpled Hessians not implemented for DLR
+                                        for key in key_list:   
+                                            if (param == 'dlr') and (lin==0) and (ef == 0): continue # sanpled Hessians not implemented for DLR
 
-                                        args = make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr)
-                                        args['model_str'] = model_str
-                                        args_list.append(args)
-    #df = pd.DataFrame(all_args_list)
+                                            args = make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr)
+                                            args['model_str'] = model_str
+                                            args['key'] = key
+                                            args_list.append(args)
+
     df = pd.DataFrame(args_list)
-    df_unique = df.drop_duplicates(df)
+    if len(df) > 1:
+        df_unique = df.drop_duplicates(df)
+    else:
+        df_unique = df
     df_unique = df_unique.reset_index(drop=True)
     return df_unique
 
 
-def extract_metrics_from_files(dir, exclude_val=True, jobs_file="jobs.csv"):
+def extract_metrics_from_files(dir,   jobs_file="jobs.csv", exclude_val=True, exclude_baselines=True):
     fname = f"{dir}/{jobs_file}"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
@@ -87,9 +87,27 @@ def extract_metrics_from_files(dir, exclude_val=True, jobs_file="jobs.csv"):
     metrics =  df_res.columns
     if exclude_val:
         metrics = [m for m in metrics if "_val" not in m ]
+    if exclude_baselines:
+        metrics = [m for m in metrics if "_baseline" not in m ]
     return metrics
 
-
+def append_results_with_baselines(results, results_dir,  metric, jobs_file):
+    results = results.copy()
+    all_metrics = extract_metrics_from_files(results_dir,  jobs_file, exclude_val=True, exclude_baselines=False)
+    matching_metrics = [m for m in all_metrics if f'{metric}_baseline' in m]
+    for mm in matching_metrics:
+        results_baseline = extract_results_from_files(results_dir,  mm, jobs_file)
+        jobnames = list(results_baseline.keys())
+        jobname = jobnames[0]
+        baseline_dict = results_baseline[jobname]
+        name = mm.removeprefix(metric)[1:] # 'nlpd_baseline_gauss' -> 'baseline_gauss' 
+        baseline_dict['agent_name'] = name
+        baseline_dict['agent_full_name'] = 'baseline'
+        baseline_dict['metric'] =  metric
+        baseline_dict['elapsed'] = 0
+        new_jobname = f'job-{mm}'
+        results[new_jobname] = baseline_dict
+    return results
 
 
 def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):

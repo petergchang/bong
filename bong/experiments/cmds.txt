@@ -1,27 +1,7 @@
 
 
-python make_jobs_for_sweep.py \
-    --model_type $MODEL_TYPE \
-    --model_str $MODEL_STR \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --rank_list ${RANK_LIST[@]} \
-    --lin_list ${LIN_LIST[@]} \
-    --lr_list ${LR_LIST[@]}  \
-    --nsample_list ${NSAMPLE_LIST[@]} \
-    --niter_list ${NITER_LIST[@]} \
-    --ef_list ${EF_LIST[@]}   \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --dgp_type $DGP_TYPE \
-    --dgp_str $DGP_STR \
-    --ntrain $NTRAIN  \
-    --dir $DIR \
-    --job_name $JOB_NAME
-
-
-
 python make_jobs_for_timing.py \
+    --key $KEY \
     --algo_list ${ALGO_LIST[@]} \
     --param_list ${PARAM_LIST[@]} \
     --model_type $MODEL_TYPE \
@@ -41,10 +21,34 @@ python make_jobs_for_timing.py \
     --job_name $JOB_NAME
 
 
+python make_jobs_for_sweep.py \
+    --key_list ${KEY_LIST[@]} \
+    --model_type $MODEL_TYPE \
+    --model_str $MODEL_STR \
+    --algo_list ${ALGO_LIST[@]} \
+    --param_list ${PARAM_LIST[@]} \
+    --rank_list ${RANK_LIST[@]} \
+    --lin_list ${LIN_LIST[@]} \
+    --lr_list ${LR_LIST[@]}  \
+    --nsample_list ${NSAMPLE_LIST[@]} \
+    --niter_list ${NITER_LIST[@]} \
+    --ef_list ${EF_LIST[@]}   \
+    --dataset $DATASET \
+    --data_dim $DATADIM \
+    --dgp_type $DGP_TYPE \
+    --dgp_str $DGP_STR \
+    --ntrain $NTRAIN  \
+    --dir $DIR \
+    --job_name $JOB_NAME
 
-python do_jobs.py --dir $DIR    
 
-python do_jobs.py \
+python run_jobs.py --dir $DIR    
+
+
+python plot_jobs.py --dir $DIR 
+
+
+python run_jobs.py \
     --dir $DIR \
     --parallel 1 \
     --machine $MACHINE
@@ -61,13 +65,16 @@ python eval_jobs.py --dir $DIR
 
 python find_best_jobs.py --dir $DIR 
 
-python plot_jobs.py --dir $DIR 
+python plot_jobs.py --dir $DIR --jobs_file jobs.csv 
+
 
 python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr
 
+python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr_excl_mc --exclude "(ef==0)"
 
-############### SINGLE JOB
 
+
+############### DO A SINGLE JOB
 
 MODEL_TYPE="mlp"
 MODEL_STR="10_1"
@@ -84,15 +91,45 @@ DATADIM=5
 DGP_TYPE="mlp"
 DGP_STR="20_20_1" 
 NTRAIN=50
+LINREG_BASELINE=0
 DIR=/teamspace/studios/this_studio/jobs/debug
 
-python run_job.py \
+
+
+MODEL_TYPE="mlp"
+MODEL_STR="10_1"
+INIT_VAR=0.1
+USE_BIAS=1
+USE_BIAS_LAYER1=1
+EMISSION_NOISE=-1
+ALGO="bong"
+PARAM="fc"
+LIN=0
+RANK=10
+LR=0.01
+NSAMPLE=100
+NITER=10
+EF=1
+DATASET="sarcos"
+DATADIM=0
+DGP_TYPE="na"
+DGP_STR="na" 
+NTRAIN=1000
+LINREG_BASELINE=1
+DIR=/teamspace/studios/this_studio/jobs/debug
+
+
+python do_job.py \
     --algo $ALGO \
     --param $PARAM \
     --rank $RANK \
     --lin $LIN \
     --model_type $MODEL_TYPE \
     --model_str $MODEL_STR \
+    --use_bias $USE_BIAS \
+    --use_bias_layer1 $USE_BIAS_LAYER1 \
+    --init_var $INIT_VAR \
+    --emission_noise $EMISSION_NOISE \
     --lr $LR  \
     --nsample $NSAMPLE \
     --niter $NITER \
@@ -102,4 +139,5 @@ python run_job.py \
     --ntrain $NTRAIN \
     --dgp_type $DGP_TYPE \
     --dgp_str $DGP_STR \
+    --linreg_baseline $LINREG_BASELINE \
     --dir $DIR 

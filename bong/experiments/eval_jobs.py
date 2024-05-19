@@ -23,13 +23,13 @@ def create_eval_df(results_dir):
     nlpd_te_final, nlpd_val_final = {}, {}
     nlpd_te_mid, nlpd_val_mid = {}, {}
     for jobname in jobnames:
-        nlpd = nlpd_te_results[jobname]['vals'].to_numpy()
+        nlpd = nlpd_te_results[jobname]['vals']
         nlpd_te_final[jobname] = replace_nan_with_infty(nlpd[-1])
         T = len(nlpd)
         mid = int(0.5*T) 
         nlpd_te_mid[jobname] = replace_nan_with_infty(nlpd[mid])
 
-        nlpd = nlpd_val_results[jobname]['vals'].to_numpy()
+        nlpd = nlpd_val_results[jobname]['vals']
         nlpd_val_final[jobname] = replace_nan_with_infty(nlpd[-1])
         T = len(nlpd)
         mid = int(0.5*T) 

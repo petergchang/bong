@@ -19,11 +19,12 @@ def main(args):
     df = make_df_crossproduct(
         args.algo_list, args.param_list, args.lin_list,
         [args.lr], [args.niter], [args.nsample],
-        args.ef_list, args.rank_list, args.model_str_list)
+        args.ef_list, args.rank_list, args.model_str_list, [args.key])
     
     df['model_type'] = args.model_type
     df['dataset'] = args.dataset
     df['ntrain'] = args.ntrain
+    df['ntest'] = args.nest
     df['data_dim'] = args.data_dim
     df['dgp_type'] = args.dgp_type
     df['dgp_str'] = args.dgp_str
@@ -45,7 +46,7 @@ def main(args):
             row.lin, row.ef, row.dlr_rank, 
             row.model_type, row.model_str, 
             row.dataset, row.data_dim, 
-            row.dgp_type, row.dgp_str, row.ntrain)
+            row.dgp_type, row.dgp_str, row.ntrain, row.ntest, row.key)
         cmd_dict[row.jobname] = cmd
         cmd_list.append(cmd)
     #df['command'] = cmd_list
@@ -62,9 +63,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str)
     parser.add_argument("--job_name", type=str)
+    parser.add_argument("--key", type=int, default=0)
 
     parser.add_argument("--dataset", type=str, default="reg") 
     parser.add_argument("--ntrain", type=int, default=500)
+    parser.add_argument("--ntest", type=int, default=1000)
     parser.add_argument("--data_dim", type=int, default=10)
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
     parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
