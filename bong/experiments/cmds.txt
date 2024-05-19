@@ -70,19 +70,19 @@ python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr
 
 
 MODEL_TYPE="mlp"
-MODEL_NEURONS=(2 1)
+MODEL_STR="10_1"
 ALGO="bog"
 PARAM="fc"
 LIN=1
 RANK=10
 LR=0.1
-NSAMPLE=10
+NSAMPLE=100
 NITER=10
-EF=0
+EF=1
 DATASET="reg"
 DATADIM=5
 DGP_TYPE="mlp"
-DGP_NEURONS=(20 20 1)
+DGP_STR="20_20_1" 
 NTRAIN=50
 DIR=/teamspace/studios/this_studio/jobs/debug
 
@@ -92,7 +92,7 @@ python run_job.py \
     --rank $RANK \
     --lin $LIN \
     --model_type $MODEL_TYPE \
-    --model_neurons ${MODEL_NEURONS[@]} \
+    --model_str $MODEL_STR \
     --lr $LR  \
     --nsample $NSAMPLE \
     --niter $NITER \
@@ -101,5 +101,5 @@ python run_job.py \
     --data_dim $DATADIM \
     --ntrain $NTRAIN \
     --dgp_type $DGP_TYPE \
-    --dgp_neurons ${DGP_NEURONS[@]} \
+    --dgp_str $DGP_STR \
     --dir $DIR 

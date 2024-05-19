@@ -45,13 +45,13 @@ gauss_log_likelihood = lambda mean, cov, y: \
 
 
 def nll_gauss(params, x, y):
-    mu_y, v_t, w = params
+    mu_y, v_y, w = params
     m = mu_y * jnp.eye(1)
     c = v_y * jnp.eye(1)
     return -gauss_log_likelihood(m, c, y)
 
 def nll_linreg(params, x, y):
-    mu_y, v_t, w = params
+    mu_y, v_y, w = params
     m = jnp.dot(w, x) * jnp.eye(1)
     c = v_y * jnp.eye(1)
     return -gauss_log_likelihood(m, c, y)
@@ -60,7 +60,7 @@ def nll_linreg(params, x, y):
 def compute_regression_baselines(Xtrain, ytrain, Xtest, ytest):
     mu_y, v_y = jnp.mean(ytrain), jnp.var(ytrain)
     #  model = sklearn.linear_model.LinearRegression() 
-    w, residuals, rank, s = np.linalg.lstsq(Xtrain, ytrain, rcond=None) # model.fit(Xtrain, ytrain)
+    w, residuals, rank, s = jnp.linalg.lstsq(Xtrain, ytrain, rcond=None) # model.fit(Xtrain, ytrain)
     #prediction = Xtest @ w # prediction = model.predict(Xtest)
     params = (mu_y, v_y, w)
 
@@ -147,7 +147,7 @@ def  make_lin_reg(args, data):
 
     callback = partial(callback_reg, X_te=data['X_te'], Y_te=data['Y_te'],
                 X_val=data['X_val'], Y_val=data['Y_val'], post=post,
-        em_function = em_function, ec_function = ec_function, log_likelihood = log_likelihood)
+        em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
     
     def process_callback(output):
@@ -160,7 +160,7 @@ def  make_lin_reg(args, data):
         results = {'nll': nll_te, 'nlpd': nlpd_te,   
                     'nll_val': nll_val, 'nlpd_val': nlpd_val,
                     'kldiv': kldiv, 'kldiv_val': kldiv, # add dummy kldiv_val for symmetry
-                     'nlpd_gauss': nlpd_te_gauss, 'nlpd_linreg': nlpd_te_linreg
+                     'nlpd_baseline_gauss': nlpd_te_gauss, 'nlpd_baseline_linreg': nlpd_te_linreg
         }
         return results, summary
         
@@ -197,13 +197,13 @@ def make_mlp_reg(args, data):
 
     callback = partial(callback_reg, X_te=data['X_te'], Y_te=data['Y_te'],
                 X_val=data['X_val'], Y_val=data['Y_val'], post=None,
-        em_function = em_function, ec_function = ec_function, log_likelihood = log_likelihood)
+        em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
         summary = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                   'nlpd_gauss': nlpd_te_gauss, 'nlpd_linreg': nlpd_te_linreg}
+                   'nlpd_baseline_gauss': nlpd_te_gauss, 'nlpd_baseline_linreg': nlpd_te_linreg}
         return results, summary
 
     dct = {

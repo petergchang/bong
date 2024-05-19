@@ -129,12 +129,12 @@ def generate_xdata_mvn(key, N, d, c=1., scale=1):
     return X
 
 def generate_linear_model(key, d):
-    key1, key2, key = jr.split(keys, 3)
+    key1, key2, key = jr.split(key, 3)
     theta = jr.uniform(key1, (d,), minval=-1., maxval=1.)
     theta = theta / jnp.linalg.norm(theta)
     return theta
 
-def generate_ydata_linreg(ke, X, theta, noise_std=1.0):
+def generate_ydata_linreg(key, X, theta, noise_std=1.0):
     key1, key = jr.split(key)
     N, d = X.shape
     Ymean = X @ theta # (N,)

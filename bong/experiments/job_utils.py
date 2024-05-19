@@ -103,14 +103,14 @@ def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):
             print(f'This file does not exist, skipping:', fname)
             continue
         df_res = pd.read_csv(fname)
-        vals = df_res[metric]
-        nans = np.isnan(vals)
-        if np.any(nans):
+        vals = df_res[metric].to_numpy()
+        nans = jnp.isnan(vals)
+        if jnp.any(nans):
             T = find_first_true(nans)
         else:
             T = len(vals)
         
-        fname = f"{dir}/{jobname}/work/args.json"
+        fname = f"{dir}/jobs/{jobname}/args.json"
         with open(fname, 'r') as json_file:
             args = json.load(json_file)
         d = {

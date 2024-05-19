@@ -63,9 +63,12 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         times[agent_name] = elapsed # we assume each agent only occurs once
         expt_name =  f'{agent_name} [{elapsed:.1f} ms/step]'
 
-        parts = parse_full_name(full_name)
-        algo, ef, lin = parts['algo'], parts['ef'], parts['lin']
-        plot_params = make_plot_params(algo, ef, lin)
+        if full_name == 'baseline':
+            plot_params = {}
+        else:
+            parts = parse_full_name(full_name)
+            algo, ef, lin = parts['algo'], parts['ef'], parts['lin']
+            plot_params = make_plot_params(algo, ef, lin)
         
         if len(exclude) > 1:
             skip_result = eval(exclude)
