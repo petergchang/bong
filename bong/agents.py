@@ -37,17 +37,17 @@ DIAG_BONG_DICT = {
 
 DLR_BONG_DICT = {
     # BONG
-    "dlrg-bong": bong.dlrg_bong,
-    "dlrg-l-bong": partial(bong.dlrg_bong, linplugin=True),
+    "dlrg-bong": partial(bong.dlrg_bong, empirical_fisher=True),
+    "dlrg-l-bong": partial(bong.dlrg_bong, linplugin=True, empirical_fisher=True),
     # BOG
-    "dlrg-bog": bog.dlrg_bog,
-    "dlrg-l-bog": partial(bog.dlrg_bog, linplugin=True),
+    "dlrg-bog": partial(bog.dlrg_bog, empirical_fisher=True),
+    "dlrg-l-bog": partial(bog.dlrg_bog, linplugin=True, empirical_fisher=True),
     # BBB
-    "dlrg-bbb": bbb.dlrg_bbb,
-    "dlrg-l-bbb": partial(bbb.dlrg_bbb, linplugin=True),
+    "dlrg-bbb": partial(bbb.dlrg_bbb, empirical_fisher=True),
+    "dlrg-l-bbb": partial(bbb.dlrg_bbb, linplugin=True, empirical_fisher=True),
     # BLR
-    "dlrg-blr": blr.dlrg_blr,
-    "dlrg-l-blr": partial(blr.dlrg_blr, linplugin=True),
+    "dlrg-blr": partial(blr.dlrg_blr, empirical_fisher=True),
+    "dlrg-l-blr": partial(blr.dlrg_blr, linplugin=True, empirical_fisher=True),
 }
 
 
@@ -124,4 +124,3 @@ def make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr):
     args['niter'] = (niter if needs_niter(algo, param, lin) else invalid)
     args['lr'] = (lr if needs_lr(algo, param, lin) else invalid)
     return args
-

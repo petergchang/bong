@@ -62,7 +62,22 @@ def callback_fn(key, alg, state, x, y, em_function, X_cb, y_cb, num_samples=10):
     # NLPD-accuracy
     y_preds = jnp.argmax(y_pred_logits, axis=-1)
     acc = jnp.mean(y_preds == y_cb)
-    return ll_pi, acc_pi, ll, acc
+    
+    # Linearized-LL
+    def _linearized_apply(w, x):
+        H = jax.jacrev(lambda ww, xx: em_function(ww, xx).squeeze())(state.mean, x)
+        return (em_function(state.mean, x) + H @ (w - state.mean)).squeeze()
+    ylin_pred_logits = jnp.mean(jax.vmap(
+        jax.vmap(_linearized_apply, (None, 0)), (0, None)
+    )(states, X_cb), axis=0)
+    ll_lin = jnp.mean(-optax.softmax_cross_entropy_with_integer_labels(
+        ylin_pred_logits, y_cb
+    ))
+    
+    # Linearized-accuracy
+    ylin_preds = jnp.argmax(ylin_pred_logits, axis=-1)
+    acc_lin = jnp.mean(ylin_preds == y_cb)
+    return ll_pi, acc_pi, ll, acc, ll_lin, acc_lin
 
 
 def initialize_mlp_model(key, features, x):
@@ -122,7 +137,7 @@ def tune_agents(key, agents, n_samples, n_iters, init_kwargs,
                         best_hparams = tune_init_hyperparam(
                             key, curr_initializer, X_tune, Y_tune,
                             tune_loss_fn, hyperparams, minval=1e-5,
-                            maxval=1.0, **curr_kwargs
+                            maxval=1.0, n_trials=20, **curr_kwargs
                         )
                     except:
                         best_hparams = {hparam: 1e-2 for hparam in hyperparams}
@@ -145,14 +160,17 @@ def evaluate_agents(key, agent_queue, X_tr, Y_tr, eval_cb_fn):
         print(f"Running {agent_name}...")
         key, subkey = jr.split(key)
         t0 = time.perf_counter()
-        _, (ll_pi, acc_pi, ll, acc) = jax.block_until_ready(
+        _, (ll_pi, acc_pi, ll, acc, ll_lin, acc_lin) = jax.block_until_ready(
             run_rebayes_algorithm(key, agent, X_tr, Y_tr, 
                                   transform=eval_cb_fn)
         )
         t1 = time.perf_counter()
-        result_dict[agent_name] = (t1 - t0, ll_pi, acc_pi, ll, acc)
+        result_dict[agent_name] = \
+            (t1 - t0, ll_pi, acc_pi, ll, acc, ll_lin, acc_lin)
         print(f"\tPlugin-LL: {ll_pi[-1]:.4f}, Plugin-Acc: {acc_pi[-1]:.4f}")
         print(f"\tNLPD-LL: {ll[-1]:.4f}, NLPD-Acc: {acc[-1]:.4f}")
+        print(f"\tLinearized-LL: {ll_lin[-1]:.4f},"
+              f"Linearized-Acc: {acc_lin[-1]:.4f}")
         print(f"\tTime: {t1 - t0:.2f}s")
         print("=====================================")
     return result_dict
@@ -161,7 +179,7 @@ def evaluate_agents(key, agent_queue, X_tr, Y_tr, eval_cb_fn):
 def save_results(result_dict):
     # Save runtime
     fig, ax = plt.subplots()
-    for agent_name, (runtime, _, _, _, _) in result_dict.items():
+    for agent_name, (runtime, *_) in result_dict.items():
         ax.bar(agent_name, runtime)
     ax.set_ylabel("runtime (s)")
     plt.setp(ax.get_xticklabels(), rotation=30)
@@ -171,7 +189,7 @@ def save_results(result_dict):
     
     # Save Plugin-LL
     fig, ax = plt.subplots()
-    for agent_name, (_, ll_pi, _, _, _) in result_dict.items():
+    for agent_name, (_, ll_pi, *_) in result_dict.items():
         if jnp.any(jnp.isnan(ll_pi)):
             continue
         ax.plot(ll_pi, label=agent_name)
@@ -185,7 +203,7 @@ def save_results(result_dict):
     
     # Save Plugin-Accuracy
     fig, ax = plt.subplots()
-    for agent_name, (_, _, acc_pi, _, _) in result_dict.items():
+    for agent_name, (_, _, acc_pi, *_) in result_dict.items():
         if jnp.any(jnp.isnan(acc_pi)):
             continue
         ax.plot(acc_pi, label=agent_name)
@@ -199,7 +217,7 @@ def save_results(result_dict):
     
     # Save NLPD-LL
     fig, ax = plt.subplots()
-    for agent_name, (_, _, _, ll, _) in result_dict.items():
+    for agent_name, (_, _, _, ll, *_) in result_dict.items():
         if jnp.any(jnp.isnan(ll)):
             continue
         ax.plot(ll, label=agent_name)
@@ -213,7 +231,7 @@ def save_results(result_dict):
     
     # Save NLPD-Accuracy
     fig, ax = plt.subplots()
-    for agent_name, (_, _, _, _, acc) in result_dict.items():
+    for agent_name, (_, _, _, _, acc, *_) in result_dict.items():
         if jnp.any(jnp.isnan(acc)):
             continue
         ax.plot(acc, label=agent_name)
@@ -223,6 +241,34 @@ def save_results(result_dict):
     ax.legend()
     fig.savefig(
         Path(mnist_path, "nlpd_acc.pdf"), bbox_inches='tight', dpi=300
+    )
+    
+    # Save Linearized-LL
+    fig, ax = plt.subplots()
+    for agent_name, (_, _, _, _, _, ll_lin, *_) in result_dict.items():
+        if jnp.any(jnp.isnan(ll_lin)):
+            continue
+        ax.plot(ll_lin, label=agent_name)
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("LL (linearized)")
+    ax.grid()
+    ax.legend()
+    fig.savefig(
+        Path(mnist_path, "linearized_ll.pdf"), bbox_inches='tight', dpi=300
+    )
+    
+    # Save Linearized-Accuracy
+    fig, ax = plt.subplots()
+    for agent_name, (_, _, _, _, _, _, acc_lin) in result_dict.items():
+        if jnp.any(jnp.isnan(acc_lin)):
+            continue
+        ax.plot(acc_lin, label=agent_name)
+    ax.set_xlabel("number of iteration")
+    ax.set_ylabel("Accuracy (linearized)")
+    ax.grid()
+    ax.legend()
+    fig.savefig(
+        Path(mnist_path, "linearized_acc.pdf"), bbox_inches='tight', dpi=300
     )
     
     plt.close('all')
