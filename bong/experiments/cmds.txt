@@ -53,15 +53,18 @@ python copy_jobs.py --dir $DIR
 
 python summarize_jobs.py --dir $DIR    
 
+python plot_times.py --dir $DIR 
+
+python exclude_jobs.py --dir $DIR 
+
 python eval_jobs.py --dir $DIR 
 
 python find_best_jobs.py --dir $DIR 
 
 python plot_jobs.py --dir $DIR 
 
-python plot_times.py --dir $DIR 
+python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr
 
-python exclude_jobs.py --dir $DIR 
 
 ############### SINGLE JOB
 

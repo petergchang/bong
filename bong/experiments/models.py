@@ -29,7 +29,7 @@ def make_model(args, data):
             raise Exception(f'Unknown model {args.model_type}')
     elif args.dataset == "cls":
         if args.model_type == "lin":
-            model = make_lin_cls(args, data)
+            model = make_lin_cls(args, data) 
         elif args.model_type == "mlp":
             model = make_mlp_cls(args, data)
         else:
@@ -38,8 +38,35 @@ def make_model(args, data):
         raise Exception(f'Unknown dataset {args.dataset}') # ToDO
     return model
 
-#########
+######### Regressiom helpers
 
+gauss_log_likelihood = lambda mean, cov, y: \
+    jax.scipy.stats.norm.logpdf(y, mean, jnp.sqrt(jnp.diag(cov))).sum()
+
+
+def nll_gauss(params, x, y):
+    mu_y, v_t, w = params
+    m = mu_y * jnp.eye(1)
+    c = v_y * jnp.eye(1)
+    return -gauss_log_likelihood(m, c, y)
+
+def nll_linreg(params, x, y):
+    mu_y, v_t, w = params
+    m = jnp.dot(w, x) * jnp.eye(1)
+    c = v_y * jnp.eye(1)
+    return -gauss_log_likelihood(m, c, y)
+
+
+def compute_regression_baselines(Xtrain, ytrain, Xtest, ytest):
+    mu_y, v_y = jnp.mean(ytrain), jnp.var(ytrain)
+    #  model = sklearn.linear_model.LinearRegression() 
+    w, residuals, rank, s = np.linalg.lstsq(Xtrain, ytrain, rcond=None) # model.fit(Xtrain, ytrain)
+    #prediction = Xtest @ w # prediction = model.predict(Xtest)
+    params = (mu_y, v_y, w)
+
+    nll_te_gauss = jnp.mean(jax.vmap(nll_gauss, (None, 0, 0))(params, Xtest, ytest))
+    nll_te_linreg = jnp.mean(jax.vmap(nll_linreg, (None, 0, 0))(params, Xtest, ytest))
+    return params, nll_te_gauss, nll_te_linreg
 
 # output = transform(key, rebayes_algorithm, pred_state, x, y)
 def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
@@ -90,21 +117,29 @@ def compute_post_linreg(args, data, mu0, cov0):
 
 def  make_lin_reg(args, data):
     d = args.data_dim
-    mu0 = jnp.zeros(d)
-    cov0 = args.init_var
-    post = compute_post_linreg(args, data, mu0, cov0*jnp.eye(d))
     noise_std = args.emission_noise
     name = f'lin_1[P={d}]'
 
-    log_likelihood = lambda mean, cov, y: \
-        jax.scipy.stats.norm.logpdf(y, mean, jnp.sqrt(jnp.diag(cov))).sum()
+    mu0 = jnp.zeros(d)
+    cov0 = args.init_var
+    post = compute_post_linreg(args, data, mu0, cov0*jnp.eye(d))
+
+
+    # Sec 2.5 of https://gaussianprocess.org/gpml/chapters/RW2.pdf
+    #This loss can be standardized by subtracting
+    #the loss that would be obtained under the trivial model which predicts using
+    #a Gaussian with the mean and variance of the training data
+
+    linreg_params, nlpd_te_gauss, nlpd_te_linreg = \
+        compute_regression_baselines(data['X_tr'], data['Y_tr'], data['X_te'], data['Y_te'])
+
     em_function = lambda w, x: w @ x
     ec_function = lambda w, x: noise_std * jnp.eye(1)
 
     model_kwargs = {
         "init_mean": mu0,
         "init_cov": cov0,
-        "log_likelihood": log_likelihood,
+        "log_likelihood": gauss_log_likelihood,
         "emission_mean_function": em_function,
         "emission_cov_function": ec_function,
         }
@@ -121,9 +156,12 @@ def  make_lin_reg(args, data):
         s_te = f"Test NLL: {nll_te[-1]:.4f},  NLPD: {nlpd_te[-1]:.4f}"
         s_kl = f"KL: {kldiv[-1]:0.4f}"
         summary = s_kl + "\n" + s_te + "\n" + s_val 
-        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                     'kldiv': kldiv, 'kldiv_val': kldiv}
-        # We append kldiv_val just for symmetry, to simplify downstream code
+
+        results = {'nll': nll_te, 'nlpd': nlpd_te,   
+                    'nll_val': nll_val, 'nlpd_val': nlpd_val,
+                    'kldiv': kldiv, 'kldiv_val': kldiv, # add dummy kldiv_val for symmetry
+                     'nlpd_gauss': nlpd_te_gauss, 'nlpd_linreg': nlpd_te_linreg
+        }
         return results, summary
         
     def tune_kl_loss_fn(key, alg, state):
@@ -150,6 +188,9 @@ def make_mlp_reg(args, data):
     nparams = model_kwargs['nparams']
     model_name = f'mlp_{args.model_str}[P={nparams}]'
 
+    linreg_params, nlpd_te_gauss, nlpd_te_linreg = \
+        compute_regression_baselines(data['X_tr'], data['Y_tr'], data['X_te'], data['Y_te'])
+
     em_function = model_kwargs["emission_mean_function"]
     ec_function = model_kwargs["emission_cov_function"]
     log_likelihood = model_kwargs["log_likelihood"]
@@ -161,17 +202,18 @@ def make_mlp_reg(args, data):
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
         summary = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
-        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val}
+        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
+                   'nlpd_gauss': nlpd_te_gauss, 'nlpd_linreg': nlpd_te_linreg}
         return results, summary
 
-    d = {
+    dct = {
         'model_kwargs': model_kwargs,
         'callback': callback,
         'process_callback': process_callback,
         'name': model_name,
         'nparams': model_kwargs['nparams'],
         }
-    return d
+    return dct
 
 def initialize_mlp_model_reg(key, features, x, init_var, emission_noise, use_bias=True):
     if isinstance(key, int):

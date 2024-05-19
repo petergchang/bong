@@ -31,23 +31,8 @@ def run_agent(key, agent, data, model):
     return results, elapsed, summary
 
 
-def add_column_of_ones(A):
-    ones_column = np.ones((A.shape[0], 1))
-    A_with_ones = np.hstack((A, ones_column))
-    return A_with_ones
-
-def add_ones_to_covariates(data):
-    data['X_tr'] = add_column_of_ones(data['X_tr'])
-    data['X_val'] = add_column_of_ones(data['X_val'])
-    data['X_te'] = add_column_of_ones(data['X_te'])
-    return data
-
 def make_results(args):
     data = make_dataset(args)
-    if args.add_ones:
-        data = add_ones_to_covariates(data)
-        args.data_dim = args.data_dim + 1
-
     model = make_model(args, data)
 
     #name = f'{args.algo}_{args.param}' # eg bong-fc_mom, must match keys of AGENT_DICT

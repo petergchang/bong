@@ -11,6 +11,7 @@ import jax.numpy as jnp
 
 from job_utils import extract_results_from_files, extract_metrics_from_files
 from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
+from bong.util import add_jitter, convolve_smooth, make_plot_params
 
 
 def plot_results_from_images_old(root_dir, data_dir, model_dir, agent_dir, metrics=['nll',  'nlpd']):
@@ -27,6 +28,7 @@ def plot_results_from_images_old(root_dir, data_dir, model_dir, agent_dir, metri
     y_offset = {1: 1, 2: 0.9, 3: 0.8}
     fig.suptitle(ttl, y=y_offset[ncols])
 
+# keep for backwards comptatility
 def make_marker(name):
     #https://matplotlib.org/stable/api/markers_api.html
     markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '+'}
@@ -42,33 +44,6 @@ def make_marker(name):
     else:
         return '.'
 
-
-def make_plot_params(algo, ef, lin):
-    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
-    marker = markers[algo]
-    if (ef==0) & (lin==0):
-        linestyle = '-'
-    elif (ef==1) & (lin==0): 
-        linestyle = '--'
-    else:
-        linestyle = '-.' # lin==1
-    return {
-            'linestyle': linestyle,
-            'linewidth': 1,
-            'marker': marker,
-            'markersize': 10
-            }
-
-
-
-def add_jitter(x, jitter_amount=0.1):
-    return x + np.random.uniform(-jitter_amount, jitter_amount, size=x.shape)
-
-
-def convolve_smooth(time_series, width=5): 
-    kernel = jnp.ones(width) / width
-    smoothed_time_series = jnp.convolve(time_series, kernel, mode='same')
-    return smoothed_time_series
 
 
 def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5, max_len=1000,

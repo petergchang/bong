@@ -12,23 +12,10 @@ import json
 
 from job_utils import extract_results_from_files, extract_metrics_from_files
 from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
+from bong.util import add_jitter, convolve_smooth, make_plot_params
 
 
-def make_plot_params(algo, ef, lin):
-    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': '*'}
-    marker = markers[algo]
-    if (ef==0) & (lin==0):
-        linestyle = '-'
-    elif (ef==1) & (lin==0): 
-        linestyle = '--'
-    else:
-        linestyle = ':' # lin==1
-    return {
-            'linestyle': linestyle,
-            'linewidth': 2,
-            'marker': marker,
-            'markersize': 10
-            }
+
 
 
 def main(args):
@@ -82,14 +69,14 @@ def main(args):
     fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
     fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
 
-    fig, ax = make_figure(nparams_per_agent, times_per_agent, full_name_dict)
-    ax.set_yscale('log')
-    fname = f"{fig_dir}/times_log"
+    fig, ax = make_figure(nparams_per_agent, times_per_agent, full_name_dict, jitter=True)
+    #ax.set_yscale('log')
+    fname = f"{fig_dir}/times_jitter"
     print(f'Saving figure to {fname}')
     fig.savefig(f'{fname}.png', bbox_inches='tight', dpi=300)
     fig.savefig(f'{fname}.pdf', bbox_inches='tight', dpi=300)
 
-def make_figure(nparams_per_agent, times_per_agent, full_name_per_agent):
+def make_figure(nparams_per_agent, times_per_agent, full_name_per_agent, jitter=False):
     agent_names = full_name_per_agent.keys()
     fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     for agent in agent_names:
@@ -97,7 +84,10 @@ def make_figure(nparams_per_agent, times_per_agent, full_name_per_agent):
         parts = parse_full_name(agent_name_long)
         algo, param, lin, ef = parts['algo'], parts['param'], parts['lin'], parts['ef']
         kwargs = make_plot_params(algo, ef, lin)
-        ax.plot(nparams_per_agent[agent], times_per_agent[agent], label=agent, **kwargs)
+        xs, ys = nparams_per_agent[agent], times_per_agent[agent]
+        if jitter:
+            xs = add_jitter(xs, jitter_amount=10)
+        ax.plot(xs, ys, label=agent, **kwargs)
     ax.grid()
     ax.legend()
     ax.set_ylabel("Elapsed time per step (sec)")

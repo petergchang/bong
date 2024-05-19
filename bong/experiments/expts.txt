@@ -1,48 +1,41 @@
 
-
-
-
-
-
-JOB_NAME="sweep2"
+JOB_NAME="timingfc1"
 MODEL_TYPE="mlp"
-MODEL_STR="2_1"
-ALGO_LIST=("bong" "bog") 
-PARAM_LIST=("dlr") 
-LR_LIST=(0.001 0.005 0.01)
-NSAMPLE_LIST=(100)
-NITER_LIST=(10)
+MODEL_STR_LIST=("10_1"  "20_1" "30_1" "50_1" "50_1")
+ALGO_LIST=("bong" "bog" "blr" "bbb") 
+PARAM_LIST=("fc") 
+LR=0.001
+NSAMPLE=100
+NITER=1
 EF_LIST=(0 1)
 LIN_LIST=(0 1)
-RANK_LIST=(1)
+RANK_LIST=(10)
 DATASET="reg"
-DATADIM=5
+DATADIM=10
 NTRAIN=500
 DGP_TYPE="mlp"
 DGP_STR="20_20_1"
 DIR=~/jobs/$JOB_NAME
-MACHINE="local"
+MACHINE="A10G"
 
-
-JOB_NAME="timing1"
+JOB_NAME="timingfc2"
 MODEL_TYPE="mlp"
-MODEL_STR_LIST=("2_1" "10_1")
-ALGO_LIST=("bong" "bog") 
-PARAM_LIST=("diag") 
+MODEL_STR_LIST=("10_1"  "40_1" "70_1"  "100_1")
+ALGO_LIST=("bong" "bog" "blr" "bbb") 
+PARAM_LIST=("fc") 
 LR=0.001
 NSAMPLE=100
-NITER=10
+NITER=1
 EF_LIST=(0 1)
 LIN_LIST=(0 1)
-RANK_LIST=(1 10)
+RANK_LIST=(10)
 DATASET="reg"
-DATADIM=5
-NTRAIN=50
+DATADIM=10
+NTRAIN=500
 DGP_TYPE="mlp"
 DGP_STR="20_20_1"
 DIR=~/jobs/$JOB_NAME
-MACHINE="local"
-
+MACHINE="A10G"
 
 JOB_NAME="timingdlr3"
 MODEL_TYPE="mlp"
@@ -62,6 +55,25 @@ DGP_TYPE="mlp"
 DGP_STR="20_20_1"
 DIR=~/jobs/$JOB_NAME
 MACHINE="A10G"
+
+JOB_NAME="sweep2"
+MODEL_TYPE="mlp"
+MODEL_STR="2_1"
+ALGO_LIST=("bong" "bog") 
+PARAM_LIST=("dlr") 
+LR_LIST=(0.001 0.005 0.01)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(0 1)
+LIN_LIST=(0 1)
+RANK_LIST=(1)
+DATASET="reg"
+DATADIM=5
+NTRAIN=500
+DGP_TYPE="mlp"
+DGP_STR="20_20_1"
+DIR=~/jobs/$JOB_NAME
+MACHINE="local"
 
 
 

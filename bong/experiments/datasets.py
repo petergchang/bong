@@ -17,7 +17,7 @@ import optax
 from sklearn import preprocessing
 import tensorflow_probability.substrates.jax as tfp
 from ucimlrepo import fetch_ucirepo
-
+import os
 
 from bong.util import run_rebayes_algorithm, gaussian_kl_div, MLP
 from job_utils import make_neuron_str, parse_neuron_str
@@ -27,6 +27,17 @@ from models import initialize_mlp_model_reg, initialize_mlp_model_cls
 
 tfd = tfp.distributions
 MVN = tfd.MultivariateNormalTriL
+
+def add_column_of_ones(A):
+    ones_column = np.ones((A.shape[0], 1))
+    A_with_ones = np.hstack((A, ones_column))
+    return A_with_ones
+
+def add_ones_to_covariates(data):
+    data['X_tr'] = add_column_of_ones(data['X_tr'])
+    data['X_val'] = add_column_of_ones(data['X_val'])
+    data['X_te'] = add_column_of_ones(data['X_te'])
+    return data
 
 def make_dataset(args):
     if args.dataset == "reg":
@@ -43,7 +54,70 @@ def make_dataset(args):
             data = make_data_cls_mlp(args)
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
+    elif args.dataset == "sarcos":
+        data = make_sarcos_data(args.ntrain, args.nval, args.ntest)
+
+    if args.add_ones:
+        data = add_ones_to_covariates(data)
+        args.data_dim = args.data_dim + 1
     return data
+
+### SARCOS robot arm data
+
+
+def get_sarcos_data(ntrain, nval, ntest):
+    # https://gaussianprocess.org/gpml/data/
+    import scipy.io
+    cwd = Path(os.getcwd())
+    root = cwd
+    script_path = os.path.abspath(__file__)
+    script_dir = os.path.dirname(script_path)
+    #folder = '/teamspace/studios/this_studio/bong/bong/data'
+    folder = f'{script_dir}/../data/'
+
+    mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv.mat') # (44484, 28)
+    data_train = mat_data['sarcos_inv']
+    max_ntrain = data_train.shape[0] 
+    assert ntrain < max_ntrain
+    idx_tr = np.arange(0, ntrain)
+    X_tr = data_train[idx_tr, :21]
+    Y_tr = data_train[idx_tr, 21] # column 22
+
+
+    if nval > 0:
+        idx_val = np.arange(ntrain, ntrain+nval)
+        X_val = data_train[idx_val, :21]
+        Y_val = data_train[idx_val, 21] # column 22
+    else:
+        X_val, Y_val = X_tr, Y_tr
+
+    mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv_test.mat') # (4449, 28)
+    data_test = mat_data['sarcos_inv_test']
+    max_ntest = data_test.shape[0] 
+    assert ntest < max_ntest
+    if ntest == 0: ntest = max_ntest # Use full test set
+    idx_te = np.arange(0, ntest)
+    X_te = data_test[idx_te, :21]
+    Y_te = data_test[idx_te, 21] # column 22
+
+    name = 'sarcos'
+    # We return X_train (full data) for debugging
+    data = {
+        'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name, 
+        'X_train': data_train[:, :21], 'Y_train': data_train[:, 22],
+        'X_test': data_test[:, :21], 'Y_test': data_test[:, 22],
+    }
+    return data
+
+
+def standardize_data(data, add_ones=True): #WIP
+    scaler = preprocessing.StandardScaler().fit(data['X_train'])
+    Xtrain = scaler.transform(data['X_train'])
+    Xtrain = add_col_ones(scaler.transform(data['X_train']))
+    Xtest = add_col_ones(scaler.transform(data['X_test']))
+    ytrain, ytest = data['Y_train'], data['Y_test']
+    mu_y, v_y = jnp.mean(ytrain), jnp.var(ytrain)
+    ytrain, ytest = ytrain - mu_y, ytest - mu_y
 
 ### LINREG generators
 

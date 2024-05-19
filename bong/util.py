@@ -90,6 +90,76 @@ def make_file_with_timestamp(dir):
     with open(filename, 'w') as file:
         pass  # This creates an empty file
 
+# https://matplotlib.org/stable/gallery/lines_bars_and_markers/marker_reference.html
+marker_types = {
+    'point': '.',
+    'pixel': ',',
+    'circle': 'o',
+    'triangle_down': 'v',
+    'triangle_up': '^',
+    'triangle_left': '<',
+    'triangle_right': '>',
+    'tri_down': '1',
+    'tri_up': '2',
+    'tri_left': '3',
+    'tri_right': '4',
+    'square': 's',
+    'pentagon': 'p',
+    'star': '*',
+    'hexagon1': 'h',
+    'hexagon2': 'H',
+    'plus': '+',
+    'x': 'x',
+    'diamond': 'D',
+    'thin_diamond': 'd',
+    'vline': '|',
+    'hline': '_'
+}
+
+def make_plot_params(algo, ef, lin):
+    if lin:
+        markers = {'bong': 'v', 'blr': '*', 'bbb': 'X', 'bog': 's'}
+    else:
+        markers = {'bong': '^', 'blr': 'd', 'bbb': 'P', 'bog': 'o'}
+    marker = markers[algo]
+    if (ef==0) and (lin==0): # sampled Hessians
+        linestyle = ':'
+    else:
+        linestyle = '-' 
+    return {
+            'linestyle': linestyle,
+            'linewidth': 2,
+            'marker': marker,
+            'markersize': 9
+            }
+
+def old_make_plot_params(algo, ef, lin):
+    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': marker_types['triangle_up']}
+    marker = markers[algo]
+    if (ef==0) & (lin==0):
+        linestyle = '-'
+    elif (ef==1) & (lin==0): 
+        linestyle = '--'
+    else:
+        linestyle = ':' # lin==1
+    return {
+            'linestyle': linestyle,
+            'linewidth': 2,
+            'marker': marker,
+            'markersize': 10
+            }
+
+
+def add_jitter(x, jitter_amount=0.1):
+    return x + np.random.uniform(-jitter_amount, jitter_amount, size=x.shape)
+
+
+def convolve_smooth(time_series, width=5): 
+    kernel = jnp.ones(width) / width
+    smoothed_time_series = jnp.convolve(time_series, kernel, mode='same')
+    return smoothed_time_series
+
+
 def safestr(lr):
     '''Convert float to string, replacing . with _, so can be used as a filename.
     0.0056 -> 0_0056, 0.00566 -> 0_0057

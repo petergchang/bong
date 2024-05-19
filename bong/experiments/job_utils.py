@@ -82,7 +82,7 @@ def extract_metrics_from_files(dir, exclude_val=True, jobs_file="jobs.csv"):
     df = pd.read_csv(fname)
     jobnames = df['jobname']
     jobname = jobnames[0]
-    fname = f"{dir}/{jobname}/work/results.csv"
+    fname = f"{dir}/jobs/{jobname}/results.csv"
     df_res = pd.read_csv(fname)
     metrics =  df_res.columns
     if exclude_val:
@@ -98,7 +98,7 @@ def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):
     jobnames = df['jobname']
     results = {}
     for jobname in jobnames:
-        fname = f"{dir}/{jobname}/work/results.csv"
+        fname = f"{dir}/jobs/{jobname}/results.csv"
         if not os.path.isfile(fname):
             print(f'This file does not exist, skipping:', fname)
             continue
