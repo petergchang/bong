@@ -292,10 +292,10 @@ def update_dlrg_blr(
     G = jnp.linalg.pinv(
         jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag_tilde)
     )
-    mean_update = (1/prec_diag_tilde - (prec_lr_tilde/prec_diag_tilde @ G) @ 
-                   (prec_lr_tilde/prec_diag).T) @ \
+    mean_update = (1/prec_diag_tilde - ((prec_lr_tilde/prec_diag_tilde) @ G) @ 
+                   (prec_lr_tilde/prec_diag_tilde).T) @ \
                   (prec_diag0.ravel() * (mean0 - mean) + 
-                   prec_lr @ (prec_lr0.T @ (mean0 - mean)) + g)
+                   prec_lr0 @ (prec_lr0.T @ (mean0 - mean)) + g)
     new_mean = mean + learning_rate * mean_update.ravel()
     U, Lamb = fast_svd(prec_lr_tilde)
     U_new, Lamb_new = U[:, :L], Lamb[:L]
@@ -360,9 +360,9 @@ def update_ldlrg_blr(
         jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag_tilde)
     )
     mean_update = (1/prec_diag_tilde - (prec_lr_tilde/prec_diag_tilde @ G) @ 
-                   (prec_lr_tilde/prec_diag).T) @ \
+                   (prec_lr_tilde/prec_diag_tilde).T) @ \
                   (prec_diag0.ravel() * (mean0 - mean) + 
-                   prec_lr @ (prec_lr0.T @ (mean0 - mean)) + 
+                   prec_lr0 @ (prec_lr0.T @ (mean0 - mean)) + 
                    (H.T @ A) @ A.T  @ (y - y_pred))
     new_mean = mean + learning_rate * mean_update
     U, Lamb = fast_svd(prec_lr_tilde)
