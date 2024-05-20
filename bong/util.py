@@ -130,24 +130,9 @@ def make_plot_params(algo, ef, lin):
             'linestyle': linestyle,
             'linewidth': 2,
             'marker': marker,
-            'markersize': 9
+            'markersize': 8
             }
 
-def old_make_plot_params(algo, ef, lin):
-    markers = {'bong': 'o', 'blr': 's', 'bog': 'x', 'bbb': marker_types['triangle_up']}
-    marker = markers[algo]
-    if (ef==0) & (lin==0):
-        linestyle = '-'
-    elif (ef==1) & (lin==0): 
-        linestyle = '--'
-    else:
-        linestyle = ':' # lin==1
-    return {
-            'linestyle': linestyle,
-            'linewidth': 2,
-            'marker': marker,
-            'markersize': 10
-            }
 
 
 def add_jitter(x, jitter_amount=0.1):

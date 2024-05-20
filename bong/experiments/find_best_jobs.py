@@ -21,7 +21,7 @@ def main(args):
     #df_filtered = df.drop(indices_to_drop)
    
 
-    grouped = df.groupby(['algo', 'param', 'lin', 'ef', 'niter'])
+    grouped = df.groupby(['algo', 'param', 'lin', 'ef', 'niter', 'model_str'])
     # Find the indices of the max score within each group
     idx = grouped[args.metric].idxmin()
     # Use these indices to get the corresponding rows
@@ -37,8 +37,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str)
-    #parser.add_argument("--metric", type=str, default="nlpd_val_mid")
-    parser.add_argument("--metric", type=str, default="nlpd_te_final")
+    parser.add_argument("--metric", type=str, default="nlpd_val_mid")
+    #parser.add_argument("--metric", type=str, default="nlpd_te_final")
 
     args = parser.parse_args()
     main(args)

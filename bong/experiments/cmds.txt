@@ -1,30 +1,10 @@
 
 
-python make_jobs_for_timing.py \
-    --key $KEY \
-    --algo_list ${ALGO_LIST[@]} \
-    --param_list ${PARAM_LIST[@]} \
-    --model_type $MODEL_TYPE \
-    --model_str_list ${MODEL_STR_LIST[@]} \
-    --lr $LR  \
-    --nsample $NSAMPLE \
-    --niter $NITER \
-    --ef_list ${EF_LIST[@]}   \
-    --lin_list ${LIN_LIST[@]} \
-    --rank_list ${RANK_LIST[@]} \
-    --dataset $DATASET \
-    --data_dim $DATADIM \
-    --ntrain $NTRAIN \
-    --dgp_type $DGP_TYPE \
-    --dgp_str $DGP_STR \
-    --dir $DIR \
-    --job_name $JOB_NAME
 
-
-python make_jobs_for_sweep.py \
+python make_jobs.py \
     --key_list ${KEY_LIST[@]} \
     --model_type $MODEL_TYPE \
-    --model_str $MODEL_STR \
+    --model_str_list ${MODEL_STR_LIST[@]} \
     --algo_list ${ALGO_LIST[@]} \
     --param_list ${PARAM_LIST[@]} \
     --rank_list ${RANK_LIST[@]} \

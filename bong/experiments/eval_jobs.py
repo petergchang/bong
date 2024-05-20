@@ -53,7 +53,7 @@ def create_merged_df(results_dir):
     #print(df_jobs.columns)
     #df_jobs = df_jobs.drop(columns=['command'])
     df_jobs = df_jobs.drop(columns=['dataset', 'data_dim', 'dgp_type', 'dgp_str', 'ntrain'])
-    df_jobs  = df_jobs.drop(columns=['model_type', 'model_str'])
+    df_jobs  = df_jobs.drop(columns=['model_type'])
     df = pd.merge(df_jobs, df_eval, on='jobname', how='inner')
     return df
 

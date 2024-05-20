@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import jax.numpy as jnp
 import matplotlib.cm as cm
+from matplotlib.lines import Line2D
 
 from job_utils import extract_results_from_files, extract_metrics_from_files, append_results_with_baselines
 from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
@@ -48,13 +49,16 @@ def make_marker(name):
 
 
 def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5, max_len=100_000,
-                exclude='', include=''):
+                exclude='', include='', jitter=False):
     jobnames = results.keys()
     fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     njobs = len(jobnames)
     fs = (12 if njobs <= 6 else 8)
     njobs = len(jobnames)
     colors = cm.tab20(np.linspace(0, 1, njobs))
+    markers = []
+    labels = []
+    num_lines = njobs
     for i, jobname in enumerate(jobnames):
         res = results[jobname]
         vals = res['vals']
@@ -90,28 +94,34 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         ys = vals[ndx]
         if smoothed and len(vals)==res['valid_len']:
             ys = convolve_smooth(ys, width=5, mode='valid')
-            # eed to truncate xs for valid kernel
+            # need to truncate xs for valid kernel
             xs = xs[2:]
             xs = xs[:-2]
 
-        ax.plot(xs, ys, markevery=20, label=expt_name, color=colors[i], **plot_params)
-        
-        if 0:
-            line, = ax.plot(xs, ys) #, label=expt_name) # **plot_params)
-            markers_on = np.arange(0, len(xs), 10)
-            jittered_x = add_jitter(xs[markers_on])
-            ax.plot(jittered_x, ys[markers_on], color=line.get_color(), **plot_params, label=expt_name)
 
-        ax.grid(True)
-        ax.legend(loc='upper right', prop={'size': fs})
-        ax.set_ylabel(metric, fontsize=12)
-        ax.set_xlabel('num. training observations', fontsize=12)
-        #ax.set_ylim(stats['qlow'], stats['qhigh']) # truncate outliers
+        if not jitter:
+            ax.plot(xs, ys, markevery=20, label=expt_name, color=colors[i], **plot_params)
+        else:
+            line, = ax.plot(xs, ys, color=colors[i], label=expt_name) # **plot_params)
+            markers_on = np.arange(0, len(xs), 20)
+            jittered_x = add_jitter(xs[markers_on], jitter_amount=20)
+            marker = plot_params['marker']
+            ax.scatter(jittered_x, ys[markers_on], color=colors[i], marker=marker, label=expt_name)
+            markers.append(marker)
+            labels.append(expt_name)
+
+    ax.grid(True)
+    legend_handles = [Line2D([0], [0], color=colors[i], marker=markers[i], linestyle='-', label=labels[i]) for i in range(num_lines)]
+    ax.legend(handles=legend_handles)
+    #ax.legend(loc='upper right', prop={'size': fs})
+    ax.set_ylabel(metric, fontsize=12)
+    ax.set_xlabel('num. training observations', fontsize=12)
+    #ax.set_ylim(stats['qlow'], stats['qhigh']) # truncate outliers
         
     return fig, ax
 
 def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, truncated=False, 
-            exclude='', include='', name='', first_step=5):
+            exclude='', include='', name='', first_step=5, jitter=False):
     jobnames = list(results.keys())
     jobname = jobnames[0]
     res = results[jobname] # we assume all jobs use the same model and data
@@ -121,7 +131,7 @@ def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, trun
     #stats = extract_stats(results)
     max_len = (250 if truncated else 100_000)
     fig, ax = plot_timeseries(results,  metric,  smoothed=smoothed, max_len=max_len, 
-            exclude=exclude, include=include, first_step=first_step)
+            exclude=exclude, include=include, first_step=first_step, jitter=jitter)
     ttl = f'{name} Model {model_name}. Data {data_name}'
     ax.set_title(ttl, fontsize=10)
 
@@ -133,6 +143,8 @@ def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, trun
         fname = fname + "_smoothed"
     if truncated:
         fname = fname + "_truncated"
+    if jitter:
+        fname = fname + "_jitter"
     if len(name)>0:
         fname = fname + f"_{name}"
     print(f'Saving figure to {fname}')
@@ -173,10 +185,12 @@ def main(args):
     for metric in metrics:
         results = extract_results_from_files(results_dir,  metric, args.jobs_file)
         results = append_results_with_baselines(results, results_dir,  metric, args.jobs_file)
+        #plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
+        #            name=args.name, first_step=args.first_step)    
+        #plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
+        #            name=args.name, first_step=args.first_step, smoothed=True) 
         plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
-                    name=args.name, first_step=args.first_step)    
-        plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
-                    name=args.name, first_step=args.first_step, smoothed=True) 
+                    name=args.name, first_step=args.first_step, smoothed=True, jitter=True) 
         #plot_and_save(results, metric, fig_dir,  use_log=True,  exclude=args.exclude, include=args.include,
         #            name=args.name, first_step=args.first_step, smoothed=True)
     

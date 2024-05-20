@@ -106,8 +106,8 @@ if __name__ == "__main__":
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
     parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
     parser.add_argument("--emission_noise", type=float, default=-1)
-    parser.add_argument("--ntrain", type=int, default=500)
-    parser.add_argument("--nval", type=int, default=500)
+    parser.add_argument("--ntrain", type=int, default=1000)
+    parser.add_argument("--nval", type=int, default=1000)
     parser.add_argument("--ntest", type=int, default=1000)
     parser.add_argument("--add_ones", type=int, default=0)
     parser.add_argument("--linreg_baseline", type=int, default=0)

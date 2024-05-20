@@ -96,6 +96,7 @@ def get_sarcos_data(key, args):
 
     if (nval == 0) or (ntrain+nval > max_ntrain):
         X_val, Y_val = X_tr, Y_tr
+        print('setting val to training')
     else:
         idx_val = jnp.arange(ntrain, ntrain+nval)
         X_val = data_train[idx_val, :21]

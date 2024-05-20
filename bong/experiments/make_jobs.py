@@ -21,7 +21,7 @@ def main(args):
     df = make_df_crossproduct(
         args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.rank_list, [args.model_str], args.key_list)
+        args.ef_list, args.rank_list, args.model_str_list, args.key_list)
 
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
     df['dataset'] = args.dataset
@@ -90,7 +90,9 @@ if __name__ == "__main__":
 
     # Model parameters
     parser.add_argument("--model_type", type=str, default="lin") # or mlp
-    parser.add_argument("--model_str", type=str, default="") # 20_20_1 
+    #parser.add_argument("--model_str", type=str, default="") # 20_20_1 
+    parser.add_argument("--model_str_list", type=str, nargs="+", default="")
+
 
     args = parser.parse_args()
     print(args)
