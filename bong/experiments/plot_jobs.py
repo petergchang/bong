@@ -60,6 +60,8 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         vals = res['vals']
         agent_name = res['agent_name']
         full_name = res['agent_full_name']
+        parts = parse_full_name(full_name)
+        algo, ef, lin, niter = parts['algo'], parts['ef'], parts['lin'], parts['niter']
         T = len(vals)
         #elapsed = 1000*round(res['elapsed']/T) # milliseconds per step
         elapsed = res['elapsed'] #/T # iseconds per step
@@ -69,8 +71,6 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
             plot_params = {'linestyle': ':', 'linewidth': 2}
             expt_name =  f'{agent_name}'
         else:
-            parts = parse_full_name(full_name)
-            algo, ef, lin = parts['algo'], parts['ef'], parts['lin']
             plot_params = make_plot_params(algo, ef, lin)
             expt_name =  f'{agent_name} [{elapsed:.1f} s]'
         
@@ -88,7 +88,7 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         ndx = steps[first_step:T:step_size] #  skip first K time steps, since it messes up the vertical scale
         xs = steps[ndx]
         ys = vals[ndx]
-        if smoothed:
+        if smoothed and len(vals)==res['valid_len']:
             ys = convolve_smooth(ys, width=5, mode='valid')
             # eed to truncate xs for valid kernel
             xs = xs[2:]
@@ -169,7 +169,7 @@ def main(args):
     path = Path(fig_dir)
     path.mkdir(parents=True, exist_ok=True)   
     #make_file_with_timestamp(results_dir)
-    metrics = extract_metrics_from_files(results_dir,  jobs_file=args.jobs_file, exclude_val=False)
+    metrics = extract_metrics_from_files(results_dir,  jobs_file=args.jobs_file, exclude_val=True)
     for metric in metrics:
         results = extract_results_from_files(results_dir,  metric, args.jobs_file)
         results = append_results_with_baselines(results, results_dir,  metric, args.jobs_file)
@@ -177,6 +177,8 @@ def main(args):
                     name=args.name, first_step=args.first_step)    
         plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
                     name=args.name, first_step=args.first_step, smoothed=True) 
+        #plot_and_save(results, metric, fig_dir,  use_log=True,  exclude=args.exclude, include=args.include,
+        #            name=args.name, first_step=args.first_step, smoothed=True)
     
 
 

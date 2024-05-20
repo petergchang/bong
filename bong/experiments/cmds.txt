@@ -67,6 +67,7 @@ python find_best_jobs.py --dir $DIR
 
 python plot_jobs.py --dir $DIR --jobs_file jobs.csv 
 
+python plot_jobs.py --dir $DIR --jobs_file jobs.csv --name nolin --exclude "(lin == 1)"
 
 python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr
 
