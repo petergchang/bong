@@ -157,15 +157,76 @@ def unsafestr(lr_str):
     '''Convert string to float, replacing _ with .'''
     lr_str = lr_str.replace('_', '.')
     return float(lr_str)
+    
 
 def make_full_name(algo, param, rank, linplugin, ef, nsamples, niter, lr):
-    s = f"{algo}-{param}-R{rank}-Lin{linplugin}-EF{ef}-MC{nsamples}-I{niter}-LR{safestr(lr)}"
+    algo_str = algo
+    if param == 'dlr':
+        param_str = f'dlr{rank}'
+    else:
+        param_str = param # fc, fc_mom, diag, diag_mom
+    if linplugin == 1:
+        hess_str = 'Lin' # LinHess
+    elif ef==1:
+        hess_str = f'EF{nsamples}' # MC-EF
+    else:
+        hess_str = f'MC{nsamples}' # MC-Hess
+    if (algo=="bong") or (algo=="bog"):
+        iter_str = None
+    else:
+        iter_str = f'It{niter}'
+    if algo=="bong":
+        lr_str = None
+    else:
+       lr_str =  f'LR{safestr(lr)}'
+    s = '-'.join([algo_str, param_str, hess_str])
+    if (iter_str is not None):
+        s = s + "-" + iter_str
+    if (lr_str is not None):
+        s = s + "-" + lr_str
+    #s = f"{algo}-{param}-R{rank}-Lin{linplugin}-EF{ef}-MC{nsamples}-I{niter}-LR{safestr(lr)}"
     return s
+
 
 def parse_full_name(s):
     parts = s.split('-')
-    algo, param, rank, lin, ef, mc, niter, lr = parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7]
-    mc, niter, lr, ef, lin, rank = mc[2:], niter[1:], lr[2:], ef[2:], lin[3:], rank[1:] # strip off text prefix
+    unk = 99
+    algo, param_str, hess_str = parts[0], parts[1], parts[2]
+    if param_str[:3] == 'dlr':
+        rank = int(param_str[3:])
+        param = 'dlr'
+    else:
+        rank = unk
+        param = param_str
+    if hess_str == 'Lin':
+        lin = 1
+        ef = 0
+        nsamples = unk
+    elif hess_str[:2] == 'EF':
+        lin = 0;
+        ef = 1
+        nsamples = int(hess_str[2:])
+    elif hess_str[:2] == 'MC':
+        lin = 0
+        ef = 0
+        nsamples = int(hess_str[2:])
+    else:
+        print('bad hess_str',hess_str)
+    if len(parts)==3: # bong
+        assert(algo == 'bong')
+        niter = unk
+        lr = unk
+    if len(parts)==4: # LR but not Iter
+        assert(algo == 'bog')
+        lr_str = parts[3]
+        lr = unsafestr(lr_str[2:])
+        niter = unk
+    elif len(parts)==5:
+        niter_str = parts[3]
+        niter = int(niter_str[2:])
+        lr_str = parts[4]
+        lr = unsafestr(lr_str[2:])
+        
     return {
         'full_name': s, 
         'algo': algo,
@@ -173,10 +234,12 @@ def parse_full_name(s):
         'rank': int(rank),
         'lin': int(lin),
         'ef': int(ef),
-        'mc': int(mc),
+        'mc': int(nsamples),
         'niter': int(niter),
-        'lr': unsafestr(lr),
+        'lr': lr,
         }
+
+
         
     
 def find_first_true(arr):

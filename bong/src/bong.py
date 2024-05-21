@@ -682,14 +682,11 @@ class fg_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        rank = 0
-        num_iter = 1
-        learning_rate = 0
+        rank = 99
+        num_iter = 99
+        learning_rate = 99
         full_name = make_full_name("bong", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bong-fc-lin"
-        else:
-           name = f"bong-fc-EF{empirical_fisher}-MC{num_samples}"
+        name = full_name
 
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -771,13 +768,11 @@ class dlrg_bong:
         rank: int=10,
         **kwargs
     ):
-        num_iter = 1
-        learning_rate = 0
+        num_iter = 99
+        learning_rate = 99
         full_name = make_full_name("bong", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bong-dlr{rank}-lin"
-        else:
-           name = f"bong-dlr{rank}-EF{empirical_fisher}-MC{num_samples}"
+        name = full_name
+
 
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
@@ -858,14 +853,12 @@ class dg_bong:
         *args,
         **kwargs
     ):
-        rank = 0
-        num_iter = 1
-        learning_rate = 0
+        rank = 99
+        num_iter = 99
+        learning_rate = 99
         full_name = make_full_name("bong", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bong-diag-lin"
-        else:
-           name = f"bong-diag-EF{empirical_fisher}-MC{num_samples}"
+        name = full_name
+
 
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -945,14 +938,12 @@ class fg_reparam_bong:
         *args,
         **kwargs
     ):
-        rank = 0
-        num_iter = 1
-        learning_rate = 0
+        rank = 99
+        num_iter = 99
+        learning_rate = 99
         full_name = make_full_name("bong", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bong-fc_mom-lin"
-        else:
-           name = f"bong-fc_mom-EF{empirical_fisher}-MC{num_samples}"
+        name = full_name
+
 
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -1031,14 +1022,12 @@ class dg_reparam_bong:
         empirical_fisher: bool=False,
         **kwargs
     ):
-        rank = 0
-        num_iter = 1
-        learning_rate = 0
+        rank = 99
+        num_iter = 99
+        learning_rate = 99
         full_name = make_full_name("bong", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bong-diag_mom-lin"
-        else:
-           name = f"bong-diag_mom-EF{empirical_fisher}-MC{num_samples}"
+        name = full_name
+
 
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):

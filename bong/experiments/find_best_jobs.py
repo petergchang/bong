@@ -21,7 +21,7 @@ def main(args):
     #df_filtered = df.drop(indices_to_drop)
    
 
-    grouped = df.groupby(['algo', 'param', 'lin', 'ef', 'niter', 'model_str'])
+    grouped = df.groupby(['algo', 'param', 'lin', 'ef', 'niter', 'model_str', 'dlr_rank'])
     # Find the indices of the max score within each group
     idx = grouped[args.metric].idxmin()
     # Use these indices to get the corresponding rows

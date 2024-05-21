@@ -58,8 +58,8 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
     colors = cm.tab20(np.linspace(0, 1, njobs))
     markers = []
     labels = []
-    num_lines = njobs
-    for i, jobname in enumerate(jobnames):
+    i = 0
+    for jobname in jobnames:
         res = results[jobname]
         vals = res['vals']
         agent_name = res['agent_name']
@@ -69,6 +69,7 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         T = len(vals)
         #elapsed = 1000*round(res['elapsed']/T) # milliseconds per step
         elapsed = res['elapsed'] #/T # iseconds per step
+        final_val = vals[-1]
 
         
         if full_name == 'baseline':
@@ -76,15 +77,18 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
             expt_name =  f'{agent_name}'
         else:
             plot_params = make_plot_params(algo, ef, lin)
-            expt_name =  f'{agent_name} [{elapsed:.1f} s]'
+            expt_name =  f'{agent_name} [sec:{elapsed:.1f}, {metric}:{final_val:.2f}]'
         
         if len(exclude) > 1:
             skip_result = eval(exclude)
-            if skip_result: continue
+            if skip_result: 
+                print(f'Excluding {exclude}')
+                continue
         if len(include) > 1:
             keep_result = eval(include)
-            if not keep_result: continue
-
+            if not keep_result:
+                print(f'Not including {include}')
+                continue
 
         T = res['valid_len']
         T = min(T, max_len)
@@ -109,10 +113,13 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
             ax.scatter(jittered_x, ys[markers_on], color=colors[i], marker=marker, label=expt_name)
             markers.append(marker)
             labels.append(expt_name)
+        
+        i = i + 1 # This counts actual number of lines, which may be less than njobs due to exclusioh
 
+    num_lines = i
     ax.grid(True)
     legend_handles = [Line2D([0], [0], color=colors[i], marker=markers[i], linestyle='-', label=labels[i]) for i in range(num_lines)]
-    ax.legend(handles=legend_handles)
+    ax.legend(handles=legend_handles, loc='upper left')
     #ax.legend(loc='upper right', prop={'size': fs})
     ax.set_ylabel(metric, fontsize=12)
     ax.set_xlabel('num. training observations', fontsize=12)
@@ -132,7 +139,7 @@ def plot_and_save(results,  metric, fig_dir, use_log=False, smoothed=False, trun
     max_len = (250 if truncated else 100_000)
     fig, ax = plot_timeseries(results,  metric,  smoothed=smoothed, max_len=max_len, 
             exclude=exclude, include=include, first_step=first_step, jitter=jitter)
-    ttl = f'{name} Model {model_name}. Data {data_name}'
+    ttl = f'Model: {model_name}. Data: {data_name}. Opt: {name}'
     ax.set_title(ttl, fontsize=10)
 
     fname = f"{fig_dir}/{metric}"

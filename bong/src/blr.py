@@ -759,12 +759,9 @@ class fg_blr:
         num_iter: int=10,
         **kwargs
     ):
-        rank = 0
+        rank = 99
         full_name = make_full_name("blr", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"blr-fc-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"blr-fc-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
 
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -861,10 +858,8 @@ class dlrg_blr:
         **kwargs
     ):
         full_name = make_full_name("blr", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"blr-dlr{rank}-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"blr-dlr{rank}-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
+
 
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
@@ -958,12 +953,9 @@ class dg_blr:
         num_iter: int=10,
         **kwargs
     ):  
-        rank = 0
+        rank = 99
         full_name = make_full_name("blr", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"blr-diag-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"blr-diag-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
 
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -1052,12 +1044,10 @@ class fg_reparam_blr:
         num_iter: int=10,
         **kwargs
     ):
-        rank = 0
+        rank = 99
         full_name = make_full_name("blr", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"blr-fc_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"blr-fc_mom-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
+
 
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
@@ -1146,12 +1136,10 @@ class dg_reparam_blr:
         num_iter: int=10,
         **kwargs
     ):
-        rank = 0
+        rank = 99
         full_name = make_full_name("blr", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"blr-diag_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"blr-diag_mom-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
+
 
         init_cov = init_cov * jnp.ones(len(init_mean))
         if isinstance(process_noise, (int, float)):

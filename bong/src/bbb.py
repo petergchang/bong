@@ -966,10 +966,7 @@ class fg_bbb:
     ):
         rank = 0
         full_name = make_full_name("bbb", "fc", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bbb-fc-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"bbb-fc-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
         init_cov = init_cov * jnp.eye(len(init_mean))
         if isinstance(process_noise, (int, float)):
             process_noise = jax.tree_map(lambda x: process_noise, init_cov)
@@ -1065,10 +1062,7 @@ class dlrg_bbb:
         **kwargs
     ):
         full_name = make_full_name("bbb", "dlr", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bbb-dlr{rank}-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"bbb-dlr{rank}-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
  
         init_prec_diag = 1/init_cov * jnp.ones((len(init_mean), 1)) # Diagonal term
         init_lr = jnp.zeros((len(init_mean), rank)) # Low-rank term
@@ -1162,12 +1156,9 @@ class dg_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        rank = 0
+        rank = 99
         full_name = make_full_name("bbb", "diag", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bbb-diag-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"bbb-diag-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
 
 
         init_cov = init_cov * jnp.ones(len(init_mean))
@@ -1261,13 +1252,9 @@ class fg_reparam_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        rank = 0
+        rank = 99
         full_name = make_full_name("bbb", "fc_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bbb-fc_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"bbb-fc_mom-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
-
+        name = full_name
 
 
         init_cov = init_cov * jnp.eye(len(init_mean))
@@ -1361,12 +1348,9 @@ class dg_reparam_bbb:
         num_iter: int=10,
         **kwargs
     ):
-        rank = 0
+        rank = 99
         full_name = make_full_name("bbb", "diag_mom", rank, linplugin, empirical_fisher, num_samples, num_iter, learning_rate)
-        if linplugin:
-            name = f"bbb-diag_mom-lin-I{num_iter}-LR{safestr(learning_rate)}"
-        else:
-           name = f"bbb-diag_mom-EF{empirical_fisher}-MC{num_samples}-I{num_iter}-LR{safestr(learning_rate)}"
+        name = full_name
 
 
         init_cov = init_cov * jnp.ones(len(init_mean))

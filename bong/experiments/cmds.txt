@@ -51,29 +51,12 @@ python plot_jobs.py --dir $DIR --jobs_file jobs.csv --name nolin --exclude "(lin
 
 python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr
 
-python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr_excl_mc --exclude "(ef==0)"
+python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr_excl_blr --exclude "(algo=='blr')"
 
 
 
 ############### DO A SINGLE JOB
 
-MODEL_TYPE="mlp"
-MODEL_STR="10_1"
-ALGO="bog"
-PARAM="fc"
-LIN=1
-RANK=10
-LR=0.1
-NSAMPLE=100
-NITER=10
-EF=1
-DATASET="reg"
-DATADIM=5
-DGP_TYPE="mlp"
-DGP_STR="20_20_1" 
-NTRAIN=50
-LINREG_BASELINE=0
-DIR=/teamspace/studios/this_studio/jobs/debug
 
 
 
@@ -82,9 +65,9 @@ MODEL_STR="10_1"
 INIT_VAR=0.1
 USE_BIAS=1
 USE_BIAS_LAYER1=1
-EMISSION_NOISE=-1
-ALGO="bong"
-PARAM="fc"
+EMISSION_NOISE=99
+ALGO="blr"
+PARAM="dlr"
 LIN=0
 RANK=10
 LR=0.01
@@ -95,7 +78,7 @@ DATASET="sarcos"
 DATADIM=0
 DGP_TYPE="na"
 DGP_STR="na" 
-NTRAIN=1000
+NTRAIN=10
 LINREG_BASELINE=1
 DIR=/teamspace/studios/this_studio/jobs/debug
 
@@ -107,8 +90,6 @@ python do_job.py \
     --lin $LIN \
     --model_type $MODEL_TYPE \
     --model_str $MODEL_STR \
-    --use_bias $USE_BIAS \
-    --use_bias_layer1 $USE_BIAS_LAYER1 \
     --init_var $INIT_VAR \
     --emission_noise $EMISSION_NOISE \
     --lr $LR  \
