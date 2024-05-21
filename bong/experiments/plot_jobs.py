@@ -71,14 +71,7 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
         elapsed = res['elapsed'] #/T # iseconds per step
         final_val = vals[-1]
 
-        
-        if full_name == 'baseline':
-            plot_params = {'linestyle': ':', 'linewidth': 2}
-            expt_name =  f'{agent_name}'
-        else:
-            plot_params = make_plot_params(algo, ef, lin)
-            expt_name =  f'{agent_name} [sec:{elapsed:.1f}, {metric}:{final_val:.2f}]'
-        
+
         if len(exclude) > 1:
             skip_result = eval(exclude)
             if skip_result: 
@@ -89,6 +82,13 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
             if not keep_result:
                 print(f'Not including {include}')
                 continue
+                
+        if full_name == 'baseline':
+            plot_params = {'linestyle': ':', 'linewidth': 2}
+            expt_name =  f'{agent_name}'
+        else:
+            plot_params = make_plot_params(algo, ef, lin)
+            expt_name =  f'{agent_name} [sec:{elapsed:.1f}, {metric}:{final_val:.2f}]'
 
         T = res['valid_len']
         T = min(T, max_len)
@@ -105,17 +105,21 @@ def plot_timeseries(results,  metric, smoothed=False, first_step=10, step_size=5
 
         if not jitter:
             ax.plot(xs, ys, markevery=20, label=expt_name, color=colors[i], **plot_params)
+            marker = plot_params['marker']
         else:
             line, = ax.plot(xs, ys, color=colors[i], label=expt_name) # **plot_params)
-            markers_on = np.arange(0, len(xs), 20)
-            jittered_x = add_jitter(xs[markers_on], jitter_amount=20)
+            T = len(xs)
+            Tstep = int(T/20)
+            markers_on = np.arange(0, T, Tstep)
+            jittered_x = add_jitter(xs[markers_on], jitter_amount=int(0.01*T))
             marker = plot_params['marker']
-            ax.scatter(jittered_x, ys[markers_on], color=colors[i], marker=marker, label=expt_name)
-            markers.append(marker)
-            labels.append(expt_name)
+            ax.scatter(jittered_x, ys[markers_on], color=colors[i], marker=marker, s=10, label=expt_name)
+        markers.append(marker)
+        labels.append(expt_name)
         
         i = i + 1 # This counts actual number of lines, which may be less than njobs due to exclusioh
 
+    print(labels)
     num_lines = i
     ax.grid(True)
     legend_handles = [Line2D([0], [0], color=colors[i], marker=markers[i], linestyle='-', label=labels[i]) for i in range(num_lines)]
