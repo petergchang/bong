@@ -75,8 +75,8 @@ if __name__ == "__main__":
     parser.add_argument("--data_dim", type=int,  default=10)
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
     parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
-    parser.add_argument("--ntrain", type=int,  default=500)
-    parser.add_argument("--ntest", type=int,  default=500)
+    parser.add_argument("--ntrain", type=int,  default=1000)
+    parser.add_argument("--ntest", type=int,  default=1000)
 
     # Agent parameters
     parser.add_argument("--algo_list", type=str, nargs="+", default=["bong"])

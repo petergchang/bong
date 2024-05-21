@@ -718,6 +718,75 @@ LINREG_BASELINE=0
 DIR=~/jobs/$JOB_NAME
 MACHINE="A10G"
 
+
+JOB_NAME="paper-algo-dlr-medium-n10k" 
+KEY_LIST=(0)
+MODEL_TYPE="mlp"
+MODEL_STR_LIST=("30_30_1")
+INIT_VAR=0.01
+ALGO_LIST=("bong" "bog"  "bbb" "blr") 
+PARAM_LIST=("dlr")  
+LR_LIST=(5e-3 1e-2 5e-2 1e-1 5e-1)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(1)
+LIN_LIST=(0 1)
+RANK_LIST=(10)
+DATASET="sarcos"
+DATADIM=0
+NTRAIN=10000
+DGP_TYPE="na"
+DGP_STR="na"
+LINREG_BASELINE=0
+DIR=~/jobs/$JOB_NAME
+MACHINE="A10G"
+
+JOB_NAME="paper-algo-dlr-medium-n10k-lin-rank"  # no money
+KEY_LIST=(0)
+MODEL_TYPE="mlp"
+MODEL_STR_LIST=("30_30_1")
+INIT_VAR=0.01
+ALGO_LIST=("bong" "bog"  "bbb" "blr") 
+PARAM_LIST=("diag" "dlr")  
+LR_LIST=(5e-3 1e-2 5e-2 1e-1 5e-1)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(1)
+LIN_LIST=(1)
+RANK_LIST=(1 10)
+DATASET="sarcos"
+DATADIM=0
+NTRAIN=10000
+DGP_TYPE="na"
+DGP_STR="na"
+LINREG_BASELINE=0
+DIR=~/jobs/$JOB_NAME
+MACHINE="A10G"
+
+JOB_NAME="paper-algo-dlr-medium-n10k-lin-rank2"  
+KEY_LIST=(0)
+MODEL_TYPE="mlp"
+MODEL_STR_LIST=("30_30_1")
+INIT_VAR=0.01
+ALGO_LIST=("bong" "bog"  "bbb" "blr") 
+PARAM_LIST=("diag" "dlr")  
+LR_LIST=(5e-3 1e-2 5e-2 1e-1 5e-1)
+NSAMPLE_LIST=(100)
+NITER_LIST=(10)
+EF_LIST=(1)
+LIN_LIST=(1)
+RANK_LIST=(1 10)
+DATASET="sarcos"
+DATADIM=0
+NTRAIN=10000
+DGP_TYPE="na"
+DGP_STR="na"
+LINREG_BASELINE=0
+DIR=~/jobs/$JOB_NAME
+MACHINE="A10G"
+
+
+
 JOB_NAME="paper-param" # BAD (too big)
 KEY_LIST=(0)
 MODEL_TYPE="mlp"
