@@ -13,24 +13,24 @@ LR_AGENT_TYPES = ["fg_blr", "fg_bog", "fg_rep_bog", "fg_bbb", "fg_rep_bbb"]
 
 DIAG_BONG_DICT = {
     # BONG
-    "dg-bong": bong.dg_bong,
+    "dg-bong": partial(bong.dg_bong, empirical_fisher=True),
     "dg-l-bong": partial(bong.dg_bong, linplugin=True),
-    "dg-rep-bong": bong.dg_reparam_bong,
+    "dg-rep-bong": partial(bong.dg_reparam_bong, empirical_fisher=True),
     "dg-rep-l-bong": partial(bong.dg_reparam_bong, linplugin=True),
     # BOG
-    "dg-bog": bog.dg_bog,
+    "dg-bog": partial(bog.dg_bog, empirical_fisher=True),
     "dg-l-bog": partial(bog.dg_bog, linplugin=True),
-    "dg-rep-bog": bog.dg_reparam_bog,
+    "dg-rep-bog": partial(bog.dg_reparam_bog, empirical_fisher=True),
     "dg-rep-l-bog": partial(bog.dg_reparam_bog, linplugin=True),
     # BBB
-    "dg-bbb": bbb.dg_bbb,
+    "dg-bbb": partial(bbb.dg_bbb, empirical_fisher=True),
     "dg-l-bbb": partial(bbb.dg_bbb, linplugin=True),
-    "dg-rep-bbb": bbb.dg_reparam_bbb,
+    "dg-rep-bbb": partial(bbb.dg_reparam_bbb, empirical_fisher=True),
     "dg-rep-l-bbb": partial(bbb.dg_reparam_bbb, linplugin=True),
     # BLR
-    "dg-blr": blr.dg_blr,
+    "dg-blr": partial(blr.dg_blr, empirical_fisher=True),
     "dg-l-blr": partial(blr.dg_blr, linplugin=True),
-    "dg-rep-blr": blr.dg_reparam_blr,
+    "dg-rep-blr": partial(blr.dg_reparam_blr, empirical_fisher=True),
     "dg-rep-l-blr": partial(blr.dg_reparam_blr, linplugin=True),
 }
 

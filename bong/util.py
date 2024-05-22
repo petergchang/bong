@@ -239,8 +239,6 @@ def parse_full_name(s):
         'lr': lr,
         }
 
-
-        
     
 def find_first_true(arr):
     true_indices = np.where(arr)[0]
@@ -319,6 +317,26 @@ class MLP(nn.Module):
         return x
 
 
+class CNN(nn.Module):
+    input_dim: Sequence[int]
+    output_dim: int
+    activation: nn.Module = nn.relu
+    
+    @nn.compact
+    def __call__(self, x):
+        x = x.reshape(self.input_dim)
+        x = nn.Conv(features=16, kernel_size=(5, 5))(x)
+        x = self.activation(x)
+        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = nn.Conv(features=16, kernel_size=(5, 5))(x)
+        x = self.activation(x)
+        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = x.reshape((x.shape[0], -1))  # flatten
+        x = nn.Dense(features=64)(x)
+        x = self.activation(x)
+        x = nn.Dense(features=self.output_dim)(x).ravel()
+        
+        return x
 
 
 def hess_diag_approx(
@@ -479,10 +497,20 @@ def tune_init_hyperparam(
             **init_kwargs,
         )
         key, subkey = jr.split(rng_key)
-        state, _ = run_rebayes_algorithm(
-            key, rebayes_algorithm, X, Y,
+        X_fh, X_sh = jnp.split(X, 2)
+        Y_fh, Y_sh = jnp.split(Y, 2)
+        state_fh, _ = run_rebayes_algorithm(
+            key, rebayes_algorithm, X_fh, Y_fh,
         )
-        eval_loss = loss_fn(subkey, rebayes_algorithm, state)
+        eval_loss_fh = loss_fn(subkey, rebayes_algorithm, state_fh)
+        
+        key, subkey = jr.split(subkey)
+        state_sh, _ = run_rebayes_algorithm(
+            key, rebayes_algorithm, X_sh, Y_sh, state_fh
+        )
+        eval_loss_sh = loss_fn(subkey, rebayes_algorithm, state_sh)
+
+        eval_loss = 0.5 * (eval_loss_fh + eval_loss_sh)
         return eval_loss
 
     study = optuna.create_study(direction="minimize")
