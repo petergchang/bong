@@ -45,6 +45,8 @@ python find_best_jobs.py --dir $DIR
 
 python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr
 
+python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr_250 --first_step 250 
+
 python plot_jobs.py --dir $DIR --jobs_file best_jobs.csv --name best_lr_excl_gd --exclude "(algo=='bog') or (algo=='bbb')"
 
 

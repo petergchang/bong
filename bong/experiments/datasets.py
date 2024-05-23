@@ -120,7 +120,11 @@ def get_sarcos_data(key, args):
         'X_train_raw': data_train[:, :21], 'Y_train_raw': data_train[:, 21],
         'X_test_raw': data_test[:, :21], 'Y_test_raw': data_test[:, 21],
     }
-    data = standardize_xy_data(data, add_ones=True)
+    
+    #data = standardize_xy_data(data, add_ones=True)
+    #data = standardize_xy_data(data, add_ones=False)
+    data = standardize_xy_data(data, add_ones=args.add_ones)
+    
     # Need to set add_ones=True otherwise get the error
     #jax.errors.TracerArrayConversionError: The numpy.ndarray conversion
     # # method __array__() was called on traced array with shape int32[].

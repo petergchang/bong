@@ -457,19 +457,20 @@ def run_rebayes_algorithm(
         init_state = rebayes_algorithm.init(**init_kwargs)
     
     @jax.jit
-    def _step(state, t):
-        key, subkey = jr.split(jr.fold_in(rng_key, t))
-        x, y = X[t], Y[t]
+    def _step(state, args):
+        x,y,subkey = args
         pred_state = rebayes_algorithm.predict(state)
-        output = transform(key, rebayes_algorithm, pred_state, x, y)
+        output = transform(subkey, rebayes_algorithm, pred_state, x, y)
         new_state = rebayes_algorithm.update(subkey, pred_state, x, y)
         return new_state, output
     
     if progress_bar:
         _step = jax_tqdm.scan_tqdm(num_timesteps)(_step)
     
-    args = jnp.arange(num_timesteps)
-    final_state, outputs = jax.lax.scan(_step, init_state, args)
+    #steps = jnp.arange(num_timesteps)
+    #final_state, outputs = jax.lax.scan(_step, init_state, steps)
+    keys = jr.split(rng_key, num_timesteps)
+    final_state, outputs = jax.lax.scan(_step, init_state, (X,Y,keys))
     return final_state, outputs
 
 

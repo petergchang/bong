@@ -153,7 +153,6 @@ def compute_reg_baselines(args, data):
 
 
 def  make_lin_reg(key, args, data):
-    del key
     #d = args.data_dim
     d = data['X_tr'].shape[1] # in case we added a column of 1s
     obs_var = args.emission_noise
