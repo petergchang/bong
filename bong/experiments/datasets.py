@@ -56,19 +56,18 @@ def make_dataset(key, args):
         else:
             raise Exception(f'Unknown dgp {args.dgp}')
     elif args.dataset == "sarcos":
-        key, data = get_sarcos_data(key, args)
+        data = get_sarcos_data(key=key, ntrain=args.ntrain, nval=args.nval, ntest=args.ntest, add_ones = args.add_ones)
 
     return key, data
 
 ### SARCOS robot arm data
 
 
-def get_sarcos_data(key, args):
-    # https://gaussianprocess.org/gpml/data/
-    # We add column of 1s by default to match linreg results in sarcos_demo.py
-    # But if passing to a neural net with a bias term, this is unnecessary
-    ntrain, nval, ntest = args.ntrain, args.nval, args.ntest
-    print('get sarcos', ntrain, nval, ntest)
+def get_sarcos_data(key=0, ntrain=0, nval=0, ntest=0, raw=False, add_ones=False):
+      # https://gaussianprocess.org/gpml/data/
+    if isinstance(key, int):
+        key = jr.PRNGKey(key)
+
     import scipy.io
     cwd = Path(os.getcwd())
     root = cwd
@@ -79,7 +78,18 @@ def get_sarcos_data(key, args):
 
     mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv.mat') # (44484, 28)
     data_train = jnp.array(mat_data['sarcos_inv'])
+    mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv_test.mat') # (4449, 28)
+    data_test = jnp.array(mat_data['sarcos_inv_test'])
+
+    if raw:
+        data = {
+            'X_train_raw': data_train[:, :21], 'Y_train_raw': data_train[:, 21],
+            'X_test_raw': data_test[:, :21], 'Y_test_raw': data_test[:, 21],
+        }
+        return data
+
     max_ntrain = data_train.shape[0] 
+    max_ntest = data_test.shape[0] 
 
     # Shuffle the rows
     key, subkey = jr.split(key)
@@ -100,36 +110,22 @@ def get_sarcos_data(key, args):
     else:
         idx_val = jnp.arange(ntrain, ntrain+nval)
         X_val = data_train[idx_val, :21]
-        Y_val = data_train[idx_val, 21] # column 22
+        Y_val = data_train[idx_val, 21] # column 22 in matlab notation
 
-    mat_data = scipy.io.loadmat(f'{folder}/sarcos_inv_test.mat') # (4449, 28)
-    data_test = jnp.array(mat_data['sarcos_inv_test'])
-    max_ntest = data_test.shape[0] 
     if ntest == 0:
         ntest = max_ntest 
     else:
         ntest = min(ntest, max_ntest)
     idx_te = jnp.arange(0, ntest)
     X_te = data_test[idx_te, :21]
-    Y_te = data_test[idx_te, 21] # column 22
+    Y_te = data_test[idx_te, 21] # column 22 in matlab notation
 
     name = 'sarcos'
-    # We also return "raw" data, such as X_train, for debugging (see sarcos_demo.py)
     data = {
         'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name, 
-        'X_train_raw': data_train[:, :21], 'Y_train_raw': data_train[:, 21],
-        'X_test_raw': data_test[:, :21], 'Y_test_raw': data_test[:, 21],
     }
-    
-    #data = standardize_xy_data(data, add_ones=True)
-    #data = standardize_xy_data(data, add_ones=False)
-    data = standardize_xy_data(data, add_ones=args.add_ones)
-    
-    # Need to set add_ones=True otherwise get the error
-    #jax.errors.TracerArrayConversionError: The numpy.ndarray conversion
-    # # method __array__() was called on traced array with shape int32[].
-
-    return key, data
+    data = standardize_xy_data(data, add_ones)
+    return data
 
 
 def standardize_xy_data(data, add_ones): 
@@ -189,8 +185,9 @@ def make_data_reg_lin(key, args):
     X_te = generate_xdata_mvn(key3, args.ntest, d)
     Y_te = generate_ydata_linreg(key3, X_te, theta, noise_std)
 
-
     data = {'X_tr': X_tr, 'Y_tr': Y_tr, 'X_val': X_val, 'Y_val': Y_val, 'X_te': X_te, 'Y_te': Y_te, 'name': name}
+
+    data = standardize_xy_data(data, args.add_ones)
     return key, data
 
 

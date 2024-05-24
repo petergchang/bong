@@ -17,7 +17,6 @@ def main(args):
     print(f'Saving jobs to {results_dir}')
     path.mkdir(parents=True, exist_ok=True)
 
-
     df = make_df_crossproduct(
         args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
@@ -37,7 +36,7 @@ def main(args):
     df['jobname'] = jobnames
     df = move_df_col(df, 'jobname', 0)
 
-    fname = Path(path, f"jobs.csv")
+    fname = Path(path, f"jobs_args.csv") # was jobs,csv
     print(f'Saving to {str(fname)}')
     df.to_csv(fname, index=False) 
 
@@ -57,7 +56,7 @@ def main(args):
     
     cmds = [{'jobname': key, 'command': value} for key, value in cmd_dict.items()]
     df_cmds = pd.DataFrame(cmds)
-    fname = Path(path, "cmds.csv")
+    fname = Path(path, "jobs_cmds.csv") # was cmds.csv
     df_cmds.to_csv(fname, index=False)
 
 

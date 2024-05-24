@@ -8,6 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 import jax.random as jr
 import jax
+import jax.numpy as jnp
 
 from bong.util import run_rebayes_algorithm, get_gpu_name
 #from bong.agents import AGENT_DICT, AGENT_NAMES, parse_agent_full_name, make_agent_name_from_parts
@@ -16,7 +17,10 @@ from datasets import make_dataset
 from models import make_model
 
 def run_agent(key, agent, data, model):
-    print(f"Running {agent.name} + {model['name']} on {data['name']}")
+    sh = jnp.array(data['X_tr'].shape)
+    N = sh[0]
+    D = jnp.prod(sh[1:])
+    print(f"Running {agent.name} + {model['name']} on {data['name']} of size N={N}, D={D}")
     print("Using GPU of type: ", get_gpu_name())
     t0 = time.perf_counter()
     _, output = jax.block_until_ready(
@@ -26,7 +30,7 @@ def run_agent(key, agent, data, model):
     results, summary = model['process_callback'](output)
     t1 = time.perf_counter()
     elapsed = t1-t0
-    print(f"Time {elapsed:.2f}s")
+    print(f"Scan time {elapsed:.2f}s")
     print(summary)
     return results, elapsed, summary
 

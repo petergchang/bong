@@ -12,17 +12,11 @@ import datetime
       
 
 def main(args):
-    fname = f"{args.dir}/cmds.csv"
+    fname = f"{args.dir}/jobs_cmds.csv"
     df_cmds = pd.read_csv(fname)
     njobs = len(df_cmds)
     print(f'Running {njobs} jobs, please be patient')
 
-    # As a precaution, we make a copy of jobs.csv 
-    #src = f'{args.dir}/jobs.csv'
-    #dst = f'{args.dir}/jobs-original.csv'
-    #cmd = f'cp {src} {dst}' # keep copy of original
-    #print(cmd)
-    #os.system(cmd)
 
     cmd_dict = {}
     for index, row in df_cmds.iterrows():
@@ -41,7 +35,6 @@ def main(args):
         output_per_job = {}
         for jobname, cmd in cmd_dict.items():
             print(f'\n Queuing job {n} of {njobs}:\n{cmd}')
-            #output_dir = f'{jobs_dir}/{jobname}/work' 
             if args.machine == 'local':
                 result = job_plugin.run(cmd, name=jobname) # run on local VM
             elif args.machine == 'A10G':

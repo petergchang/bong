@@ -62,8 +62,8 @@ def fit_gauss_baseline(Xtrain, ytrain):
 def fit_linreg_baseline(Xtrain, ytrain, method='lstsq'):
     N, D = Xtrain.shape
     if method=='lstsq':
-        if N>1000:
-            print(f'fit_linreg_baseline is a batch solver, slow with N={N}')
+        if N>100_000:
+            print(f'fit_linreg_baseline is a batch solver, may be slow with N={N}')
         w, sum_sq_residuals, rank, s = jnp.linalg.lstsq(Xtrain, ytrain, rcond=None) 
         sum_sq_residuals = sum_sq_residuals[0] # convert to scala
     elif method == 'sgd':
@@ -91,6 +91,13 @@ def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
         post, em_function, ec_function, log_likelihood,
         n_samples_mc_nlpd=100):
  
+    # Plugin-MSE
+    def _sqerr(curr_mean, xcb, ycb):
+        ypred = em_function(curr_mean, xcb)
+        return jnp.square(ypred - ycb)
+    mse_te = jnp.mean(jax.vmap(_sqerr, (None, 0, 0))(state.mean, X_te, Y_te))
+    mse_val = jnp.mean(jax.vmap(_sqerr, (None, 0, 0))(state.mean, X_val, Y_val))
+
     # Plugin-NLL
     def _nll(curr_mean, xcb, ycb):
         em = em_function(curr_mean, xcb)
@@ -121,33 +128,38 @@ def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
     else:
         kl_div = None
 
-    return nll_te, nll_val, nlpd_te, nlpd_val, kl_div
+    return nll_te, nll_val, nlpd_te, nlpd_val, kl_div, mse_te, mse_val
 
-def compute_post_linreg(args, data, mu0, cov0):
+def compute_post_linreg(data, mu0, cov0, obs_var):
     # Compute (batch) true posterior on training set
-    noise_std = args.emission_noise
     inv_cov0 = jnp.linalg.inv(cov0)
-    cov_post = jnp.linalg.inv(inv_cov0 + data['X_tr'].T @ data['X_tr'] / noise_std**2)
-    mu_post = cov_post @ (inv_cov0 @ mu0 + data['X_tr'].T @ data['Y_tr'] / noise_std**2)
+    cov_post = jnp.linalg.inv(inv_cov0 + data['X_tr'].T @ data['X_tr'] / obs_var)
+    mu_post = cov_post @ (inv_cov0 @ mu0 + data['X_tr'].T @ data['Y_tr'] / obs_var)
     post = {'mu': mu_post, 'cov': cov_post}
     return post
 
-def compute_reg_baselines(args, data):
-    N = data['X_tr'].shape[0]
-    noise_var = args.emission_noise
+def compute_reg_baselines(args, data, obs_var):
+    Xtr, Xte = data['X_tr'], data['X_te']
+    ytrain, ytest = data['Y_tr'], data['Y_te']
+    N = Xtr.shape[0]
     results = {}
-    mu_y, sigma2 = fit_gauss_baseline(data['X_tr'], data['Y_tr'])
-    results['nll_te_gauss_learned_var'] = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, sigma2, data['X_te'], data['Y_te']))
-    results['nll_te_gauss_fixed_var'] = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, noise_var, data['X_te'], data['Y_te']))
+    mu_y, v_y = fit_gauss_baseline(Xtr, ytrain)
+    #nll_te_gauss_learned_var = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, v_y, Xte, ytest))
+    #nll_te_gauss_fixed_var = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, noise_var, Xte, ytest))
+ 
+    w, sigma2 = fit_linreg_baseline(Xtr, ytrain)
+    nll_te_linreg_obs_var =  jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, obs_var, Xte, ytest))
+    nll_te_linreg_mle_var =  jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, sigma2, Xte, ytest))
+    results['nll_te_linreg'] = nll_te_linreg_obs_var # to be comparable with MLP methods
+    ypred = Xte @ w
+    mse = jnp.mean(jnp.square(ypred - ytest))
+    smse = mse / v_y # standardized mean square error
+    results['mse_te_linreg'] = mse
 
-    if args.linreg_baseline:
-        w, sigma2 = fit_linreg_baseline(data['X_tr'], data['Y_tr'])
-        results['nll_te_linreg_learned_var'] = jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, sigma2, data['X_te'], data['Y_te']))
-        results['nll_te_linreg_fixed_var'] = jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, noise_var, data['X_te'], data['Y_te']))
-    else:
-        results['nll_te_linreg_learned_var'] = 0.0
-        results['nll_te_linreg_fixed_var'] = 0.0    
 
+    print(f'Linreg baseline: Ntrain={Xtr.shape[0]}, Ntest={Xte.shape[0]}')
+    print(f'mse={mse:0.3f}, smse={smse:0.3f}, nll_obsvar={nll_te_linreg_obs_var:0.3f}, nll_mlevar={nll_te_linreg_mle_var:0.3f}')
+  
     return  results
        
 
@@ -162,7 +174,7 @@ def  make_lin_reg(key, args, data):
 
     mu0 = jnp.zeros(d)
     cov0 = args.init_var
-    post = compute_post_linreg(args, data, mu0, cov0*jnp.eye(d))
+    post = compute_post_linreg(data, mu0, cov0*jnp.eye(d), obs_var)
 
     em_function = lambda w, x: w @ x
     ec_function = lambda w, x: obs_var * jnp.eye(1) # fixed observation 
@@ -180,22 +192,28 @@ def  make_lin_reg(key, args, data):
                 X_val=data['X_val'], Y_val=data['Y_val'], post=post,
         em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
-    baselines = compute_reg_baselines(args, data)
+    # Compute batch baselines before scanning
+    if args.linreg_baseline:
+        baselines = compute_reg_baselines(args, data, obs_var)
+        nlpd_baseline_linreg = baselines['nll_te_linreg']
+        mse_baseline_linreg = baselines['mse_te_linreg']
+    else:
+        nlpd_baseline_linreg = 0.0
+        mse_baseline_linreg = 0.0
 
-    
     def process_callback(output):
-        nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
-        s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
-        s_te = f"Test NLL: {nll_te[-1]:.4f},  NLPD: {nlpd_te[-1]:.4f}"
+        nll_te, nll_val, nlpd_te, nlpd_val, kldiv, mse_te, mse_val = output
+        #s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
+        s_te = f"Test MSE: {mse_te[-1]:0.4f}, NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         s_kl = f"KL: {kldiv[-1]:0.4f}"
-        summary = s_kl + "\n" + s_te + "\n" + s_val 
+        s_mse = f"Linreg baseline: MSE:{mse_baseline_linreg:0.3f}, NLPD-PI: {nlpd_baseline_linreg:0.3f}"
+        summary = "\n".join([s_te, s_kl, s_mse])
 
+        # Results that we save and later plot
         results = {'nll': nll_te, 'nlpd': nlpd_te,   
                     'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                    'kldiv': kldiv, 'kldiv_val': kldiv,
-                    'nlpd_baseline-linreg': baselines['nll_te_linreg_fixed_var'],
+                    'kldiv': kldiv, 'mse_te': mse_te,
         }
-
         
         return results, summary
         
@@ -241,7 +259,7 @@ def make_mlp_reg(key, args, data):
 
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
-        summary = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
+        summary = f"NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
                     #'nlpd_baseline-linreg': baselines['nll_te_linreg_fixed_var'],
                    }
