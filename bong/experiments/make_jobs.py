@@ -20,9 +20,10 @@ def main(args):
     df = make_df_crossproduct(
         args.algo_list, args.param_list, args.lin_list,
         args.lr_list, args.niter_list, args.nsample_list,
-        args.ef_list, args.rank_list, args.model_str_list, args.key_list)
+        args.ef_list, args.rank_list, args.model_str_list)
 
     # for flags that are shared across all jobs, we create extra columns (duplicated across rows)
+    df['seed'] = args.seed
     df['dataset'] = args.dataset
     df['data_dim'] = args.data_dim
     df['dgp_type'] = args.dgp_type
@@ -43,14 +44,16 @@ def main(args):
     cmd_dict = {}
     cmd_list = []
     for index, row in df.iterrows():
-        cmd = make_unix_cmd_given_flags(
-            row.algo, row.param, row.lr, row.niter, row.nsample,
-            row.lin, row.ef, row.dlr_rank, 
-            row.model_type, row.model_str, 
-            row.dataset, row.data_dim, 
-            row.dgp_type, row.dgp_str, row.ntrain, row.ntest, row.key)
-        cmd_dict[row.jobname] = cmd
-        cmd_list.append(cmd)
+        for i in range(args.ntrials):
+            jobname = f'{row.jobname}-trial{i}'
+            cmd = make_unix_cmd_given_flags(
+                row.algo, row.param, row.lr, row.niter, row.nsample,
+                row.lin, row.ef, row.dlr_rank, 
+                row.model_type, row.model_str, 
+                row.dataset, row.data_dim, 
+                row.dgp_type, row.dgp_str, row.ntrain, row.ntest, args.seed + i)
+            cmd_dict[jobname] = cmd
+            cmd_list.append(cmd)
     #df['command'] = cmd_list
        
     
@@ -67,9 +70,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str)
     parser.add_argument("--job_name", type=str)
+    parser.add_argument("--key", type=int,  default=0)
+    parser.add_argument("--ntrials", type=int,  default=1)
 
     # Data parameters
-    parser.add_argument("--key_list", type=int, nargs="+", default=[0])
     parser.add_argument("--dataset", type=str, default="reg")  
     parser.add_argument("--data_dim", type=int,  default=10)
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp

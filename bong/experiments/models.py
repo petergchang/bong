@@ -258,9 +258,11 @@ def make_mlp_reg(key, args, data):
     #baselines = compute_reg_baselines(args, data)
 
     def process_callback(output):
-        nll_te, nll_val, nlpd_te, nlpd_val, kldiv = output
-        summary = f"NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
+        nll_te, nll_val, nlpd_te, nlpd_val, kldiv, mse_te, mse_val = output
+        summary = f"Test MSE: {mse_te[-1]:0.4f}, NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
+        #summary = f"NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
+                    'mse_te': mse_te,
                     #'nlpd_baseline-linreg': baselines['nll_te_linreg_fixed_var'],
                    }
         return results, summary

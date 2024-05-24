@@ -49,7 +49,7 @@ def make_unix_cmd_given_flags(algo, param, lr, niter, nsample, linplugin, ef, ra
 def make_df_crossproduct( 
         algo_list, param_list, lin_list,
         lr_list, niter_list, nsample_list, ef_list, rank_list,
-        model_str_list, key_list):
+        model_str_list):
     args_list = []
     for algo in algo_list:
         for param in param_list:
@@ -59,14 +59,12 @@ def make_df_crossproduct(
                         for nsample in nsample_list:
                             for ef in ef_list:
                                 for rank in rank_list:
-                                    for model_str in model_str_list:
-                                        for key in key_list:   
-                                            if (param == 'dlr') and (lin==0) and (ef == 0): continue # sanpled Hessians not implemented for DLR
+                                    for model_str in model_str_list:  
+                                        if (param == 'dlr') and (lin==0) and (ef == 0): continue # sanpled Hessians not implemented for DLR
 
-                                            args = make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr)
-                                            args['model_str'] = model_str
-                                            args['key'] = key
-                                            args_list.append(args)
+                                        args = make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr)
+                                        args['model_str'] = model_str
+                                        args_list.append(args)
 
     df = pd.DataFrame(args_list)
     if len(df) > 1:
