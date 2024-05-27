@@ -11,7 +11,7 @@ import numpy as np
 import json
 
 
-from job_utils import extract_results_from_files, extract_metrics_from_files
+from job_utils import extract_metrics_from_files
 
 def copy_jobargs_deprecated(results_dir, dst_dir, jobnames):
     src = f"{results_dir}/jobs/{job}-trial0/args.json"

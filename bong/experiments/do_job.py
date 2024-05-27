@@ -69,7 +69,7 @@ def make_results(key, args):
         'agent_full_name': agent.full_name,
         'elapsed': elapsed,
         'summary': summary,
-        'metrics': df.columns
+        'metrics': list(df.columns)
         }
     return df, meta, key
 

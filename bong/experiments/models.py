@@ -40,6 +40,10 @@ def make_model(key, args, data):
 
 ######### Regressiom helpers
 
+def calc_mse(prediction, Y):
+    mse = jnp.mean(jnp.square(prediction - Y))
+    return mse
+    
 gauss_log_likelihood = lambda mean, cov, y: \
     jax.scipy.stats.norm.logpdf(y, mean, jnp.sqrt(jnp.diag(cov))).sum()
 

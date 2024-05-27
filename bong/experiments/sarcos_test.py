@@ -5,17 +5,13 @@ import jax.numpy as jnp
 import jax
 
 from datasets import get_sarcos_data
-from models import fit_linreg_baseline, fit_gauss_baseline, nll_gauss, nll_linreg
+from models import fit_linreg_baseline, fit_gauss_baseline, nll_gauss, nll_linreg, make_model, calc_mse
 from do_job import *
-from bong.util import run_rebayes_algorithm, get_gpu_name
-#from bong.agents import AGENT_DICT, AGENT_NAMES, parse_agent_full_name, make_agent_name_from_parts
+from bong.util import run_rebayes_algorithm, get_gpu_name, find_first_true
 from bong.agents import make_agent_constructor
 from datasets import make_dataset
-from models import make_model
 
-def calc_mse(prediction, Y):
-    mse = jnp.mean(jnp.square(prediction - Y))
-    return mse
+
 
 def main(args):
     if isinstance(args.key, int):
@@ -47,8 +43,13 @@ def main(args):
     print(df.columns)
     mse_agent = df['mse'].to_numpy()[-1]
     nll_agent = df['nlpd-pi'].to_numpy()[-1]
+
     nlpd_agent = df['nlpd-mc'].to_numpy()
     print(nlpd_agent)
+    nans = jnp.isnan(nlpd_agent)
+    T = find_first_true(nans)
+    print('NLPD agent non-nan until T=', T, 'ntrain = ', args.ntrain)
+
 
     mu_y, v_y = fit_gauss_baseline(data['X_tr'], data['Y_tr'])
     w, sigma2 = fit_linreg_baseline(data['X_tr'], data['Y_tr'], method='lstsq')
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     # Model parameters
     #parser.add_argument("--agent", type=str, default="bong_fc", choices=AGENT_NAMES)
     parser.add_argument("--algo", type=str, default="bong")
-    parser.add_argument("--param", type=str, default="fc")
+    parser.add_argument("--param", type=str, default="dlr")
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--niter", type=int, default=10) 
     parser.add_argument("--nsample", type=int, default=100) 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--lin", type=int, default=1)
     parser.add_argument("--rank", type=int, default=10)
     parser.add_argument("--model_type", type=str, default="mlp") 
-    parser.add_argument("--model_str", type=str, default="1")
+    parser.add_argument("--model_str", type=str, default="20_20_1")
     parser.add_argument("--use_bias", type=int, default=1) 
     parser.add_argument("--use_bias_layer1", type=int, default=1) 
 

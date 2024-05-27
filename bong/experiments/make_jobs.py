@@ -39,7 +39,9 @@ def main(args):
         'dgp_str': args.dgp_str, 
         'model_type': args.model_type,
         'ntrain': args.ntrain,
+        'nval': args.nval,
         'ntest': args.ntest,
+        'add_ones': args.add_ones,
         'ntrials': args.ntrials,
     }
     fname = Path(path, "args.json")
@@ -82,7 +84,9 @@ if __name__ == "__main__":
     parser.add_argument("--dgp_type", type=str, default="lin") # or mlp
     parser.add_argument("--dgp_str", type=str, default="") # 20_20_1 
     parser.add_argument("--ntrain", type=int,  default=1000)
+    parser.add_argument("--nval", type=int,  default=1000)
     parser.add_argument("--ntest", type=int,  default=1000)
+    parser.add_argument("--add_ones", type=int,  default=0)
 
     # Agent parameters
     parser.add_argument("--algo_list", type=str, nargs="+", default=["bong"])

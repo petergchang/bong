@@ -7,14 +7,20 @@ import os
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
-import jax.numpy as jnp
 import matplotlib.cm as cm
 from matplotlib.lines import Line2D
+import json
+
+import jax.random as jr
+import jax
+import jax.numpy as jnp
 
 from job_utils import extract_results, extract_jobargs, extract_metrics_from_files
-from bong.util import make_file_with_timestamp, parse_full_name, make_full_name
+from bong.util import make_file_with_timestamp, parse_full_name, make_full_name, parse_full_name_old
 from bong.util import add_jitter, convolve_smooth, make_plot_params
 from bong.util import find_first_true
+from datasets import make_dataset
+from models import fit_linreg_baseline, calc_mse, nll_linreg
 
 def filter_jobnames(jobargs, exclude='', include=''):
     jobnames = list(jobargs.keys())
@@ -37,6 +43,33 @@ def filter_jobnames(jobargs, exclude='', include=''):
                 continue
         keep_names.append(jobname)
     return keep_names
+
+def compute_linreg_baseline(results_dir):
+    fname = f'{results_dir}/args.json'
+    with open(fname, 'r') as json_file:
+        jobargs = json.load(json_file)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, default=jobargs['dataset']) 
+    parser.add_argument("--seed", type=int, default=jobargs['seed'])
+    parser.add_argument("--ntrain", type=int, default=jobargs['ntrain'])
+    parser.add_argument("--nval", type=int, default=1000)
+    parser.add_argument("--ntest", type=int, default=jobargs['ntest'])
+    parser.add_argument("--add_ones", type=int, default=0)
+    args = parser.parse_args([])
+
+    key = jr.PRNGKey(args.seed)
+    key, subkey = jr.split(key)
+    key, data = make_dataset(subkey, args)
+
+    w, sigma2 = fit_linreg_baseline(data['X_tr'], data['Y_tr'], method='lstsq')
+    prediction = data['X_te'] @ w 
+    mse_linreg_baseline = calc_mse(prediction, data['Y_te'])
+    obs_var = 0.1*jnp.var(data['Y_tr']) # same as used by agents
+    nll_linreg_baseline = jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, obs_var, data['X_te'], data['Y_te']))
+
+    return mse_linreg_baseline, nll_linreg_baseline
+
 
 def plot_timeseries(results_mean, results_var, jobnames, jobargs,  metric, smoothed=False, first_step=10, step_size=5, 
                     error_bars=True):
@@ -112,11 +145,15 @@ def plot_timeseries(results_mean, results_var, jobnames, jobargs,  metric, smoot
         
     return fig, ax
 
-def plot_and_save(results_mean, results_var, jobargs,  metric, fig_dir, use_log=False, smoothed=False,  
-            exclude='', include='', name='', first_step=5, error_bars=True):
+def plot_and_save(results_dir, results_mean, results_var, jobargs,  metric, fig_dir, use_log=False, smoothed=False,  
+            exclude='', include='', name='', first_step=10, step_size=5, error_bars=True, include_baseline=True):
     jobnames = filter_jobnames(jobargs, exclude, include)
     fig, ax = plot_timeseries(results_mean, results_var, jobnames, jobargs,  metric,  smoothed=smoothed,  
-            first_step=first_step, error_bars=error_bars)
+            first_step=first_step, step_size=step_size, error_bars=error_bars)
+
+    if include_baseline and ((metric == 'nlpd-pi') or (metric == 'nlpd-mc')):
+        mse, nll = compute_linreg_baseline(results_dir)
+        ax.axhline(y=nll, linestyle=':', label='linreg-nll')
     
     jobname = jobnames[0]
     model_name = jobargs[jobname]['model_name']
@@ -133,6 +170,8 @@ def plot_and_save(results_mean, results_var, jobargs,  metric, fig_dir, use_log=
         fname = fname + "_log"
     #if smoothed:
     #    fname = fname + "_smoothed"
+    if include_baseline:
+        fname = fname + "_baseline"
     if error_bars:
         fname = fname + "_error_bars"
     if first_step>0:
@@ -151,18 +190,20 @@ def main(args):
     #make_file_with_timestamp(results_dir)
     metrics = extract_metrics_from_files(results_dir, args.jobs_file, args.jobs_suffix,
         exclude_val=True, remove_mean=True, exclude_mse=True)
+    print(metrics)
+    metrics = ['nlpd-pi']
     jobargs = extract_jobargs(results_dir,  args.jobs_file, args.jobs_suffix)
 
     for metric in metrics:
         print(metric)
         results_mean = extract_results(results_dir,  f'{metric}_mean', args.jobs_file, args.jobs_suffix)
         results_var = extract_results(results_dir,  f'{metric}_var', args.jobs_file, args.jobs_suffix)
-        plot_and_save(results_mean, results_var, jobargs, metric, fig_dir,  use_log=False,
+        plot_and_save(results_dir, results_mean, results_var, jobargs, metric, fig_dir,  use_log=False,
                       exclude=args.exclude, include=args.include, error_bars=True,
-                    name=args.name, first_step=args.first_step, smoothed=True) 
-        plot_and_save(results_mean, results_var, jobargs, metric, fig_dir,  use_log=False,
+                    name=args.name, first_step=args.first_step, smoothed=True, include_baseline=args.include_baseline) 
+        plot_and_save(results_dir, results_mean, results_var, jobargs, metric, fig_dir,  use_log=False,
                       exclude=args.exclude, include=args.include, error_bars=False,
-                    name=args.name, first_step=args.first_step, smoothed=True) 
+                    name=args.name, first_step=args.first_step, smoothed=True, include_baseline=args.include_baseline) 
 
     
 
@@ -173,10 +214,11 @@ if __name__ == "__main__":
     parser.add_argument("--jobs_file", type=str, default="jobs.csv")
     parser.add_argument("--jobs_suffix", type=str, default="-averaged")
     parser.add_argument("--name", type=str, default="")
-    parser.add_argument("--first_step", type=int, default=5)
+    parser.add_argument("--first_step", type=int, default=10)
     parser.add_argument("--exclude", type=str, default="")
     parser.add_argument("--include", type=str, default="")
     parser.add_argument("--error_bars", type=int, default=1)
+    parser.add_argument("--include_baseline", type=int, default=0)
 
     args = parser.parse_args()
     print(args)

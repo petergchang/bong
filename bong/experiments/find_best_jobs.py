@@ -37,8 +37,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str)
-    #parser.add_argument("--metric", type=str, default="nlpd_val_mid")
-    parser.add_argument("--metric", type=str, default="nll_val_mid")
+    parser.add_argument("--metric", type=str, default="nlpd-pi_val_mid")
 
     args = parser.parse_args()
     main(args)

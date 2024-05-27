@@ -17,8 +17,8 @@ def replace_nan_with_infty(x):
         return x
 
 def create_eval_df(args):
-    nll_val_results = extract_results(args.dir,  'nll_val_mean', args.jobs_file, args.jobs_suffix)
-    nlpd_val_results = extract_results(args.dir,  'nlpd_val_mean', args.jobs_file, args.jobs_suffix)
+    nll_val_results = extract_results(args.dir,  'nlpd-pi_val_mean', args.jobs_file, args.jobs_suffix)
+    nlpd_val_results = extract_results(args.dir,  'nlpd-mc_val_mean', args.jobs_file, args.jobs_suffix)
     jobnames = nlpd_val_results.keys()
     nll_val_final, nlpd_val_final, nll_val_mid, nlpd_val_mid = {}, {}, {}, {}
     for jobname in jobnames:
@@ -35,10 +35,10 @@ def create_eval_df(args):
         nll_val_mid[jobname] = replace_nan_with_infty(nll[mid])
 
     dicts = {
-        'nlpd_val_final': nlpd_val_final,
-        'nlpd_val_mid': nlpd_val_mid,
-        'nll_val_final': nll_val_final,
-        'nll_val_mid': nll_val_mid,
+        'nlpd-mc_val_final': nlpd_val_final,
+        'nlpd-mc_val_mid': nlpd_val_mid,
+        'nlpd-pi_val_final': nll_val_final,
+        'nlpd-pi_val_mid': nll_val_mid,
     }
     data = {'jobname': jobnames}
     for label, d in dicts.items():

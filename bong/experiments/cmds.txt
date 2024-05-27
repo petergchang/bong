@@ -50,6 +50,9 @@ python find_best_jobs.py --dir $DIR
 
 python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --name bakeoff 
 
+python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==10) or (niter==99)" --name bakeoff-it10 
+
+python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==1) or (niter==99)" --name bakeoff-it1
 
 python plot_times.py --dir $DIR 
 
@@ -61,10 +64,10 @@ python plot_times.py --dir $DIR
 
 MODEL_TYPE="mlp"
 MODEL_STR="10_1"
-INIT_VAR=0.1
+INIT_VAR=1.0
 USE_BIAS=1
 USE_BIAS_LAYER1=1
-EMISSION_NOISE=99
+EMISSION_NOISE=-1
 ALGO="blr"
 PARAM="dlr"
 LIN=0
@@ -78,7 +81,6 @@ DATADIM=0
 DGP_TYPE="na"
 DGP_STR="na" 
 NTRAIN=10
-LINREG_BASELINE=1
 DIR=/teamspace/studios/this_studio/jobs/debug
 
 
@@ -100,5 +102,4 @@ python do_job.py \
     --ntrain $NTRAIN \
     --dgp_type $DGP_TYPE \
     --dgp_str $DGP_STR \
-    --linreg_baseline $LINREG_BASELINE \
     --dir $DIR 
