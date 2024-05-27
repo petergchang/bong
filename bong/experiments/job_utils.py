@@ -29,7 +29,7 @@ def parse_neuron_str(s):
 
 def make_unix_cmd_given_flags(algo, param, lr, niter, nsample, linplugin, ef, rank,
                             model_type, model_str,
-                            dataset, data_dim, dgp_type, dgp_str, ntrain, ntest, key):
+                            dataset, data_dim, dgp_type, dgp_str, ntrain, ntest, seed):
     # We must pass in all flags where we want to override the default in run_job
     #main_name = '/teamspace/studios/this_studio/bong/bong/experiments/run_job.py'
     main_name = f'{script_dir}/do_job.py'
@@ -42,7 +42,7 @@ def make_unix_cmd_given_flags(algo, param, lr, niter, nsample, linplugin, ef, ra
         f' --model_type {model_type} --model_str {model_str}'
         f' --dataset {dataset} --data_dim {data_dim}'
         f' --dgp_type {dgp_type} --dgp_str {dgp_str}'
-        f' --ntrain {ntrain} --ntest {ntest} --key {key}'
+        f' --ntrain {ntrain} --ntest {ntest} --seed {seed}'
     )
     return cmd
 
@@ -75,21 +75,26 @@ def make_df_crossproduct(
     return df_unique
 
 
-def extract_metrics_from_files(dir,   jobs_file="jobs.csv", exclude_val=True, exclude_baselines=True):
+def extract_metrics_from_files(dir,  jobs_file="jobs.csv", jobs_suffix='',
+                exclude_val=True, remove_mean=True, exclude_mse=True):
     fname = f"{dir}/{jobs_file}"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
     jobname = jobnames[0]
-    fname = f"{dir}/jobs/{jobname}/results.csv"
+    fname = f"{dir}/jobs/{jobname}{jobs_suffix}/results.csv"
     df_res = pd.read_csv(fname)
     metrics =  df_res.columns
     if exclude_val:
         metrics = [m for m in metrics if "_val" not in m ]
-    if exclude_baselines:
-        metrics = [m for m in metrics if "_baseline" not in m ]
+    if exclude_mse:
+        metrics = [m for m in metrics if "mse" not in m ]
+    if remove_mean:
+        metrics = [m.removesuffix('_mean') for m in metrics]
+        metrics = [m.removesuffix('_var') for m in metrics]
+        metrics = set(metrics)
     return metrics
 
-def append_results_with_baselines(results, results_dir,  metric, jobs_file):
+def append_results_with_baselines_deprecated(results, results_dir,  metric, jobs_file):
     results = results.copy()
     all_metrics = extract_metrics_from_files(results_dir,  jobs_file, exclude_val=True, exclude_baselines=False)
     matching_metrics = [m for m in all_metrics if f'{metric}_baseline' in m]
@@ -108,13 +113,13 @@ def append_results_with_baselines(results, results_dir,  metric, jobs_file):
     return results
 
 
-def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):
+def extract_results_from_files_deprecated(dir,  metric,  jobs_file="jobs.csv", jobs_suffix=''):
     fname = f"{dir}/{jobs_file}"
     df = pd.read_csv(fname)
     jobnames = df['jobname']
     results = {}
     for jobname in jobnames:
-        fname = f"{dir}/jobs/{jobname}/results.csv"
+        fname = f"{dir}/jobs/{jobname}{jobs_suffix}/results.csv"
         if not os.path.isfile(fname):
             print(f'This file does not exist, skipping:', fname)
             continue
@@ -126,7 +131,7 @@ def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):
         else:
             T = len(vals)
         
-        fname = f"{dir}/jobs/{jobname}/args.json"
+        fname = f"{dir}/jobs/{jobname}{jobs_suffix}/args.json"
         with open(fname, 'r') as json_file:
             args = json.load(json_file)
         d = {
@@ -142,3 +147,38 @@ def extract_results_from_files(dir,  metric, jobs_file="jobs.csv"):
         results[jobname] = d
     return results
 
+
+def extract_results(dir,  metric,  jobs_file="jobs.csv", jobs_suffix=''):
+    fname = f"{dir}/{jobs_file}"
+    df = pd.read_csv(fname)
+    jobnames = df['jobname']
+    results = {}
+    for jobname in jobnames:
+        fname = f"{dir}/jobs/{jobname}{jobs_suffix}/results.csv"
+        if not os.path.isfile(fname):
+            print(f'This file does not exist, skipping:', fname)
+            continue
+        df_res = pd.read_csv(fname)
+        vals = df_res[metric].to_numpy()
+        results[jobname] = vals
+    return results
+
+def extract_jobargs(dir,  jobs_file="jobs.csv", jobs_suffix=''):
+    fname = f"{dir}/{jobs_file}"
+    df = pd.read_csv(fname)
+    jobnames = df['jobname']
+    results = {}
+    for jobname in jobnames:    
+        fname = f"{dir}/jobs/{jobname}{jobs_suffix}/args.json"
+        with open(fname, 'r') as json_file:
+            args = json.load(json_file)
+        d = {
+            'agent_name': args['agent_name'],
+            'agent_full_name': args['agent_full_name'],
+            'model_name': args['model_name'],
+            'data_name': args['data_name'],
+            'elapsed_mean': args['elapsed_mean'],
+            'elapsed_var': args['elapsed_var'],
+            }
+        results[jobname] = d
+    return results

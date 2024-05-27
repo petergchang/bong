@@ -130,7 +130,7 @@ def make_plot_params(algo, ef, lin):
             'linestyle': linestyle,
             'linewidth': 2,
             'marker': marker,
-            'markersize': 8
+            'markersize': 10
             }
 
 
@@ -166,11 +166,11 @@ def make_full_name(algo, param, rank, linplugin, ef, nsamples, niter, lr):
     else:
         param_str = param # fc, fc_mom, diag, diag_mom
     if linplugin == 1:
-        hess_str = 'Lin' # LinHess
+        hess_str = 'LinHess' # LinHess
     elif ef==1:
-        hess_str = f'EF{nsamples}' # MC-EF
+        hess_str = f'MCEF{nsamples}' # MC-EF
     else:
-        hess_str = f'MC{nsamples}' # MC-Hess
+        hess_str = f'MCHess{nsamples}' # MC-Hess
     if (algo=="bong") or (algo=="bog"):
         iter_str = None
     else:
@@ -198,18 +198,18 @@ def parse_full_name(s):
     else:
         rank = unk
         param = param_str
-    if hess_str == 'Lin':
+    if hess_str == 'LinHess':
         lin = 1
         ef = 0
         nsamples = unk
-    elif hess_str[:2] == 'EF':
+    elif hess_str[:4] == 'MCEF':
         lin = 0;
         ef = 1
-        nsamples = int(hess_str[2:])
-    elif hess_str[:2] == 'MC':
+        nsamples = int(hess_str[4:])
+    elif hess_str[:6] == 'MCHess':
         lin = 0
         ef = 0
-        nsamples = int(hess_str[2:])
+        nsamples = int(hess_str[6:])
     else:
         print('bad hess_str',hess_str)
     if len(parts)==3: # bong

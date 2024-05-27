@@ -12,7 +12,7 @@ import datetime
       
 
 def main(args):
-    fname = f"{args.dir}/jobs_cmds.csv"
+    fname = f"{args.dir}/cmds.csv"
     df_cmds = pd.read_csv(fname)
     njobs = len(df_cmds)
     print(f'Running {njobs} jobs, please be patient')

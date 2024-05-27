@@ -69,16 +69,13 @@ def make_results(key, args):
         'agent_full_name': agent.full_name,
         'elapsed': elapsed,
         'summary': summary,
+        'metrics': df.columns
         }
     return df, meta, key
 
 
 def main(args, args_dict):
-    if isinstance(args.key, int):
-        key = jr.PRNGKey(args.key)
-    else:
-        key = args.key
-    args.key = -1 # prevent accidently using it
+    key = jr.PRNGKey(args.seed)
     results_path = Path(args.dir)
     results_path.mkdir(parents=True, exist_ok=True)
     
@@ -114,7 +111,6 @@ if __name__ == "__main__":
     parser.add_argument("--nval", type=int, default=1000)
     parser.add_argument("--ntest", type=int, default=1000)
     parser.add_argument("--add_ones", type=int, default=0)
-    parser.add_argument("--linreg_baseline", type=int, default=0)
 
     
     # Model parameters
@@ -131,12 +127,12 @@ if __name__ == "__main__":
     parser.add_argument("--model_str", type=str, default="")
     parser.add_argument("--use_bias", type=int, default=1) 
     parser.add_argument("--use_bias_layer1", type=int, default=1) 
-    parser.add_argument("--init_var", type=float, default=0.1)
+    parser.add_argument("--init_var", type=float, default=1)
 
     # results
     parser.add_argument("--dir", type=str, default="", help="directory to store results") 
     parser.add_argument("--debug", type=bool, default=False)
-    parser.add_argument("--key", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=0)
     
     args = parser.parse_args()
      # Convert parser flags to dictionary

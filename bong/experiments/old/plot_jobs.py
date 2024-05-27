@@ -192,10 +192,11 @@ def main(args):
     path = Path(fig_dir)
     path.mkdir(parents=True, exist_ok=True)   
     #make_file_with_timestamp(results_dir)
-    metrics = extract_metrics_from_files(results_dir,  jobs_file=args.jobs_file, exclude_val=True)
+    metrics = extract_metrics_from_files(results_dir, args.jobs_file, args.jobs_suffix,
+        exclude_val=True, exclude_baselines=True, remove_mean=True)
     for metric in metrics:
-        results = extract_results_from_files(results_dir,  metric, args.jobs_file)
-        results = append_results_with_baselines(results, results_dir,  metric, args.jobs_file)
+        results = extract_results_from_files(results_dir,  metric, args.jobs_file, args.jobs_suffix)
+        #results = append_results_with_baselines(results, results_dir,  metric, args.jobs_file)
         #plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
         #            name=args.name, first_step=args.first_step)    
         #plot_and_save(results, metric, fig_dir,  use_log=False,  exclude=args.exclude, include=args.include,
@@ -211,10 +212,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str, default="")
     parser.add_argument("--jobs_file", type=str, default="jobs.csv")
+    parser.add_argument("--jobs_suffix", type=str, default="-averaged")
     parser.add_argument("--name", type=str, default="")
     parser.add_argument("--first_step", type=int, default=5)
     parser.add_argument("--exclude", type=str, default="")
     parser.add_argument("--include", type=str, default="")
+
 
     args = parser.parse_args()
     main(args)

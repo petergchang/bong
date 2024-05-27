@@ -86,6 +86,31 @@ def fit_linreg_baseline(Xtrain, ytrain, method='lstsq'):
     sigma2 = sum_sq_residuals/N
     return w, sigma2
 
+def compute_reg_baselines(args, data, obs_var):
+    Xtr, Xte = data['X_tr'], data['X_te']
+    ytrain, ytest = data['Y_tr'], data['Y_te']
+    N = Xtr.shape[0]
+    results = {}
+    mu_y, v_y = fit_gauss_baseline(Xtr, ytrain)
+    #nll_te_gauss_learned_var = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, v_y, Xte, ytest))
+    #nll_te_gauss_fixed_var = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, noise_var, Xte, ytest))
+ 
+    w, sigma2 = fit_linreg_baseline(Xtr, ytrain)
+    nll_te_linreg_obs_var =  jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, obs_var, Xte, ytest))
+    nll_te_linreg_mle_var =  jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, sigma2, Xte, ytest))
+    results['nll_te_linreg'] = nll_te_linreg_obs_var # to be comparable with MLP methods
+    ypred = Xte @ w
+    mse = jnp.mean(jnp.square(ypred - ytest))
+    smse = mse / v_y # standardized mean square error
+    results['mse_te_linreg'] = mse
+
+
+    print(f'Linreg baseline: Ntrain={Xtr.shape[0]}, Ntest={Xte.shape[0]}')
+    print(f'mse={mse:0.3f}, smse={smse:0.3f}, nll_obsvar={nll_te_linreg_obs_var:0.3f}, nll_mlevar={nll_te_linreg_mle_var:0.3f}')
+  
+    return  results
+       
+
 # output = transform(key, rebayes_algorithm, pred_state, x, y)
 def callback_reg(key, alg, state, x, y, X_te, Y_te, X_val, Y_val,
         post, em_function, ec_function, log_likelihood,
@@ -138,30 +163,7 @@ def compute_post_linreg(data, mu0, cov0, obs_var):
     post = {'mu': mu_post, 'cov': cov_post}
     return post
 
-def compute_reg_baselines(args, data, obs_var):
-    Xtr, Xte = data['X_tr'], data['X_te']
-    ytrain, ytest = data['Y_tr'], data['Y_te']
-    N = Xtr.shape[0]
-    results = {}
-    mu_y, v_y = fit_gauss_baseline(Xtr, ytrain)
-    #nll_te_gauss_learned_var = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, v_y, Xte, ytest))
-    #nll_te_gauss_fixed_var = jnp.mean(jax.vmap(nll_gauss, (None, None, 0, 0))(mu_y, noise_var, Xte, ytest))
- 
-    w, sigma2 = fit_linreg_baseline(Xtr, ytrain)
-    nll_te_linreg_obs_var =  jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, obs_var, Xte, ytest))
-    nll_te_linreg_mle_var =  jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, sigma2, Xte, ytest))
-    results['nll_te_linreg'] = nll_te_linreg_obs_var # to be comparable with MLP methods
-    ypred = Xte @ w
-    mse = jnp.mean(jnp.square(ypred - ytest))
-    smse = mse / v_y # standardized mean square error
-    results['mse_te_linreg'] = mse
 
-
-    print(f'Linreg baseline: Ntrain={Xtr.shape[0]}, Ntest={Xte.shape[0]}')
-    print(f'mse={mse:0.3f}, smse={smse:0.3f}, nll_obsvar={nll_te_linreg_obs_var:0.3f}, nll_mlevar={nll_te_linreg_mle_var:0.3f}')
-  
-    return  results
-       
 
 
 def  make_lin_reg(key, args, data):
@@ -187,34 +189,24 @@ def  make_lin_reg(key, args, data):
         "emission_cov_function": ec_function,
         }
 
-
     callback = partial(callback_reg, X_te=data['X_te'], Y_te=data['Y_te'],
                 X_val=data['X_val'], Y_val=data['Y_val'], post=post,
         em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
-    # Compute batch baselines before scanning
-    if args.linreg_baseline:
-        baselines = compute_reg_baselines(args, data, obs_var)
-        nlpd_baseline_linreg = baselines['nll_te_linreg']
-        mse_baseline_linreg = baselines['mse_te_linreg']
-    else:
-        nlpd_baseline_linreg = 0.0
-        mse_baseline_linreg = 0.0
 
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv, mse_te, mse_val = output
         #s_val = f"Val NLL {nll_val[-1]:.4f},  NLPD: {nlpd_val[-1]:.4f}"
         s_te = f"Test MSE: {mse_te[-1]:0.4f}, NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         s_kl = f"KL: {kldiv[-1]:0.4f}"
-        s_mse = f"Linreg baseline: MSE:{mse_baseline_linreg:0.3f}, NLPD-PI: {nlpd_baseline_linreg:0.3f}"
-        summary = "\n".join([s_te, s_kl, s_mse])
+        summary = "\n".join([s_te, s_kl])
 
         # Results that we save and later plot
-        results = {'nll': nll_te, 'nlpd': nlpd_te,   
-                    'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                    'kldiv': kldiv, 'mse_te': mse_te,
+        results = {'nlpd-pi': nll_te, 'nlpd-mc': nlpd_te,   'mse': mse_te, 
+                    'nlpd-pi_val': nll_val, 'nlpd-mc_val': nlpd_val,
+                    'kldiv': kldiv, 
         }
-        
+
         return results, summary
         
     def tune_kl_loss_fn(key, alg, state):
@@ -255,15 +247,12 @@ def make_mlp_reg(key, args, data):
                 X_val=data['X_val'], Y_val=data['Y_val'], post=None,
         em_function = em_function, ec_function = ec_function, log_likelihood = gauss_log_likelihood)
 
-    #baselines = compute_reg_baselines(args, data)
-
     def process_callback(output):
         nll_te, nll_val, nlpd_te, nlpd_val, kldiv, mse_te, mse_val = output
         summary = f"Test MSE: {mse_te[-1]:0.4f}, NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         #summary = f"NLPD-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
-        results = {'nll': nll_te, 'nlpd': nlpd_te, 'nll_val': nll_val, 'nlpd_val': nlpd_val,
-                    'mse_te': mse_te,
-                    #'nlpd_baseline-linreg': baselines['nll_te_linreg_fixed_var'],
+        results = {'nlpd-pi': nll_te, 'nlpd-mc': nlpd_te,  'mse': mse_te, 
+                    'nlpd-pi_val': nll_val, 'nlpd-mc_val': nlpd_val,
                    }
         return results, summary
 
@@ -328,8 +317,8 @@ def make_mlp_cls(key, args, data):
         summary1 = f"NLL-PI: {nll_te[-1]:.4f},  NLPD-MC: {nlpd_te[-1]:.4f}"
         summary2 = f"Acc-PI: {acc_pi_te[-1]:.4f}, Acc-MC: {acc_te[-1]:.4f}"
         summary = summary1 + "\n" + summary2
-        results = {'nll-pi': nll_te, 'nlpd': nlpd_te, 'acc-pi': acc_pi_te, 'acc-mc': acc_te,
-                    'nll-pi_val': nll_val, 'nlpd_val': nlpd_val, 'acc-pi_val': acc_pi_val, 'acc-mc_val': acc_val
+        results = {'nlpd-pi': nll_te, 'nlpd-mc': nlpd_te, 'acc-pi': acc_pi_te, 'acc-mc': acc_te,
+                    'nllpd-pi_val': nll_val, 'nlpd-mc_val': nlpd_val, 'acc-pi_val': acc_pi_val, 'acc-mc_val': acc_val
                     }
         return results, summary
 

@@ -13,6 +13,10 @@ from bong.agents import make_agent_constructor
 from datasets import make_dataset
 from models import make_model
 
+def calc_mse(prediction, Y):
+    mse = jnp.mean(jnp.square(prediction - Y))
+    return mse
+
 def main(args):
     if isinstance(args.key, int):
         key = jr.PRNGKey(args.key)
@@ -40,9 +44,23 @@ def main(args):
     key, subkey = jr.split(key)
     results, elapsed, summary = run_agent(subkey, agent, data, model)
     df = pd.DataFrame(results)
-    mse = df['mse_te'].to_numpy()
-    expected_mse = 31.08 # from sarcos_demo
-    assert jnp.allclose(mse[-1], expected_mse, atol=1e-1)
+    print(df.columns)
+    mse_agent = df['mse'].to_numpy()[-1]
+    nll_agent = df['nlpd-pi'].to_numpy()[-1]
+    nlpd_agent = df['nlpd-mc'].to_numpy()
+    print(nlpd_agent)
+
+    mu_y, v_y = fit_gauss_baseline(data['X_tr'], data['Y_tr'])
+    w, sigma2 = fit_linreg_baseline(data['X_tr'], data['Y_tr'], method='lstsq')
+    prediction = data['X_te'] @ w 
+    mse_linreg_baseline = calc_mse(prediction, data['Y_te'])
+    print(f'n={args.ntrain}, MSE linreg={mse_linreg_baseline:.3f}, MSE agent={mse_agent:.3f}')
+
+    obs_var = 0.1*jnp.var(data['Y_tr'])
+    nll_linreg_baseline = jnp.mean(jax.vmap(nll_linreg, (None, None, 0, 0))(w, obs_var, data['X_te'], data['Y_te']))
+    print(f'n={args.ntrain}, NLL linreg={nll_linreg_baseline:.3f}, NLL agent={nll_agent:.3f}')
+    #expected_mse = 31.08 # from sarcos_demo
+    #assert jnp.allclose(mse[-1], expected_mse, atol=1e-1)
 
 
 
@@ -54,14 +72,12 @@ if __name__ == "__main__":
     parser.add_argument("--data_dim", type=int, default=0)
     parser.add_argument("--dgp_type", type=str, default="na") 
     parser.add_argument("--dgp_str", type=str, default="na")  
-    parser.add_argument("--ntrain", type=int, default=0) # use all the data!
+    parser.add_argument("--ntrain", type=int, default=2000) # use all the data!
     parser.add_argument("--nval", type=int, default=0)
     parser.add_argument("--ntest", type=int, default=0)
     parser.add_argument("--add_ones", type=int, default=1) 
-    parser.add_argument("--init_var", type=float, default=1000) # unregularized!
-
+    parser.add_argument("--init_var", type=float, default=1) # mildly regularized
     parser.add_argument("--emission_noise", type=float, default=-1)
-    parser.add_argument("--linreg_baseline", type=int, default=1)
 
 
     # Model parameters
@@ -74,8 +90,8 @@ if __name__ == "__main__":
     parser.add_argument("--ef", type=int, default=1)
     parser.add_argument("--lin", type=int, default=1)
     parser.add_argument("--rank", type=int, default=10)
-    parser.add_argument("--model_type", type=str, default="lin") # or mlp
-    parser.add_argument("--model_str", type=str, default="")
+    parser.add_argument("--model_type", type=str, default="mlp") 
+    parser.add_argument("--model_str", type=str, default="1")
     parser.add_argument("--use_bias", type=int, default=1) 
     parser.add_argument("--use_bias_layer1", type=int, default=1) 
 
@@ -85,5 +101,6 @@ if __name__ == "__main__":
     parser.add_argument("--key", type=int, default=0)
 
 
-    args = parser.parse_args([])
+    args = parser.parse_args()
+    print(args)
     main(args)
