@@ -71,9 +71,8 @@ def compute_linreg_baseline(results_dir):
     return mse_linreg_baseline, nll_linreg_baseline
 
 
-def plot_timeseries(results_mean, results_var, jobnames, jobargs,  metric, smoothed=False, first_step=10, step_size=5, 
+def plot_timeseries(ax, results_mean, results_var, jobnames, jobargs,  metric, smoothed=False, first_step=10, step_size=5, 
                     error_bars=True):
-    fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     njobs = len(jobnames)
     fs = (12 if njobs <= 6 else 8)
     colors = cm.tab20(np.linspace(0, 1, njobs))
@@ -143,18 +142,26 @@ def plot_timeseries(results_mean, results_var, jobnames, jobargs,  metric, smoot
     ax.set_xlabel('num. training observations', fontsize=12)
     #ax.set_ylim(stats['qlow'], stats['qhigh']) # truncate outliers
         
-    return fig, ax
+    return ax
 
 def plot_and_save(results_dir, results_mean, results_var, jobargs,  metric, fig_dir, use_log=False, smoothed=False,  
-            exclude='', include='', name='', first_step=10, step_size=5, error_bars=True, include_baseline=True):
+            exclude='', include='', name='', first_step=10, step_size=5, error_bars=True, include_baseline=True,
+            ymin='None', ymax='None'):
     jobnames = filter_jobnames(jobargs, exclude, include)
-    fig, ax = plot_timeseries(results_mean, results_var, jobnames, jobargs,  metric,  smoothed=smoothed,  
-            first_step=first_step, step_size=step_size, error_bars=error_bars)
 
+    fig, ax = plt.subplots(figsize=(8,6)) # width, height in inches
     if include_baseline and ((metric == 'nlpd-pi') or (metric == 'nlpd-mc')):
         mse, nll = compute_linreg_baseline(results_dir)
         ax.axhline(y=nll, linestyle=':', label='linreg-nll')
+
+    ax = plot_timeseries(ax, results_mean, results_var, jobnames, jobargs,  metric,  smoothed=smoothed,  
+            first_step=first_step, step_size=step_size, error_bars=error_bars)
     
+    if ymin != 'None':
+        ax.set_ylim(bottom=int(ymin))
+    if ymax != 'None':
+        ax.set_ylim(top=int(ymax))
+
     jobname = jobnames[0]
     model_name = jobargs[jobname]['model_name']
     data_name = jobargs[jobname]['data_name']
@@ -174,6 +181,10 @@ def plot_and_save(results_dir, results_mean, results_var, jobargs,  metric, fig_
         fname = fname + "_baseline"
     if error_bars:
         fname = fname + "_error_bars"
+    if ymin != 'None':
+        fname = fname + f"_ymin{ymin}"
+    if ymax != 'None':
+        fname = fname + f"_ymax{ymax}"
     if first_step>0:
         fname = fname + f"_from{first_step}"
     print(f'Saving figure to {fname}')
@@ -199,10 +210,11 @@ def main(args):
         results_mean = extract_results(results_dir,  f'{metric}_mean', args.jobs_file, args.jobs_suffix)
         results_var = extract_results(results_dir,  f'{metric}_var', args.jobs_file, args.jobs_suffix)
         plot_and_save(results_dir, results_mean, results_var, jobargs, metric, fig_dir,  use_log=False,
-                      exclude=args.exclude, include=args.include, error_bars=True,
+                      exclude=args.exclude, include=args.include, error_bars=True, ymin=args.ymin, ymax=args.ymax,
                     name=args.name, first_step=args.first_step, smoothed=True, include_baseline=args.include_baseline) 
+
         plot_and_save(results_dir, results_mean, results_var, jobargs, metric, fig_dir,  use_log=False,
-                      exclude=args.exclude, include=args.include, error_bars=False,
+                      exclude=args.exclude, include=args.include, error_bars=False, ymin=args.ymin, ymax=args.ymax,
                     name=args.name, first_step=args.first_step, smoothed=True, include_baseline=args.include_baseline) 
 
     
@@ -219,6 +231,8 @@ if __name__ == "__main__":
     parser.add_argument("--include", type=str, default="")
     parser.add_argument("--error_bars", type=int, default=1)
     parser.add_argument("--include_baseline", type=int, default=0)
+    parser.add_argument("--ymin", type=str, default='None')
+    parser.add_argument("--ymax", type=str, default='None')
 
     args = parser.parse_args()
     print(args)

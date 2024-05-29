@@ -50,9 +50,12 @@ python find_best_jobs.py --dir $DIR
 
 python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --name bakeoff 
 
-python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==10) or (niter==99)" --name bakeoff-it10 
 
-python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==1) or (niter==99)" --name bakeoff-it1
+python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==1) or (niter==99)" --name bakeoff-it1  --ymin 0 --ymax 15
+
+
+python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==10) or (niter==99)" --name bakeoff-it10  --ymin 0 --ymax 15
+
 
 python plot_times.py --dir $DIR 
 
