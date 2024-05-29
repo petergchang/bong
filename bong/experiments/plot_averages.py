@@ -104,7 +104,14 @@ def plot_timeseries(ax, results_mean, results_var, jobnames, jobargs,  metric, s
 
         plot_params = make_plot_params(algo, ef, lin)
         expt_name =  f'{agent_name} [sec:{elapsed_mean:.1f}+-{elapsed_std:.1f}'
-        expt_name = expt_name + f' {metric}@T={T}:{final_mean:.2f}+-{final_std:.2f}]'
+        
+        if final_mean > 1000:
+            final_mean_str = f'{final_mean:.2e}'
+        else:
+            final_mean_str = f'{final_mean:.2f}'
+        final_std_str = f'{final_std:.2f}'
+
+        expt_name = expt_name + f' {metric}@T={T}:{final_mean_str}+-{final_std_str}]'
 
 
         steps = jnp.arange(0, T)

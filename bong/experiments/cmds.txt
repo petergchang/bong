@@ -53,6 +53,8 @@ python plot_averages.py --dir $DIR --name bbb1-lr-bong  --ymin 2 --ymax 10 \
 python plot_averages.py --dir $DIR --name bbb10-lr-bong  --ymin 2 --ymax 10 \
 --include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))" 
 
+python plot_averages.py --dir $DIR --name bog-lr-bong  --ymin 2 --ymax 10 \
+--include "((algo=='bong') or (algo=='bog'))" 
 
 
 python plot_averages.py --dir $DIR --name blr-lr --include "(algo=='blr')"
