@@ -47,13 +47,13 @@ python plot_averages.py --dir $DIR --name blr1-lr  --ymin 2 --ymax 10 \
 python plot_averages.py --dir $DIR --name blr10-lr --ymin 2 --ymax 10 \
 --include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='blr'))" 
 
-python plot_averages.py --dir $DIR --name new-bbb1-lr  --ymin 2 --ymax 10 \
+python plot_averages.py --dir $DIR --name new2-bbb1-lr  --ymin 2 --ymax 10 \
 --include "((niter==1) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))" 
 
 python plot_averages.py --dir $DIR --name new-bbb10-lr  --ymin 2 --ymax 10 \
 --include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))" 
 
-python plot_averages.py --dir $DIR --name new-bog-lr  --ymin 2 --ymax 10 \
+python plot_averages.py --dir $DIR --name new2-bog-lr  --ymin 2 --ymax 10 \
 --include "((algo=='bong') or (algo=='bog'))" 
 
 # If use EF
@@ -127,3 +127,5 @@ python do_job.py \
     --dgp_type $DGP_TYPE \
     --dgp_str $DGP_STR \
     --dir $DIR 
+
+#touch

@@ -38,9 +38,12 @@ def filter_jobnames(jobargs, exclude='', include=''):
                 continue
         if len(include) > 1:
             keep_result = eval(include)
-            if not keep_result:
+            if keep_result:
+                print('keeping ', jobname, res)
+            else:
                 #print(f'Only including {include}, so skipping', res)
                 continue
+        print(jobname)
         keep_names.append(jobname)
     return keep_names
 

@@ -159,6 +159,7 @@ def unsafestr(lr_str):
     return float(lr_str)
     
 
+
 def make_full_name(algo, param, rank, linplugin, ef, nsamples, niter, lr):
     algo_str = algo
     if param == 'dlr':
