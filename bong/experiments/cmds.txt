@@ -128,4 +128,4 @@ python do_job.py \
     --dgp_str $DGP_STR \
     --dir $DIR 
 
-#touch
+#touch!
