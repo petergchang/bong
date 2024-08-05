@@ -1,42 +1,19 @@
-from typing import Callable, NamedTuple
+from typing import Callable
 
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 
 from bong.base import RebayesAlgorithm
-from bong.types import Array, ArrayLike, PRNGKey
+from bong.src.states import AgentState, DLRAgentState
+from bong.types import ArrayLike, PRNGKey
 from bong.util import fast_svd, hess_diag_approx, sample_dlr, make_full_name
-
-
-class BONGState(NamedTuple):
-    """Belief state of a BONG agent.
-
-    mean: Mean of the belief state.
-    cov: Covariance of the belief state.
-    """
-
-    mean: Array
-    cov: Array
-
-
-class BONGDLRState(NamedTuple):
-    """Belief state of a DLR-BONG agent.
-
-    mean: Mean of the belief state.
-    prec_diag: Diagonal term (Upsilon) of DLR approximation of precision.
-    prec_lr: Low-rank term (W) of DLR approximation of precision.
-    """
-
-    mean: Array
-    prec_diag: Array
-    prec_lr: Array
 
 
 def init_bong(
     init_mean: ArrayLike,
     init_cov: ArrayLike,
-) -> BONGState:
+) -> AgentState:
     """Initialize the belief state with a mean and covariance.
 
     Args:
@@ -46,14 +23,14 @@ def init_bong(
     Returns:
         Initial belief state.
     """
-    return BONGState(mean=init_mean, cov=init_cov)
+    return AgentState(mean=init_mean, cov=init_cov)
 
 
 def init_bong_dlr(
     init_mean: ArrayLike,
     init_prec_diag: ArrayLike,
     init_prec_lr: ArrayLike,
-) -> BONGDLRState:
+) -> DLRAgentState:
     """Initialize the belief state with a mean and DLR precision.
 
     Args:
@@ -64,16 +41,16 @@ def init_bong_dlr(
     Returns:
         Initial belief state.
     """
-    return BONGDLRState(init_mean, init_prec_diag, init_prec_lr)
+    return DLRAgentState(init_mean, init_prec_diag, init_prec_lr)
 
 
 def predict_bong(
-    state: BONGState,
+    state: AgentState,
     gamma: float,
     Q: ArrayLike,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Predict the next state of the belief state.
 
     Args:
@@ -87,17 +64,17 @@ def predict_bong(
     mean, cov = state
     new_mean = jax.tree_map(lambda x: gamma * x, mean)
     new_cov = jax.tree_map(lambda x, y: gamma**2 * x + y, cov, Q)
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def predict_bong_dlr(
-    state: BONGDLRState,
+    state: DLRAgentState,
     gamma: float,
     q: float,
     *args,
     **kwargs,
-) -> BONGDLRState:
+) -> DLRAgentState:
     """Predict the next state of the belief state.
 
     Args:
@@ -116,13 +93,13 @@ def predict_bong_dlr(
         jnp.eye(L) + q * prec_lr.T @ (prec_lr * (new_prec_diag / prec_diag))
     )
     new_prec_lr = gamma * (new_prec_diag / prec_diag) * prec_lr @ jnp.linalg.cholesky(C)
-    new_state = BONGDLRState(new_mean, new_prec_diag, new_prec_lr)
+    new_state = DLRAgentState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
 
 def update_fg_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -132,7 +109,7 @@ def update_fg_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the full-covariance Gaussian belief state with a new observation.
 
     Args:
@@ -168,13 +145,13 @@ def update_fg_bong(
     new_cov = jnp.linalg.pinv(new_prec)
     mean_update = jnp.mean(grads, axis=0)
     new_mean = mean + new_cov @ mean_update
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_lfg_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -184,7 +161,7 @@ def update_lfg_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the linearized-plugin full-covariance Gaussian belief state
     with a new observation. Note that this is equivalent to the EKF.
 
@@ -209,13 +186,13 @@ def update_lfg_bong(
     K = jnp.linalg.lstsq(S, C.T)[0].T
     new_mean = mean + K @ (y - y_pred)
     new_cov = cov - K @ S @ K.T
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_dlrg_bong(
     rng_key: PRNGKey,
-    state: BONGDLRState,
+    state: DLRAgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -225,7 +202,7 @@ def update_dlrg_bong(
     empirical_fisher: bool = True,
     *args,
     **kwargs,
-) -> BONGDLRState:
+) -> DLRAgentState:
     """Update the DLR-precision Gaussian belief state with a new observation.
 
     Args:
@@ -275,13 +252,13 @@ def update_dlrg_bong(
     new_prec_diag = (
         prec_diag + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
     )
-    new_state = BONGDLRState(new_mean, new_prec_diag, new_prec_lr)
+    new_state = DLRAgentState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
 
 def update_ldlrg_bong(
     rng_key: PRNGKey,
-    state: BONGDLRState,
+    state: DLRAgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -291,7 +268,7 @@ def update_ldlrg_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGDLRState:
+) -> DLRAgentState:
     """Update the linearized-plugin DLR-precision Gaussian belief state
     with a new observation. Note that this is equivalent to the EKF.
 
@@ -331,13 +308,13 @@ def update_ldlrg_bong(
     new_prec_diag = (
         prec_diag + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
     )
-    new_state = BONGDLRState(new_mean, new_prec_diag, new_prec_lr)
+    new_state = DLRAgentState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
 
 def update_dg_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -347,7 +324,7 @@ def update_dg_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the diagonal-covariance Gaussian belief state
     with a new observation.
 
@@ -389,13 +366,13 @@ def update_dg_bong(
     new_cov = 1 / new_prec
     mean_update = jnp.mean(grads, axis=0)
     new_mean = mean + new_cov * mean_update
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_ldg_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -405,7 +382,7 @@ def update_ldg_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the linearized-plugin diagonal-covariance Gaussian
     belief state with a new observation. Note that this is
     equivalent to the VD-EKF.
@@ -430,13 +407,13 @@ def update_ldg_bong(
     R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
     new_cov = 1 / (1 / cov + ((H.T @ R_inv) * H.T).sum(-1))
     new_mean = mean + K @ (y - y_pred)
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_fg_reparam_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -446,7 +423,7 @@ def update_fg_reparam_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the full-covariance Gaussian belief state with a new observation,
     under the reparameterized BONG model.
 
@@ -481,13 +458,13 @@ def update_fg_reparam_bong(
     mean_update = jnp.mean(grads, axis=0)
     new_mean = mean + cov @ mean_update
     new_cov = cov + cov @ cov_update @ cov
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_lfg_reparam_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -497,7 +474,7 @@ def update_lfg_reparam_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the linearized-plugin full-covariance Gaussian belief state
     with a new observation under the reparameterized BONG model.
 
@@ -521,13 +498,13 @@ def update_lfg_reparam_bong(
     K = jnp.linalg.lstsq(R, C.T)[0].T
     new_mean = mean + K @ (y - y_pred)
     new_cov = cov - K @ R @ K.T
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_dg_reparam_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -537,7 +514,7 @@ def update_dg_reparam_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the diagonal-covariance Gaussian belief state
     with a new observation under the reparameterized BONG model.
 
@@ -577,13 +554,13 @@ def update_dg_reparam_bong(
         hess_diag = jnp.mean(jax.vmap(hess_diag_fn)(z), axis=0)
     new_mean = mean + cov * grad_est
     new_cov = cov + cov * hess_diag * cov
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
 def update_ldg_reparam_bong(
     rng_key: PRNGKey,
-    state: BONGState,
+    state: AgentState,
     x: ArrayLike,
     y: ArrayLike,
     log_likelihood: Callable,
@@ -593,7 +570,7 @@ def update_ldg_reparam_bong(
     empirical_fisher: bool = False,
     *args,
     **kwargs,
-) -> BONGState:
+) -> AgentState:
     """Update the linearized-plugin diagonal-covariance Gaussian
     belief state with a new observation under the reparameterized BONG model.
 
@@ -616,25 +593,25 @@ def update_ldg_reparam_bong(
     HTRinv = jnp.linalg.lstsq(R, H)[0].T
     new_mean = mean + (cov * HTRinv.T).T @ (y - y_pred)
     new_cov = cov - cov**2 * (HTRinv * H.T).sum(-1)
-    new_state = BONGState(new_mean, new_cov)
+    new_state = AgentState(new_mean, new_cov)
     return new_state
 
 
-def sample_fg_bong(rng_key: PRNGKey, state: BONGState, num_samples: int = 10):
+def sample_fg_bong(rng_key: PRNGKey, state: AgentState, num_samples: int = 10):
     """Sample from the full-covariance Gaussian belief state"""
     mean, cov = state
     states = jr.multivariate_normal(rng_key, mean, cov, shape=(num_samples,))
     return states
 
 
-def sample_dlrg_bong(rng_key: PRNGKey, state: BONGDLRState, num_samples: int = 10):
+def sample_dlrg_bong(rng_key: PRNGKey, state: DLRAgentState, num_samples: int = 10):
     """Sample from the DLR-precision Gaussian belief state"""
     mean, prec_diag, prec_lr = state
     states = sample_dlr(rng_key, prec_lr, prec_diag, shape=(num_samples,)) + mean
     return states
 
 
-def sample_dg_bong(rng_key: PRNGKey, state: BONGState, num_samples: int = 10):
+def sample_dg_bong(rng_key: PRNGKey, state: AgentState, num_samples: int = 10):
     """Sample from the diagonal-covariance Gaussian belief state"""
     mean, cov = state
     states = (
@@ -714,15 +691,15 @@ class fg_bong:
         else:
             _update_fn = staticmethod(update_fg_bong)
 
-        def init_fn() -> BONGState:
+        def init_fn() -> AgentState:
             return staticmethod(init_bong)(init_mean, init_cov)
 
-        def pred_fn(state: BONGState) -> BONGState:
+        def pred_fn(state: AgentState) -> AgentState:
             return staticmethod(predict_bong)(state, dynamics_decay, process_noise)
 
         def update_fn(
-            rng_key: PRNGKey, state: BONGState, x: ArrayLike, y: ArrayLike
-        ) -> BONGState:
+            rng_key: PRNGKey, state: AgentState, x: ArrayLike, y: ArrayLike
+        ) -> AgentState:
             return _update_fn(
                 rng_key,
                 state,
@@ -812,15 +789,15 @@ class dlrg_bong:
         else:
             _update_fn = staticmethod(update_dlrg_bong)
 
-        def init_fn() -> BONGDLRState:
+        def init_fn() -> DLRAgentState:
             return staticmethod(init_bong_dlr)(init_mean, init_prec_diag, init_lr)
 
-        def pred_fn(state: BONGDLRState) -> BONGDLRState:
+        def pred_fn(state: DLRAgentState) -> DLRAgentState:
             return staticmethod(predict_bong_dlr)(state, dynamics_decay, process_noise)
 
         def update_fn(
-            rng_key: PRNGKey, state: BONGDLRState, x: ArrayLike, y: ArrayLike
-        ) -> BONGDLRState:
+            rng_key: PRNGKey, state: DLRAgentState, x: ArrayLike, y: ArrayLike
+        ) -> DLRAgentState:
             return _update_fn(
                 rng_key,
                 state,
@@ -910,15 +887,15 @@ class dg_bong:
         else:
             _update_fn = staticmethod(update_dg_bong)
 
-        def init_fn() -> BONGState:
+        def init_fn() -> AgentState:
             return staticmethod(init_bong)(init_mean, init_cov)
 
-        def pred_fn(state: BONGState) -> BONGState:
+        def pred_fn(state: AgentState) -> AgentState:
             return staticmethod(predict_bong)(state, dynamics_decay, process_noise)
 
         def update_fn(
-            rng_key: PRNGKey, state: BONGState, x: ArrayLike, y: ArrayLike
-        ) -> BONGState:
+            rng_key: PRNGKey, state: AgentState, x: ArrayLike, y: ArrayLike
+        ) -> AgentState:
             return _update_fn(
                 rng_key,
                 state,
@@ -1008,15 +985,15 @@ class fg_reparam_bong:
         else:
             _update_fn = staticmethod(update_fg_reparam_bong)
 
-        def init_fn() -> BONGState:
+        def init_fn() -> AgentState:
             return staticmethod(init_bong)(init_mean, init_cov)
 
-        def pred_fn(state: BONGState) -> BONGState:
+        def pred_fn(state: AgentState) -> AgentState:
             return staticmethod(predict_bong)(state, dynamics_decay, process_noise)
 
         def update_fn(
-            rng_key: PRNGKey, state: BONGState, x: ArrayLike, y: ArrayLike
-        ) -> BONGState:
+            rng_key: PRNGKey, state: AgentState, x: ArrayLike, y: ArrayLike
+        ) -> AgentState:
             return _update_fn(
                 rng_key,
                 state,
@@ -1105,15 +1082,15 @@ class dg_reparam_bong:
         else:
             _update_fn = staticmethod(update_dg_reparam_bong)
 
-        def init_fn() -> BONGState:
+        def init_fn() -> AgentState:
             return staticmethod(init_bong)(init_mean, init_cov)
 
-        def pred_fn(state: BONGState) -> BONGState:
+        def pred_fn(state: AgentState) -> AgentState:
             return staticmethod(predict_bong)(state, dynamics_decay, process_noise)
 
         def update_fn(
-            rng_key: PRNGKey, state: BONGState, x: ArrayLike, y: ArrayLike
-        ) -> BONGState:
+            rng_key: PRNGKey, state: AgentState, x: ArrayLike, y: ArrayLike
+        ) -> AgentState:
             return _update_fn(
                 rng_key,
                 state,
