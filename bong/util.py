@@ -15,7 +15,8 @@ import subprocess
 
 
 from bong.base import RebayesAlgorithm
-from bong.types import Array, ArrayLike, PRNGKey, State
+from bong.types import Array, ArrayLike, PRNGKey
+from bong.src.states import AgentState, DLRAgentState
 
 
 def jax_has_gpu():
@@ -532,11 +533,11 @@ def run_rebayes_algorithm(
     rebayes_algorithm: RebayesAlgorithm,
     X: ArrayLike,
     Y: ArrayLike,
-    init_state: State | None = None,
+    init_state: AgentState | DLRAgentState | None = None,
     transform=lambda key, alg, state, x, y: state,
     progress_bar: bool = False,
     **init_kwargs,
-) -> tuple[State, Any]:
+) -> tuple[AgentState | DLRAgentState, Any]:
     """Run a rebayes algorithm over a sequence of observations.
 
     Args:

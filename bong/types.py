@@ -1,5 +1,5 @@
 # Taken from blackjax.types
-from typing import Any, Iterable, Mapping, NamedTuple, TypeAlias, Union
+from typing import Any, Iterable, Mapping, TypeAlias, Union
 
 import jax
 
@@ -12,4 +12,3 @@ ArrayLikeTree: TypeAlias = Union[
 ]
 
 PRNGKey: TypeAlias = jax.Array
-State: TypeAlias = NamedTuple
