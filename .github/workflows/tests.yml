@@ -24,6 +24,9 @@ jobs:
           python-version: 3.12
           cache: pip
       - name: Install Python dependencies
+        run: |-
+          pip install uv
+          uv pip install -e .[dev]
       - run: refurb bong
       - run: pylint bong
   test:
@@ -38,5 +41,9 @@ jobs:
           python-version: 3.12
           cache: pip
       - name: Install Python dependencies
+        run: |-
+          pip install uv
+          make check-compile
+          uv pip install -e .[dev]
       - uses: "google-github-actions/auth@v2"
       - run: pytest -n 16 --dist=loadfile # auto only launches 8 workers in CI, despite runners have 16 cores
