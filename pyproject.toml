@@ -34,7 +34,8 @@ requires-python = ">=3.11.0rc1"
 
 [project.optional-dependencies]
 dev = [
-  "ipykernel"
+  "ipykernel",
+  "pytest"
 ]
 
 [project.urls]
