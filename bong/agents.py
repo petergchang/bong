@@ -1,11 +1,17 @@
 from functools import partial
 
 from bong.src import bbb, blr, bog, bong
-import pandas as pd
-from bong.util import safestr, unsafestr
 
-AGENT_TYPES = ["fg_bong", "fg_l_bong", "fg_rep_bong", "fg_rep_l_bong",
-               "fg_blr", "fg_bog", "fg_bbb", "fg_rep_bbb"]
+AGENT_TYPES = [
+    "fg_bong",
+    "fg_l_bong",
+    "fg_rep_bong",
+    "fg_rep_l_bong",
+    "fg_blr",
+    "fg_bog",
+    "fg_bbb",
+    "fg_rep_bbb",
+]
 
 
 LR_AGENT_TYPES = ["fg_blr", "fg_bog", "fg_rep_bog", "fg_bbb", "fg_rep_bbb"]
@@ -62,45 +68,68 @@ BONG_DICT = {
     "fg_rep_bbb": bbb.fg_reparam_bbb,
 }
 
+
 def make_agent_constructor(algo, param):
     if algo == "bong":
-        if param == "fc": return  bong.fg_bong
-        if param == "fc_mom": return  bong.fg_reparam_bong
-        if param == "diag": return  bong.dg_bong
-        if param == "diag_mom": return  bong.dg_reparam_bong
-        if param == "dlr": return  bong.dlrg_bong
+        if param == "fc":
+            return bong.fg_bong
+        if param == "fc_mom":
+            return bong.fg_reparam_bong
+        if param == "diag":
+            return bong.dg_bong
+        if param == "diag_mom":
+            return bong.dg_reparam_bong
+        if param == "dlr":
+            return bong.dlrg_bong
 
     if algo == "blr":
-        if param == "fc": return  blr.fg_blr
-        if param == "fc_mom": return  blr.fg_reparam_blr
-        if param == "diag": return  blr.dg_blr
-        if param == "diag_mom": return  blr.dg_reparam_blr
-        if param == "dlr": return  blr.dlrg_blr
+        if param == "fc":
+            return blr.fg_blr
+        if param == "fc_mom":
+            return blr.fg_reparam_blr
+        if param == "diag":
+            return blr.dg_blr
+        if param == "diag_mom":
+            return blr.dg_reparam_blr
+        if param == "dlr":
+            return blr.dlrg_blr
 
     if algo == "bog":
-        if param == "fc": return  bog.fg_bog
-        if param == "fc_mom": return  bog.fg_reparam_bog
-        if param == "diag": return  bog.dg_bog
-        if param == "diag_mom": return  bog.dg_reparam_bog
-        if param == "dlr": return  bog.dlrg_bog
-        
-    if algo == "bbb":
-        if param == "fc": return  bbb.fg_bbb
-        if param == "fc_mom": return  bbb.fg_reparam_bbb
-        if param == "diag": return  bbb.dg_bbb
-        if param == "diag_mom": return  bbb.dg_reparam_bbb
-        if param == "dlr": return  bbb.dlrg_bbb
+        if param == "fc":
+            return bog.fg_bog
+        if param == "fc_mom":
+            return bog.fg_reparam_bog
+        if param == "diag":
+            return bog.dg_bog
+        if param == "diag_mom":
+            return bog.dg_reparam_bog
+        if param == "dlr":
+            return bog.dlrg_bog
 
+    if algo == "bbb":
+        if param == "fc":
+            return bbb.fg_bbb
+        if param == "fc_mom":
+            return bbb.fg_reparam_bbb
+        if param == "diag":
+            return bbb.dg_bbb
+        if param == "diag_mom":
+            return bbb.dg_reparam_bbb
+        if param == "dlr":
+            return bbb.dlrg_bbb
 
 
 def needs_rank(algo, param, lin):
-    return (param == "dlr")
+    return param == "dlr"
+
 
 def needs_ef(algo, param, lin):
-    return not(lin)
+    return not (lin)
+
 
 def needs_nsample(algo, param, lin):
-    return not(lin)
+    return not (lin)
+
 
 def needs_niter(algo, param, lin):
     if (algo == "bong") or (algo == "bog"):
@@ -108,8 +137,9 @@ def needs_niter(algo, param, lin):
     else:
         return True
 
+
 def needs_lr(algo, param, lin):
-    if (algo == "bong"):
+    if algo == "bong":
         return False
     else:
         return True
@@ -117,10 +147,10 @@ def needs_lr(algo, param, lin):
 
 def make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr):
     invalid = 99
-    args = {'algo': algo, 'param': param, 'lin': lin}
-    args['dlr_rank'] = (rank if needs_rank(algo, param, lin) else invalid)
-    args['ef'] = (ef if needs_ef(algo, param, lin) else invalid)
-    args['nsample'] = (nsample if needs_nsample(algo, param, lin) else invalid)
-    args['niter'] = (niter if needs_niter(algo, param, lin) else invalid)
-    args['lr'] = (lr if needs_lr(algo, param, lin) else invalid)
+    args = {"algo": algo, "param": param, "lin": lin}
+    args["dlr_rank"] = rank if needs_rank(algo, param, lin) else invalid
+    args["ef"] = ef if needs_ef(algo, param, lin) else invalid
+    args["nsample"] = nsample if needs_nsample(algo, param, lin) else invalid
+    args["niter"] = niter if needs_niter(algo, param, lin) else invalid
+    args["lr"] = lr if needs_lr(algo, param, lin) else invalid
     return args
