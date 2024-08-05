@@ -14,8 +14,8 @@ import optuna
 import subprocess
 
 
-from bong.base import RebayesAlgorithm, State
-from bong.types import Array, ArrayLike, PRNGKey
+from bong.base import RebayesAlgorithm
+from bong.types import Array, ArrayLike, PRNGKey, State
 
 
 def jax_has_gpu():
