@@ -1,14 +1,14 @@
 # Taken from blackjax.types
-from typing import Any, Iterable, Mapping, Union
+from typing import Any, Iterable, Mapping, TypeAlias, Union
 
 import jax
 
-Array = jax.Array
-ArrayLike = jax.typing.ArrayLike
+Array: TypeAlias = jax.Array
+ArrayLike: TypeAlias = jax.typing.ArrayLike
 
-ArrayTree = Union[Array, Iterable["ArrayTree"], Mapping[Any, "ArrayTree"]]
-ArrayLikeTree = Union[
+ArrayTree: TypeAlias = Union[Array, Iterable["ArrayTree"], Mapping[Any, "ArrayTree"]]
+ArrayLikeTree: TypeAlias = Union[
     ArrayLike, Iterable["ArrayLikeTree"], Mapping[Any, "ArrayLikeTree"]
 ]
 
-PRNGKey = jax.Array
+PRNGKey: TypeAlias = jax.Array
