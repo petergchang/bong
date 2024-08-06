@@ -42,7 +42,7 @@ def get_gpu_name():
 
 
 def vector_pseudo_inverse(v):
-    return np.where(v != 0, 1 / np.array(v), 0)
+    return jnp.where(v != 0, 1 / jnp.array(v), 0)
 
 
 def move_df_col(df, colname, loc=0):
