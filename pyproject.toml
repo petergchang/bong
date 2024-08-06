@@ -24,7 +24,9 @@ dependencies = [
   "pandas>=2.1.3",
   "pytz",
   "seaborn>=0.13.0",
+  "tensorflow",
   "tensorflow-probability>=0.24.0",
+  "tensorflow-datasets",
   "tqdm>=4.66.1",
   "ucimlrepo>=0.0.6"
 ]
