@@ -33,7 +33,7 @@ dependencies = [
 description = "Bayesian Online Natural Gradient"
 dynamic = ["version"]
 name = "bong"
-requires-python = ">=3.11.0rc1"
+requires-python = ">=3.10.12"
 
 [project.optional-dependencies]
 dev = [
