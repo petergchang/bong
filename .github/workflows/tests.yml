@@ -29,7 +29,7 @@ jobs:
       - run: refurb bong
       - run: pylint bong
   test:
-    runs-on: large-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ts-graphviz/setup-graphviz@v2
