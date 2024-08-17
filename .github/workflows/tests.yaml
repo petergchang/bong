@@ -41,5 +41,4 @@ jobs:
         run: |-
           pip install uv
           uv pip install --system -e ".[dev]"
-      - uses: "google-github-actions/auth@v2"
       - run: pytest
