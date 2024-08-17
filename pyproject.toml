@@ -49,5 +49,19 @@ dev = [
 issues = "https://github.com/petergchang/bong/issues"
 repository = "https://github.com/petergchang/bong"
 
+[tool.mypy]
+exclude = [
+  "bong/deprecated"
+]
+ignore_missing_imports = true
+
+[tool.pylint.main]
+ignore-patterns = ["deprecated"]
+ignore-paths = ["^bong/deprecated/.*$"]
+
+[[tool.refurb.amend]]
+path = "bong/deprecated"
+ignore = ["FURB123", "FURB120"]
+
 [tool.setuptools_scm]
 version_file = "version.py"

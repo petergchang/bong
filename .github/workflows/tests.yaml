@@ -3,8 +3,12 @@ name: Lint and Test
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "bong/deprecated/**"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "bong/deprecated/**"
 
 jobs:
   pre-commit:
@@ -15,6 +19,8 @@ jobs:
         with:
           python-version: 3.12
       - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --files $(git ls-files -- ':!:bong/deprecated')
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -41,4 +47,4 @@ jobs:
         run: |-
           pip install uv
           uv pip install --system -e ".[dev]"
-      - run: pytest
+      - run: pytest bong/tests
