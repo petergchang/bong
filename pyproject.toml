@@ -59,12 +59,9 @@ ignore_missing_imports = true
 ignore-patterns = ["deprecated"]
 ignore-paths = ["^bong/deprecated/.*$"]
 
-[tool.refurb]
-enable_all = true
-
 [[tool.refurb.amend]]
 path = "bong/deprecated"
-disable_all = true
+ignore = ["FURB123", "FURB120"]
 
 [tool.setuptools_scm]
 version_file = "version.py"
