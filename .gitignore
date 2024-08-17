@@ -21,3 +21,6 @@ results/
 .vscode/
 .venv
 */data/*
+
+# Version files
+**/version.py
