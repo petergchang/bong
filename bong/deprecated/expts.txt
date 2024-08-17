@@ -17,7 +17,7 @@ NTRAIN=(500)
 PREFIX="job0"
 GPU="None"
 
-# expt1 
+# expt1
 MODEL_TYPE=("mlp")
 MODEL_NEURONS=(10 1)
 ALGO_LIST=("bong" "blr" "bog" "bbb")
@@ -200,7 +200,7 @@ python make_jobs.py \
 
 
 python do_jobs.py \
-    --dir $DIR 
+    --dir $DIR
 
 
 python do_jobs.py \
