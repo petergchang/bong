@@ -26,7 +26,7 @@ jobs:
       - name: Install Python dependencies
         run: |-
           pip install uv
-          uv pip install -e .[dev]
+          uv pip install --system -e ".[dev]"
       - run: refurb bong
       - run: pylint bong
   test:
@@ -40,6 +40,5 @@ jobs:
       - name: Install Python dependencies
         run: |-
           pip install uv
-          uv pip install -e .[dev]
-      - uses: "google-github-actions/auth@v2"
+          uv pip install --system -e ".[dev]"
       - run: pytest
