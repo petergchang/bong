@@ -33,7 +33,7 @@ dependencies = [
 description = "Bayesian Online Natural Gradient"
 dynamic = ["version"]
 name = "bong"
-requires-python = ">=3.10.12"
+requires-python = ">=3.10.6"
 
 [project.optional-dependencies]
 dev = [
@@ -41,6 +41,7 @@ dev = [
   "refurb",
   "ruff",
   "ipykernel",
+  "pylint",
   "pytest"
 ]
 
