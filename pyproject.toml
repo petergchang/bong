@@ -60,7 +60,11 @@ ignore-patterns = ["deprecated"]
 ignore-paths = ["^bong/deprecated/.*$"]
 
 [tool.refurb]
-ignore_paths = ["bong/deprecated"]
+enable_all = true
+
+[[tool.refurb.amend]]
+path = "bong/deprecated"
+disable_all = true
 
 [tool.setuptools_scm]
 version_file = "version.py"
