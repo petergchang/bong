@@ -15,7 +15,7 @@ import subprocess
 
 
 from bong.base import RebayesAlgorithm
-from bong.types import Array, ArrayLike, PRNGKey
+from bong.custom_types import Array, ArrayLike, PRNGKey
 from bong.src.states import AgentState, DLRAgentState
 
 
