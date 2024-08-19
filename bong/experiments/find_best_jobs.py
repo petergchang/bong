@@ -1,36 +1,30 @@
-
 import argparse
-import os
-import itertools
 import pandas as pd
-from pathlib import Path
-import os
-import numpy as np
-
 
 
 def main(args):
     results_dir = args.dir
- 
+
     fname = f"{results_dir}/jobs_with_eval.csv"
     df = pd.read_csv(fname)
 
-    #df['minscore'] = df.groupby('algo')[args.metric].transform('min')
-    #condition = (df['minscore'] != df[args.metric])
-    #indices_to_drop = df[condition].index
-    #df_filtered = df.drop(indices_to_drop)
-   
+    # df['minscore'] = df.groupby('algo')[args.metric].transform('min')
+    # condition = (df['minscore'] != df[args.metric])
+    # indices_to_drop = df[condition].index
+    # df_filtered = df.drop(indices_to_drop)
 
-    grouped = df.groupby(['algo', 'param', 'lin', 'ef', 'niter', 'model_str', 'dlr_rank'])
+    grouped = df.groupby(
+        ["algo", "param", "lin", "ef", "niter", "model_str", "dlr_rank"]
+    )
     # Find the indices of the max score within each group
     idx = grouped[args.metric].idxmin()
     # Use these indices to get the corresponding rows
-    #keep = ['jobname', 'algo', 'param', 'lin', 'ef', args.metric]
-    #df_filtered = df.loc[idx, keep].reset_index(drop=True)
+    # keep = ['jobname', 'algo', 'param', 'lin', 'ef', args.metric]
+    # df_filtered = df.loc[idx, keep].reset_index(drop=True)
     df_filtered = df.loc[idx].reset_index(drop=True)
-    
+
     fname = f"{results_dir}/best_jobs.csv"
-    print(f'Writing to {fname}')
+    print(f"Writing to {fname}")
     df_filtered.to_csv(fname, index=False)
 
 
