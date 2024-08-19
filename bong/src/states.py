@@ -1,6 +1,6 @@
 from typing import NamedTuple
 
-from bong.types import Array
+from bong.custom_types import Array
 
 
 class AgentState(NamedTuple):

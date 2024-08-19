@@ -6,7 +6,7 @@ import jax.random as jr
 
 from bong.base import RebayesAlgorithm
 from bong.src.states import AgentState, DLRAgentState
-from bong.types import ArrayLike, PRNGKey
+from bong.custom_types import ArrayLike, PRNGKey
 from bong.util import fast_svd, hess_diag_approx, sample_dlr, make_full_name
 
 

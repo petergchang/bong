@@ -7,7 +7,7 @@ import jax.random as jr
 from bong.base import RebayesAlgorithm
 from bong.src.bong import sample_dg_bong, sample_dlrg_bong, sample_fg_bong
 from bong.src.states import AgentState, DLRAgentState
-from bong.types import ArrayLike, PRNGKey
+from bong.custom_types import ArrayLike, PRNGKey
 from bong.util import hess_diag_approx, make_full_name
 
 
