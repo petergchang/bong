@@ -132,17 +132,11 @@ def needs_nsample(algo, param, lin):
 
 
 def needs_niter(algo, param, lin):
-    if (algo == "bong") or (algo == "bog"):
-        return False
-    else:
-        return True
+    return algo not in ("bong", "bog")
 
 
 def needs_lr(algo, param, lin):
-    if algo == "bong":
-        return False
-    else:
-        return True
+    return algo != "bong"
 
 
 def make_agent_args(algo, param, lin, rank, ef, nsample, niter, lr):
