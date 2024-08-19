@@ -23,10 +23,10 @@ python make_jobs.py \
     --job_name $JOB_NAME
 
 
-python run_jobs.py --dir $DIR    
+python run_jobs.py --dir $DIR
 
 
-python plot_jobs.py --dir $DIR 
+python plot_jobs.py --dir $DIR
 
 
 python run_jobs.py \
@@ -34,40 +34,40 @@ python run_jobs.py \
     --parallel 1 \
     --machine $MACHINE
 
-python copy_jobs.py --dir $DIR 
+python copy_jobs.py --dir $DIR
 
-python average_jobs.py --dir $DIR 
+python average_jobs.py --dir $DIR
 
-python summarize_jobs.py --dir $DIR    
+python summarize_jobs.py --dir $DIR
 
 
 python plot_averages.py --dir $DIR --name blr1-lr  --ymin 2 --ymax 10 \
---include "((niter==1) or (niter==99)) and ((algo=='bong') or (algo=='blr'))" 
+--include "((niter==1) or (niter==99)) and ((algo=='bong') or (algo=='blr'))"
 
 python plot_averages.py --dir $DIR --name blr10-lr --ymin 2 --ymax 10 \
---include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='blr'))" 
+--include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='blr'))"
 
 python plot_averages.py --dir $DIR --name new2-bbb1-lr  --ymin 2 --ymax 10 \
---include "((niter==1) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))" 
+--include "((niter==1) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))"
 
 python plot_averages.py --dir $DIR --name new-bbb10-lr  --ymin 2 --ymax 10 \
---include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))" 
+--include "((niter==10) or (niter==99)) and ((algo=='bong') or (algo=='bbb'))"
 
 python plot_averages.py --dir $DIR --name new2-bog-lr  --ymin 2 --ymax 10 \
---include "((algo=='bong') or (algo=='bog'))" 
+--include "((algo=='bong') or (algo=='bog'))"
 
 # If use EF
 python plot_averages.py --dir $DIR --name new-bog-lr-ef  --ymin 2 --ymax 10 \
---include "((algo=='bong') or (algo=='bog'))" 
+--include "((algo=='bong') or (algo=='bog'))"
 
 
 python plot_averages.py --dir $DIR --name blr-lr --include "(algo=='blr')"
 
-python eval_jobs.py --dir $DIR 
+python eval_jobs.py --dir $DIR
 
-python find_best_jobs.py --dir $DIR 
+python find_best_jobs.py --dir $DIR
 
-python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --name bakeoff 
+python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --name bakeoff
 
 
 python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==1) or (niter==99)" \
@@ -78,7 +78,7 @@ python plot_averages.py --dir $DIR --jobs_file best_jobs.csv --include "(niter==
 --name bakeoff-it10  --ymin 0 --ymax 15 --first_step 100
 
 
-python plot_times.py --dir $DIR 
+python plot_times.py --dir $DIR
 
 
 ############### DO A SINGLE JOB
@@ -103,7 +103,7 @@ EF=1
 DATASET="sarcos"
 DATADIM=0
 DGP_TYPE="na"
-DGP_STR="na" 
+DGP_STR="na"
 NTRAIN=10
 DIR=/teamspace/studios/this_studio/jobs/debug
 
@@ -126,6 +126,6 @@ python do_job.py \
     --ntrain $NTRAIN \
     --dgp_type $DGP_TYPE \
     --dgp_str $DGP_STR \
-    --dir $DIR 
+    --dir $DIR
 
 #touch!!

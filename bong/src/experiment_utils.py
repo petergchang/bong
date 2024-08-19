@@ -13,7 +13,7 @@ def generate_rotation_matrix(key, d):
 
 
 def generate_covariance_matrix(key, d, c, scale):
-    vec = (1/jnp.arange(1, d+1)**c)*scale**2
+    vec = (1 / jnp.arange(1, d + 1) ** c) * scale**2
     vec = vec / jnp.linalg.norm(vec)
     cov_u = jnp.diag(vec)
     Q = generate_rotation_matrix(key, d)

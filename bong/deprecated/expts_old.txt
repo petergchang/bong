@@ -74,7 +74,7 @@ python run_jobs.py \
     --dataset $DATASET \
     --data_dim $DATADIM \
     --rootdir ~/jobs \
-    --job_prefix $PREFIX 
+    --job_prefix $PREFIX
 
 
 python run_jobs.py \
