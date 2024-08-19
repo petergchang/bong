@@ -10,20 +10,20 @@ import json
 from job_utils import extract_metrics_from_files
 
 
-def copy_jobargs_deprecated(results_dir, dst_dir, jobnames):
-    src = f"{results_dir}/jobs/{job}-trial0/args.json"
-    with open(src, "r") as json_file:
-        args = json.load(json_file)
-    dst = f"{dst_dir}/args.json"
-    args["metrics"] = list(metric_dict.keys())
+# def copy_jobargs_deprecated(results_dir, dst_dir, jobnames):
+#     src = f"{results_dir}/jobs/{job}-trial0/args.json"
+#     with open(src, "r") as json_file:
+#         args = json.load(json_file)
+#     dst = f"{dst_dir}/args.json"
+#     args["metrics"] = list(metric_dict.keys())
 
-    if 0:
-        cmd = f"cp {src} {dst}"
-        print(f"Running {cmd}")
-        try:
-            os.system(cmd)
-        except Exception as e:
-            print(f"Error {e}")
+#     if 0:
+#         cmd = f"cp {src} {dst}"
+#         print(f"Running {cmd}")
+#         try:
+#             os.system(cmd)
+#         except Exception as e:
+#             print(f"Error {e}")
 
 
 def process_metrics(results_dir, ntrials, job):
