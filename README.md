@@ -11,3 +11,8 @@ To install all dependencies,
 cd bong
 pip install -e '.[dev]'
 ```
+
+
+## Paper	
+
+[Bayesian Online Natural Gradient (BONG)](https://arxiv.org/abs/2405.19681)	
