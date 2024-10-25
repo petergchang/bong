@@ -191,20 +191,39 @@ def update_lfg_bog(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
     R_inv = jnp.linalg.pinv(R)
-    prec = jnp.linalg.pinv(cov)
-    update_term = cov @ H.T @ R_inv @ (y - y_pred)
-    new_prec = (
-        prec
-        - 4 * learning_rate * jnp.outer(update_term, mean)
-        + 2 * learning_rate * cov @ H.T @ R_inv @ H @ cov
-    )
-    new_cov = jnp.linalg.pinv(new_prec)
-    mean_update = prec @ mean + learning_rate * cov @ H.T @ R_inv @ (y - y_pred)
-    new_mean = new_cov @ mean_update
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        G = -jnp.outer(grad, grad)
+        prec = jnp.linalg.pinv(cov)
+        new_prec = (
+            prec
+            - 4 * learning_rate * jnp.outer(cov @ grad, mean)
+            - 2 * learning_rate * cov @ G @ cov
+        )
+        new_cov = jnp.linalg.pinv(new_prec)
+        mean_update = prec @ mean + learning_rate * cov @ grad
+        new_mean = new_cov @ mean_update
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        prec = jnp.linalg.pinv(cov)
+        update_term = cov @ H.T @ R_inv @ (y - y_pred)
+        new_prec = (
+            prec
+            - 4 * learning_rate * jnp.outer(update_term, mean)
+            + 2 * learning_rate * cov @ H.T @ R_inv @ H @ cov
+        )
+        new_cov = jnp.linalg.pinv(new_prec)
+        mean_update = prec @ mean + learning_rate * cov @ H.T @ R_inv @ (y - y_pred)
+        new_mean = new_cov @ mean_update
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
