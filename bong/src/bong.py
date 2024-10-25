@@ -178,14 +178,26 @@ def update_lfg_bong(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    S = R + (H @ cov @ H.T)
-    C = cov @ H.T
-    K = jnp.linalg.lstsq(S, C.T)[0].T
-    new_mean = mean + K @ (y - y_pred)
-    new_cov = cov - K @ S @ K.T
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        K = (cov @ grad) / (1 + grad.T @ cov @ grad)
+        new_mean = mean + K
+        new_cov = cov - jnp.outer(K, grad.T @ cov)
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        S = R + (H @ cov @ H.T)
+        C = cov @ H.T
+        K = jnp.linalg.lstsq(S, C.T)[0].T
+        new_mean = mean + K @ (y - y_pred)
+        new_cov = cov - K @ S @ K.T
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
