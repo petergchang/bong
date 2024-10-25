@@ -355,44 +355,91 @@ def update_ldlrg_blr(
     mean0, prec_diag0, prec_lr0 = state_pred
     mean, prec_diag, prec_lr = state
     P, L = prec_lr.shape
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    R_chol = jnp.linalg.cholesky(R)
-    A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
-    prec_lr_tilde = jnp.hstack(
-        [
-            jnp.sqrt(1 - learning_rate) * prec_lr,
-            jnp.sqrt(learning_rate) * prec_lr0,
-            jnp.sqrt(learning_rate) * (H.T @ A).reshape(P, -1),
-        ]
-    )
-    _, L_tilde = prec_lr_tilde.shape
-    prec_diag_tilde = (1 - learning_rate) * prec_diag + learning_rate * prec_diag0
-    G = jnp.linalg.pinv(
-        jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag_tilde)
-    )
-    mean_term1 = (
-        (prec_diag0 / prec_diag_tilde).ravel() * (mean0 - mean)
-        + (prec_lr0 / prec_diag_tilde) @ (prec_lr0.T @ (mean0 - mean))
-        + (H.T @ A) @ A.T / prec_diag_tilde @ (y - y_pred)
-    )
-    mean_term2 = (prec_lr_tilde / prec_diag_tilde @ G) @ (
-        (prec_lr_tilde * (prec_diag0 / prec_diag_tilde)).T @ (mean0 - mean)
-        + (prec_lr_tilde / prec_diag_tilde).T @ prec_lr0 @ (prec_lr0.T @ (mean0 - mean))
-        + (prec_lr_tilde / prec_diag_tilde).T @ (H.T @ A) @ A.T @ (y - y_pred)
-    )
-    mean_update = mean_term1 - mean_term2
-    new_mean = mean + learning_rate * mean_update
-    U, Lamb = fast_svd(prec_lr_tilde)
-    U_new, Lamb_new = U[:, :L], Lamb[:L]
-    U_extra, Lamb_extra = U[:, L:], Lamb[L:]
-    extra_prec_lr = Lamb_extra * U_extra
-    new_prec_lr = Lamb_new * U_new
-    new_prec_diag = (
-        prec_diag_tilde
-        + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
-    )
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        prec_lr_update = jnp.sqrt(learning_rate) * grad
+        prec_lr_tilde = jnp.hstack(
+            [
+                jnp.sqrt(1 - learning_rate) * prec_lr,
+                jnp.sqrt(learning_rate) * prec_lr0,
+                prec_lr_update.reshape(P, -1),
+            ]
+        )
+        _, L_tilde = prec_lr_tilde.shape
+        prec_diag_tilde = (1 - learning_rate) * prec_diag + learning_rate * prec_diag0
+        G = jnp.linalg.pinv(
+            jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag_tilde)
+        )
+        mean_term1 = (
+            (prec_diag0 / prec_diag_tilde).ravel() * (mean0 - mean)
+            + (prec_lr0 / prec_diag_tilde) @ (prec_lr0.T @ (mean0 - mean))
+            + 1 / (prec_diag_tilde.ravel()) * grad
+        )
+        mean_term2 = (prec_lr_tilde / prec_diag_tilde @ G) @ (
+            (prec_lr_tilde * (prec_diag0 / prec_diag_tilde)).T @ (mean0 - mean)
+            + (prec_lr_tilde / prec_diag_tilde).T
+            @ prec_lr0
+            @ (prec_lr0.T @ (mean0 - mean))
+            + (prec_lr_tilde / prec_diag_tilde).T @ grad
+        )
+        mean_update = mean_term1 - mean_term2
+        new_mean = mean + learning_rate * mean_update
+        U, Lamb = fast_svd(prec_lr_tilde)
+        U_new, Lamb_new = U[:, :L], Lamb[:L]
+        U_extra, Lamb_extra = U[:, L:], Lamb[L:]
+        extra_prec_lr = Lamb_extra * U_extra
+        new_prec_lr = Lamb_new * U_new
+        new_prec_diag = (
+            prec_diag_tilde
+            + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
+        )
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        R_chol = jnp.linalg.cholesky(R)
+        A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
+        prec_lr_tilde = jnp.hstack(
+            [
+                jnp.sqrt(1 - learning_rate) * prec_lr,
+                jnp.sqrt(learning_rate) * prec_lr0,
+                jnp.sqrt(learning_rate) * (H.T @ A).reshape(P, -1),
+            ]
+        )
+        _, L_tilde = prec_lr_tilde.shape
+        prec_diag_tilde = (1 - learning_rate) * prec_diag + learning_rate * prec_diag0
+        G = jnp.linalg.pinv(
+            jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag_tilde)
+        )
+        mean_term1 = (
+            (prec_diag0 / prec_diag_tilde).ravel() * (mean0 - mean)
+            + (prec_lr0 / prec_diag_tilde) @ (prec_lr0.T @ (mean0 - mean))
+            + (H.T @ A) @ A.T / prec_diag_tilde @ (y - y_pred)
+        )
+        mean_term2 = (prec_lr_tilde / prec_diag_tilde @ G) @ (
+            (prec_lr_tilde * (prec_diag0 / prec_diag_tilde)).T @ (mean0 - mean)
+            + (prec_lr_tilde / prec_diag_tilde).T
+            @ prec_lr0
+            @ (prec_lr0.T @ (mean0 - mean))
+            + (prec_lr_tilde / prec_diag_tilde).T @ (H.T @ A) @ A.T @ (y - y_pred)
+        )
+        mean_update = mean_term1 - mean_term2
+        new_mean = mean + learning_rate * mean_update
+        U, Lamb = fast_svd(prec_lr_tilde)
+        U_new, Lamb_new = U[:, :L], Lamb[:L]
+        U_extra, Lamb_extra = U[:, L:], Lamb[L:]
+        extra_prec_lr = Lamb_extra * U_extra
+        new_prec_lr = Lamb_new * U_new
+        new_prec_diag = (
+            prec_diag_tilde
+            + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
+        )
     new_state = DLRAgentState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
