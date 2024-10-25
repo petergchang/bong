@@ -436,19 +436,35 @@ def update_ldg_bog(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
     R_inv = jnp.linalg.pinv(R)
-    prec = 1 / cov
-    update_term = H.T @ R_inv @ (y - y_pred)
-    prec_update = (
-        -4 * learning_rate * cov * mean @ update_term
-        + 2 * learning_rate * cov** 2 * ((H.T @ R_inv) * H.T).sum(-1)
-    )
-    new_prec = prec + prec_update
-    new_cov = 1 / new_prec
-    new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * update_term
+    if empirical_fisher:
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        G_diag = -(grad**2)
+        prec = 1 / cov
+        prec_update = (
+            -4 * learning_rate * cov * mean * grad - 2 * learning_rate * cov**2 * G_diag
+        )
+        new_prec = prec + prec_update
+        new_cov = 1 / new_prec
+        new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * grad
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        prec = 1 / cov
+        update_term = H.T @ R_inv @ (y - y_pred)
+        prec_update = (
+            -4 * learning_rate * cov * mean @ update_term
+            + 2 * learning_rate * cov** 2 * ((H.T @ R_inv) * H.T).sum(-1)
+        )
+        new_prec = prec + prec_update
+        new_cov = 1 / new_prec
+        new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * update_term
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
