@@ -500,22 +500,42 @@ def update_ldg_blr(
     """
     mean0, cov0 = state_pred
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
     R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
-    prec0, prec = 1 / cov0, 1 / cov
-    new_prec = (
-        (1 - learning_rate) * prec
-        + learning_rate * prec0
-        + learning_rate * ((H.T @ R_inv) * H.T).sum(-1)
-    )
-    new_cov = 1 / new_prec
-    new_mean = (
-        mean
-        + learning_rate * new_cov * prec0 * (mean0 - mean)
-        + learning_rate * new_cov * (H.T @ R_inv @ (y - y_pred))
-    )
+    if empirical_fisher:
+        print("HEEE")
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        G_diag = -(grad**2)
+        prec0, prec = 1 / cov0, 1 / cov
+        new_prec = (
+            (1 - learning_rate) * prec + learning_rate * prec0 - learning_rate * G_diag
+        )
+        new_cov = 1 / new_prec
+        new_mean = (
+            mean
+            + learning_rate * new_cov * prec0 * (mean0 - mean)
+            + learning_rate * new_cov * grad
+        )
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        prec0, prec = 1 / cov0, 1 / cov
+        new_prec = (
+            (1 - learning_rate) * prec
+            + learning_rate * prec0
+            + learning_rate * ((H.T @ R_inv) * H.T).sum(-1)
+        )
+        new_cov = 1 / new_prec
+        new_mean = (
+            mean
+            + learning_rate * new_cov * prec0 * (mean0 - mean)
+            + learning_rate * new_cov * (H.T @ R_inv @ (y - y_pred))
+        )
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
