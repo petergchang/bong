@@ -698,22 +698,42 @@ def update_ldg_bbb(
     """
     mean0, cov0 = state_pred
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
     R_inv = jnp.linalg.pinv(R)
-    prec0, prec = 1 / cov0, 1 / cov
-    update_term = H.T @ R_inv @ (y - y_pred)
-    prec_update = (
-        2 * update_term * mean
-        + 2 * prec0 * (mean0 - mean) * mean
-        - cov * (((H.T @ R_inv) * H.T).sum(-1) + prec0)
-        + 1
-    )
-    new_prec = prec - 2 * learning_rate * cov * prec_update
-    new_cov = 1 / new_prec
-    mean_update = update_term + prec0 * (mean0 - mean)
-    new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * mean_update
+    if empirical_fisher:
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        G_diag = -(grad**2)
+        prec0, prec = 1 / cov0, 1 / cov
+        prec_update = (
+            2 * grad * mean
+            + 2 * prec0 * (mean0 - mean) * mean
+            + cov * (G_diag - prec0)
+            + 1
+        )
+        new_prec = prec - 2 * learning_rate * cov * prec_update
+        new_cov = 1 / new_prec
+        mean_update = grad + prec0 * (mean0 - mean)
+        new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * mean_update
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        prec0, prec = 1 / cov0, 1 / cov
+        update_term = H.T @ R_inv @ (y - y_pred)
+        prec_update = (
+            2 * update_term * mean
+            + 2 * prec0 * (mean0 - mean) * mean
+            - cov * (((H.T @ R_inv) * H.T).sum(-1) + prec0)
+            + 1
+        )
+        new_prec = prec - 2 * learning_rate * cov * prec_update
+        new_cov = 1 / new_prec
+        mean_update = update_term + prec0 * (mean0 - mean)
+        new_mean = new_cov * prec * mean + learning_rate * new_cov * cov * mean_update
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
