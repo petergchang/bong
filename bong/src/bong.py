@@ -178,14 +178,26 @@ def update_lfg_bong(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    S = R + (H @ cov @ H.T)
-    C = cov @ H.T
-    K = jnp.linalg.lstsq(S, C.T)[0].T
-    new_mean = mean + K @ (y - y_pred)
-    new_cov = cov - K @ S @ K.T
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        K = (cov @ grad) / (1 + grad.T @ cov @ grad)
+        new_mean = mean + K
+        new_cov = cov - jnp.outer(K, grad.T @ cov)
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        S = R + (H @ cov @ H.T)
+        C = cov @ H.T
+        K = jnp.linalg.lstsq(S, C.T)[0].T
+        new_mean = mean + K @ (y - y_pred)
+        new_cov = cov - K @ S @ K.T
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
@@ -286,28 +298,57 @@ def update_ldlrg_bong(
     """
     mean, prec_diag, prec_lr = state
     P, L = prec_lr.shape
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    R_chol = jnp.linalg.cholesky(R)
-    A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
-    prec_lr_tilde = jnp.hstack([prec_lr, (H.T @ A).reshape(P, -1)])
-    _, L_tilde = prec_lr_tilde.shape
-    G = jnp.linalg.pinv(
-        jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag)
-    )
-    mean_update = (H.T @ A) @ A.T / prec_diag - (prec_lr_tilde / prec_diag @ G) @ (
-        (prec_lr_tilde / prec_diag).T @ (H.T @ A) @ A.T
-    )
-    new_mean = mean + mean_update @ (y - y_pred)
-    U, Lamb = fast_svd(prec_lr_tilde)
-    U_new, Lamb_new = U[:, :L], Lamb[:L]
-    U_extra, Lamb_extra = U[:, L:], Lamb[L:]
-    extra_prec_lr = Lamb_extra * U_extra
-    new_prec_lr = Lamb_new * U_new
-    new_prec_diag = (
-        prec_diag + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
-    )
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        prec_lr_tilde = jnp.hstack([prec_lr, grad.reshape(P, -1)])
+        _, L_tilde = prec_lr_tilde.shape
+        G = jnp.linalg.pinv(
+            jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag)
+        )
+        g = grad.reshape(-1, 1)
+        mean_update = g / prec_diag - (prec_lr_tilde / prec_diag @ G) @ (
+            (prec_lr_tilde / prec_diag).T @ g
+        )
+        new_mean = mean + mean_update.ravel()
+        U, Lamb = fast_svd(prec_lr_tilde)
+        U_new, Lamb_new = U[:, :L], Lamb[:L]
+        U_extra, Lamb_extra = U[:, L:], Lamb[L:]
+        extra_prec_lr = Lamb_extra * U_extra
+        new_prec_lr = Lamb_new * U_new
+        new_prec_diag = (
+            prec_diag
+            + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
+        )
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        R_chol = jnp.linalg.cholesky(R)
+        A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
+        prec_lr_tilde = jnp.hstack([prec_lr, (H.T @ A).reshape(P, -1)])
+        _, L_tilde = prec_lr_tilde.shape
+        G = jnp.linalg.pinv(
+            jnp.eye(L_tilde) + prec_lr_tilde.T @ (prec_lr_tilde / prec_diag)
+        )
+        mean_update = (H.T @ A) @ A.T / prec_diag - (prec_lr_tilde / prec_diag @ G) @ (
+            (prec_lr_tilde / prec_diag).T @ (H.T @ A) @ A.T
+        )
+        new_mean = mean + mean_update @ (y - y_pred)
+        U, Lamb = fast_svd(prec_lr_tilde)
+        U_new, Lamb_new = U[:, :L], Lamb[:L]
+        U_extra, Lamb_extra = U[:, L:], Lamb[L:]
+        extra_prec_lr = Lamb_extra * U_extra
+        new_prec_lr = Lamb_new * U_new
+        new_prec_diag = (
+            prec_diag
+            + jnp.einsum("ij,ij->i", extra_prec_lr, extra_prec_lr)[:, jnp.newaxis]
+        )
     new_state = DLRAgentState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
@@ -400,13 +441,24 @@ def update_ldg_bong(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    K = jnp.linalg.lstsq((R + (cov * H) @ H.T).T, cov * H)[0].T
-    R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
-    new_cov = 1 / (1 / cov + ((H.T @ R_inv) * H.T).sum(-1))
-    new_mean = mean + K @ (y - y_pred)
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        new_cov = 1 / (1 / cov + grad**2)
+        new_mean = mean + new_cov * grad
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        K = jnp.linalg.lstsq((R + (cov * H) @ H.T).T, cov * H)[0].T
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+        new_cov = 1 / (1 / cov + ((H.T @ R_inv) * H.T).sum(-1))
+        new_mean = mean + K @ (y - y_pred)
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
@@ -491,13 +543,25 @@ def update_lfg_reparam_bong(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    C = cov @ H.T
-    K = jnp.linalg.lstsq(R, C.T)[0].T
-    new_mean = mean + K @ (y - y_pred)
-    new_cov = cov - K @ R @ K.T
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        G = -jnp.outer(grad, grad)
+        new_mean = mean + cov @ grad
+        new_cov = cov + cov @ G @ cov
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        C = cov @ H.T
+        K = jnp.linalg.lstsq(R, C.T)[0].T
+        new_mean = mean + K @ (y - y_pred)
+        new_cov = cov - K @ R @ K.T
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
@@ -587,12 +651,24 @@ def update_ldg_reparam_bong(
         Updated belief state.
     """
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    HTRinv = jnp.linalg.lstsq(R, H)[0].T
-    new_mean = mean + (cov * HTRinv.T).T @ (y - y_pred)
-    new_cov = cov - cov**2 * (HTRinv * H.T).sum(-1)
+    if empirical_fisher:
+        R_inv = jnp.linalg.lstsq(R, jnp.eye(R.shape[0]))[0]
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        new_mean = mean + cov * grad
+        new_cov = cov - cov * grad**2 * cov
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        R = jnp.atleast_2d(emission_cov_function(mean, x))
+        HTRinv = jnp.linalg.lstsq(R, H)[0].T
+        new_mean = mean + (cov * HTRinv.T).T @ (y - y_pred)
+        new_cov = cov - cov**2 * (HTRinv * H.T).sum(-1)
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
