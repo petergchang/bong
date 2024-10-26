@@ -454,142 +454,307 @@ def update_ldlrg_bbb(
     mean0, prec_diag0, prec_lr0 = state_pred
     mean, prec_diag, prec_lr = state
     P, L = prec_lr.shape
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
-    R_chol = jnp.linalg.cholesky(R)
-    A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
-    Rinv = jnp.linalg.pinv(R)
-    g = H.T @ Rinv @ (y - y_pred)
-    grad_term = H.T @ A
-    mean_update = prec_diag0.ravel() * (mean0 - mean) + prec_lr @ (
-        prec_lr0.T @ (mean0 - mean)
-    )
-    new_mean = mean + learning_rate * (g + mean_update.ravel())
-    C = jnp.linalg.pinv(jnp.eye(L) + prec_lr.T @ (prec_lr / prec_diag))
+    if empirical_fisher:
 
-    # D @ Ups_t_t-1 @ D
-    diag_term11 = 1 / prec_diag * prec_diag0 * 1 / prec_diag
-    diag_term12 = -jnp.einsum(
-        "ij,ij->i", diag_term11 * (prec_lr @ C), prec_lr / prec_diag
-    ).reshape(-1, 1)
-    diag_term13 = -jnp.einsum(
-        "ij,ij->i", (prec_lr / prec_diag) @ C, diag_term11 * prec_lr
-    ).reshape(-1, 1)
-    diag_term14 = jnp.einsum(
-        "ij,ji->i",
-        (prec_lr / prec_diag) @ C,
-        ((diag_term11 * prec_lr).T @ prec_lr) @ C @ (prec_lr / prec_diag).T,
-    ).reshape(-1, 1)
-    diag_term1 = diag_term11 + diag_term12 + diag_term13 + diag_term14
+        def ll_fn(param):
+            y_pred = emission_mean_function(param, x)
+            return -0.5 * (y - y_pred).T @ jnp.linalg.pinv(R) @ (y - y_pred)
 
-    # - D @ Ups_t_i @ D
-    diag_term21 = -1 / prec_diag
-    diag_term22 = 2 * jnp.einsum(
-        "ij,ij->i", (prec_lr / prec_diag) @ C, prec_lr / prec_diag
-    ).reshape(-1, 1)
-    diag_term23 = -jnp.einsum(
-        "ij,ji->i",
-        (prec_lr / prec_diag) @ C,
-        (prec_lr.T @ (prec_lr / prec_diag)) @ C @ (prec_lr / prec_diag).T,
-    ).reshape(-1, 1)
-    diag_term2 = diag_term21 + diag_term22 + diag_term23
+        g = jax.grad(ll_fn)(mean)
+        mean_update = prec_diag0.ravel() * (mean0 - mean) + prec_lr @ (
+            prec_lr0.T @ (mean0 - mean)
+        )
+        new_mean = mean + learning_rate * (g + mean_update.ravel())
+        C = jnp.linalg.pinv(jnp.eye(L) + prec_lr.T @ (prec_lr / prec_diag))
+        # D @ Ups_t_t-1 @ D
+        diag_term11 = 1 / prec_diag * prec_diag0 * 1 / prec_diag
+        diag_term12 = -jnp.einsum(
+            "ij,ij->i", diag_term11 * (prec_lr @ C), prec_lr / prec_diag
+        ).reshape(-1, 1)
+        diag_term13 = -jnp.einsum(
+            "ij,ij->i", (prec_lr / prec_diag) @ C, diag_term11 * prec_lr
+        ).reshape(-1, 1)
+        diag_term14 = jnp.einsum(
+            "ij,ji->i",
+            (prec_lr / prec_diag) @ C,
+            ((diag_term11 * prec_lr).T @ prec_lr) @ C @ (prec_lr / prec_diag).T,
+        ).reshape(-1, 1)
+        diag_term1 = diag_term11 + diag_term12 + diag_term13 + diag_term14
 
-    # D @ (G @ G^T)/M @ D
-    diag_term31 = jnp.einsum(
-        "ij,ij->i", grad_term / prec_diag, grad_term / prec_diag
-    ).reshape(-1, 1)
-    diag_term32 = -jnp.einsum(
-        "ij,ij->i",
-        (grad_term / prec_diag) @ (grad_term.T @ ((prec_lr / prec_diag) @ C)),
-        (prec_lr / prec_diag),
-    ).reshape(-1, 1)
-    diag_term33 = -jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ C,
-        (grad_term / prec_diag) @ (grad_term.T @ (prec_lr / prec_diag)),
-    ).reshape(-1, 1)
-    diag_term34 = jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ C,
-        (prec_lr / prec_diag)
-        @ C
-        @ (prec_lr.T @ (grad_term / prec_diag) @ (grad_term.T @ (prec_lr / prec_diag))),
-    ).reshape(-1, 1)
-    diag_term3 = diag_term31 + diag_term32 + diag_term33 + diag_term34
+        # - D @ Ups_t_i @ D
+        diag_term21 = -1 / prec_diag
+        diag_term22 = 2 * jnp.einsum(
+            "ij,ij->i", (prec_lr / prec_diag) @ C, prec_lr / prec_diag
+        ).reshape(-1, 1)
+        diag_term23 = -jnp.einsum(
+            "ij,ji->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr.T @ (prec_lr / prec_diag)) @ C @ (prec_lr / prec_diag).T,
+        ).reshape(-1, 1)
+        diag_term2 = diag_term21 + diag_term22 + diag_term23
 
-    # D @ W_t_t-1 @ W_t_t-1.T @ D
-    diag_term41 = jnp.einsum(
-        "ij,ij->i", prec_lr0 / prec_diag, prec_lr0 / prec_diag
-    ).reshape(-1, 1)
-    diag_term42 = -jnp.einsum(
-        "ij,ij->i",
-        (prec_lr0 / prec_diag) @ (prec_lr0.T @ ((prec_lr / prec_diag) @ C)),
-        (prec_lr / prec_diag),
-    ).reshape(-1, 1)
-    diag_term43 = -jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ C,
-        (prec_lr0 / prec_diag) @ (prec_lr0.T @ (prec_lr / prec_diag)),
-    ).reshape(-1, 1)
-    diag_term44 = jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ C,
-        (prec_lr / prec_diag)
-        @ C
-        @ (prec_lr.T @ (prec_lr0 / prec_diag) @ (prec_lr0.T @ (prec_lr / prec_diag))),
-    ).reshape(-1, 1)
-    diag_term4 = diag_term41 + diag_term42 + diag_term43 + diag_term44
+        # D @ (G @ G^T)/M @ D
+        grad_term = g.reshape(P, -1)
+        diag_term31 = jnp.einsum(
+            "ij,ij->i", grad_term / prec_diag, grad_term / prec_diag
+        ).reshape(-1, 1)
+        diag_term32 = -jnp.einsum(
+            "ij,ij->i",
+            (grad_term / prec_diag) @ (grad_term.T @ ((prec_lr / prec_diag) @ C)),
+            (prec_lr / prec_diag),
+        ).reshape(-1, 1)
+        diag_term33 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (grad_term / prec_diag) @ (grad_term.T @ (prec_lr / prec_diag)),
+        ).reshape(-1, 1)
+        diag_term34 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag)
+            @ C
+            @ (
+                prec_lr.T
+                @ (grad_term / prec_diag)
+                @ (grad_term.T @ (prec_lr / prec_diag))
+            ),
+        ).reshape(-1, 1)
+        diag_term3 = diag_term31 + diag_term32 + diag_term33 + diag_term34
 
-    # - D @ W_t_i @ W_t_i.T @ D
-    diag_term51 = -jnp.einsum(
-        "ij,ij->i", prec_lr / prec_diag, prec_lr / prec_diag
-    ).reshape(-1, 1)
-    diag_term52 = jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ (prec_lr.T @ ((prec_lr / prec_diag) @ C)),
-        (prec_lr / prec_diag),
-    ).reshape(-1, 1)
-    diag_term53 = jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ C,
-        (prec_lr / prec_diag) @ (prec_lr.T @ (prec_lr / prec_diag)),
-    ).reshape(-1, 1)
-    diag_term54 = -jnp.einsum(
-        "ij,ij->i",
-        (prec_lr / prec_diag) @ C,
-        (prec_lr / prec_diag)
-        @ C
-        @ (prec_lr.T @ (prec_lr / prec_diag) @ (prec_lr.T @ (prec_lr / prec_diag))),
-    ).reshape(-1, 1)
-    diag_term5 = diag_term51 + diag_term52 + diag_term53 + diag_term54
+        # D @ W_t_t-1 @ W_t_t-1.T @ D
+        diag_term41 = jnp.einsum(
+            "ij,ij->i", prec_lr0 / prec_diag, prec_lr0 / prec_diag
+        ).reshape(-1, 1)
+        diag_term42 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr0 / prec_diag) @ (prec_lr0.T @ ((prec_lr / prec_diag) @ C)),
+            (prec_lr / prec_diag),
+        ).reshape(-1, 1)
+        diag_term43 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr0 / prec_diag) @ (prec_lr0.T @ (prec_lr / prec_diag)),
+        ).reshape(-1, 1)
+        diag_term44 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag)
+            @ C
+            @ (
+                prec_lr.T
+                @ (prec_lr0 / prec_diag)
+                @ (prec_lr0.T @ (prec_lr / prec_diag))
+            ),
+        ).reshape(-1, 1)
+        diag_term4 = diag_term41 + diag_term42 + diag_term43 + diag_term44
 
-    prec_diag_update = diag_term1 + diag_term2 + diag_term3 + diag_term4 + diag_term5
-    new_prec_diag = prec_diag + learning_rate / 2 * prec_diag_update
+        # - D @ W_t_i @ W_t_i.T @ D
+        diag_term51 = -jnp.einsum(
+            "ij,ij->i", prec_lr / prec_diag, prec_lr / prec_diag
+        ).reshape(-1, 1)
+        diag_term52 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ (prec_lr.T @ ((prec_lr / prec_diag) @ C)),
+            (prec_lr / prec_diag),
+        ).reshape(-1, 1)
+        diag_term53 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag) @ (prec_lr.T @ (prec_lr / prec_diag)),
+        ).reshape(-1, 1)
+        diag_term54 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag)
+            @ C
+            @ (prec_lr.T @ (prec_lr / prec_diag) @ (prec_lr.T @ (prec_lr / prec_diag))),
+        ).reshape(-1, 1)
+        diag_term5 = diag_term51 + diag_term52 + diag_term53 + diag_term54
 
-    lr_term0 = (prec_lr / prec_diag) @ C
-    lr_term1 = (diag_term11 * prec_lr) @ C - (prec_lr / prec_diag) @ (
-        C @ (prec_lr.T @ (diag_term11 * prec_lr) @ C)
-    )
-    lr_term2 = -lr_term0 + lr_term0 @ ((prec_lr / prec_diag).T @ prec_lr @ C)
-    lr_term3 = (grad_term / prec_diag) @ (
-        grad_term.T @ ((prec_lr / prec_diag) @ C)
-    ) - lr_term0 @ (
-        ((prec_lr / prec_diag).T @ grad_term) @ grad_term.T @ (prec_lr / prec_diag) @ C
-    )
-    lr_term4 = (prec_lr0 / prec_diag) @ (
-        prec_lr0.T @ ((prec_lr / prec_diag) @ C)
-    ) - lr_term0 @ (
-        (prec_lr / prec_diag).T
-        @ (prec_lr0 @ (prec_lr0.T @ ((prec_lr / prec_diag) @ C)))
-    )
-    lr_term5 = (prec_lr / prec_diag) @ (
-        prec_lr.T @ ((prec_lr / prec_diag) @ C)
-    ) - lr_term0 @ (
-        (prec_lr / prec_diag).T @ (prec_lr @ (prec_lr.T @ ((prec_lr / prec_diag) @ C)))
-    )
-    lr_term = lr_term1 + lr_term2 + lr_term3 + lr_term4 + lr_term5
-    new_prec_lr = prec_lr + learning_rate * lr_term
+        prec_diag_update = (
+            diag_term1 + diag_term2 + diag_term3 + diag_term4 + diag_term5
+        )
+        new_prec_diag = prec_diag + learning_rate / 2 * prec_diag_update
+
+        lr_term0 = (prec_lr / prec_diag) @ C
+        lr_term1 = (diag_term11 * prec_lr) @ C - (prec_lr / prec_diag) @ (
+            C @ (prec_lr.T @ (diag_term11 * prec_lr) @ C)
+        )
+        lr_term2 = -lr_term0 + lr_term0 @ ((prec_lr / prec_diag).T @ prec_lr @ C)
+        lr_term3 = (grad_term / prec_diag) @ (
+            grad_term.T @ ((prec_lr / prec_diag) @ C)
+        ) - lr_term0 @ (
+            ((prec_lr / prec_diag).T @ grad_term)
+            @ grad_term.T
+            @ (prec_lr / prec_diag)
+            @ C
+        )
+        lr_term4 = (prec_lr0 / prec_diag) @ (
+            prec_lr0.T @ ((prec_lr / prec_diag) @ C)
+        ) - lr_term0 @ (
+            (prec_lr / prec_diag).T
+            @ (prec_lr0 @ (prec_lr0.T @ ((prec_lr / prec_diag) @ C)))
+        )
+        lr_term5 = (prec_lr / prec_diag) @ (
+            prec_lr.T @ ((prec_lr / prec_diag) @ C)
+        ) - lr_term0 @ (
+            (prec_lr / prec_diag).T
+            @ (prec_lr @ (prec_lr.T @ ((prec_lr / prec_diag) @ C)))
+        )
+        lr_term = lr_term1 + lr_term2 + lr_term3 + lr_term4 + lr_term5
+        new_prec_lr = prec_lr + learning_rate * lr_term
+
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        R_chol = jnp.linalg.cholesky(R)
+        A = jnp.linalg.lstsq(R_chol, jnp.eye(R.shape[0]))[0].T
+        Rinv = jnp.linalg.pinv(R)
+        g = H.T @ Rinv @ (y - y_pred)
+        grad_term = H.T @ A
+        mean_update = prec_diag0.ravel() * (mean0 - mean) + prec_lr @ (
+            prec_lr0.T @ (mean0 - mean)
+        )
+        new_mean = mean + learning_rate * (g + mean_update.ravel())
+        C = jnp.linalg.pinv(jnp.eye(L) + prec_lr.T @ (prec_lr / prec_diag))
+
+        # D @ Ups_t_t-1 @ D
+        diag_term11 = 1 / prec_diag * prec_diag0 * 1 / prec_diag
+        diag_term12 = -jnp.einsum(
+            "ij,ij->i", diag_term11 * (prec_lr @ C), prec_lr / prec_diag
+        ).reshape(-1, 1)
+        diag_term13 = -jnp.einsum(
+            "ij,ij->i", (prec_lr / prec_diag) @ C, diag_term11 * prec_lr
+        ).reshape(-1, 1)
+        diag_term14 = jnp.einsum(
+            "ij,ji->i",
+            (prec_lr / prec_diag) @ C,
+            ((diag_term11 * prec_lr).T @ prec_lr) @ C @ (prec_lr / prec_diag).T,
+        ).reshape(-1, 1)
+        diag_term1 = diag_term11 + diag_term12 + diag_term13 + diag_term14
+
+        # - D @ Ups_t_i @ D
+        diag_term21 = -1 / prec_diag
+        diag_term22 = 2 * jnp.einsum(
+            "ij,ij->i", (prec_lr / prec_diag) @ C, prec_lr / prec_diag
+        ).reshape(-1, 1)
+        diag_term23 = -jnp.einsum(
+            "ij,ji->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr.T @ (prec_lr / prec_diag)) @ C @ (prec_lr / prec_diag).T,
+        ).reshape(-1, 1)
+        diag_term2 = diag_term21 + diag_term22 + diag_term23
+
+        # D @ (G @ G^T)/M @ D
+        diag_term31 = jnp.einsum(
+            "ij,ij->i", grad_term / prec_diag, grad_term / prec_diag
+        ).reshape(-1, 1)
+        diag_term32 = -jnp.einsum(
+            "ij,ij->i",
+            (grad_term / prec_diag) @ (grad_term.T @ ((prec_lr / prec_diag) @ C)),
+            (prec_lr / prec_diag),
+        ).reshape(-1, 1)
+        diag_term33 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (grad_term / prec_diag) @ (grad_term.T @ (prec_lr / prec_diag)),
+        ).reshape(-1, 1)
+        diag_term34 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag)
+            @ C
+            @ (
+                prec_lr.T
+                @ (grad_term / prec_diag)
+                @ (grad_term.T @ (prec_lr / prec_diag))
+            ),
+        ).reshape(-1, 1)
+        diag_term3 = diag_term31 + diag_term32 + diag_term33 + diag_term34
+
+        # D @ W_t_t-1 @ W_t_t-1.T @ D
+        diag_term41 = jnp.einsum(
+            "ij,ij->i", prec_lr0 / prec_diag, prec_lr0 / prec_diag
+        ).reshape(-1, 1)
+        diag_term42 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr0 / prec_diag) @ (prec_lr0.T @ ((prec_lr / prec_diag) @ C)),
+            (prec_lr / prec_diag),
+        ).reshape(-1, 1)
+        diag_term43 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr0 / prec_diag) @ (prec_lr0.T @ (prec_lr / prec_diag)),
+        ).reshape(-1, 1)
+        diag_term44 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag)
+            @ C
+            @ (
+                prec_lr.T
+                @ (prec_lr0 / prec_diag)
+                @ (prec_lr0.T @ (prec_lr / prec_diag))
+            ),
+        ).reshape(-1, 1)
+        diag_term4 = diag_term41 + diag_term42 + diag_term43 + diag_term44
+
+        # - D @ W_t_i @ W_t_i.T @ D
+        diag_term51 = -jnp.einsum(
+            "ij,ij->i", prec_lr / prec_diag, prec_lr / prec_diag
+        ).reshape(-1, 1)
+        diag_term52 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ (prec_lr.T @ ((prec_lr / prec_diag) @ C)),
+            (prec_lr / prec_diag),
+        ).reshape(-1, 1)
+        diag_term53 = jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag) @ (prec_lr.T @ (prec_lr / prec_diag)),
+        ).reshape(-1, 1)
+        diag_term54 = -jnp.einsum(
+            "ij,ij->i",
+            (prec_lr / prec_diag) @ C,
+            (prec_lr / prec_diag)
+            @ C
+            @ (prec_lr.T @ (prec_lr / prec_diag) @ (prec_lr.T @ (prec_lr / prec_diag))),
+        ).reshape(-1, 1)
+        diag_term5 = diag_term51 + diag_term52 + diag_term53 + diag_term54
+
+        prec_diag_update = (
+            diag_term1 + diag_term2 + diag_term3 + diag_term4 + diag_term5
+        )
+        new_prec_diag = prec_diag + learning_rate / 2 * prec_diag_update
+
+        lr_term0 = (prec_lr / prec_diag) @ C
+        lr_term1 = (diag_term11 * prec_lr) @ C - (prec_lr / prec_diag) @ (
+            C @ (prec_lr.T @ (diag_term11 * prec_lr) @ C)
+        )
+        lr_term2 = -lr_term0 + lr_term0 @ ((prec_lr / prec_diag).T @ prec_lr @ C)
+        lr_term3 = (grad_term / prec_diag) @ (
+            grad_term.T @ ((prec_lr / prec_diag) @ C)
+        ) - lr_term0 @ (
+            ((prec_lr / prec_diag).T @ grad_term)
+            @ grad_term.T
+            @ (prec_lr / prec_diag)
+            @ C
+        )
+        lr_term4 = (prec_lr0 / prec_diag) @ (
+            prec_lr0.T @ ((prec_lr / prec_diag) @ C)
+        ) - lr_term0 @ (
+            (prec_lr / prec_diag).T
+            @ (prec_lr0 @ (prec_lr0.T @ ((prec_lr / prec_diag) @ C)))
+        )
+        lr_term5 = (prec_lr / prec_diag) @ (
+            prec_lr.T @ ((prec_lr / prec_diag) @ C)
+        ) - lr_term0 @ (
+            (prec_lr / prec_diag).T
+            @ (prec_lr @ (prec_lr.T @ ((prec_lr / prec_diag) @ C)))
+        )
+        lr_term = lr_term1 + lr_term2 + lr_term3 + lr_term4 + lr_term5
+        new_prec_lr = prec_lr + learning_rate * lr_term
     new_state = DLRAgentState(new_mean, new_prec_diag, new_prec_lr)
     return new_state
 
