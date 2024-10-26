@@ -812,16 +812,30 @@ def update_lfg_reparam_bbb(
     """
     mean0, cov0 = state_pred
     mean, cov = state
-    y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
-    H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
     R = jnp.atleast_2d(emission_cov_function(mean, x))
     R_inv = jnp.linalg.pinv(R)
-    prec0, prec = jnp.linalg.pinv(cov0), jnp.linalg.pinv(cov)
-    update_term = H.T @ R_inv @ (y - y_pred)
-    mean_update = update_term + prec0 @ (mean0 - mean)
-    new_mean = mean + learning_rate * mean_update
-    cov_update = -H.T @ R_inv @ H + prec - prec0
-    new_cov = cov + learning_rate / 2 * cov_update
+    if empirical_fisher:
+
+        def ll_fn(params):
+            y_pred = emission_mean_function(params, x)
+            return -0.5 * (y - y_pred).T @ R_inv @ (y - y_pred)
+
+        grad = jax.grad(ll_fn)(mean)
+        G = -jnp.outer(grad, grad)
+        prec0, prec = jnp.linalg.pinv(cov0), jnp.linalg.pinv(cov)
+        mean_update = grad + prec0 @ (mean0 - mean)
+        new_mean = mean + learning_rate * mean_update
+        cov_update = G + prec - prec0
+        new_cov = cov + learning_rate / 2 * cov_update
+    else:
+        y_pred = jnp.atleast_1d(emission_mean_function(mean, x))
+        H = jnp.atleast_2d(jax.jacrev(emission_mean_function)(mean, x))
+        prec0, prec = jnp.linalg.pinv(cov0), jnp.linalg.pinv(cov)
+        update_term = H.T @ R_inv @ (y - y_pred)
+        mean_update = update_term + prec0 @ (mean0 - mean)
+        new_mean = mean + learning_rate * mean_update
+        cov_update = -H.T @ R_inv @ H + prec - prec0
+        new_cov = cov + learning_rate / 2 * cov_update
     new_state = AgentState(new_mean, new_cov)
     return new_state
 
