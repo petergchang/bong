@@ -21,23 +21,31 @@ DIAG_BONG_DICT = {
     # BONG
     "dg-bong": partial(bong.dg_bong, empirical_fisher=True),
     "dg-l-bong": partial(bong.dg_bong, linplugin=True),
+    "dg-l-ef-bong": partial(bong.dg_bong, empirical_fisher=True, linplugin=True),
     "dg-rep-bong": partial(bong.dg_reparam_bong, empirical_fisher=True),
     "dg-rep-l-bong": partial(bong.dg_reparam_bong, linplugin=True),
+    "dg-rep-l-ef-bong": partial(bong.dg_reparam_bong, empirical_fisher=True, linplugin=True),
     # BOG
     "dg-bog": partial(bog.dg_bog, empirical_fisher=True),
     "dg-l-bog": partial(bog.dg_bog, linplugin=True),
+    "dg-l-ef-bog": partial(bog.dg_bog, empirical_fisher=True, linplugin=True),
     "dg-rep-bog": partial(bog.dg_reparam_bog, empirical_fisher=True),
     "dg-rep-l-bog": partial(bog.dg_reparam_bog, linplugin=True),
+    "dg-rep-l-ef-bog": partial(bog.dg_reparam_bog, empirical_fisher=True, linplugin=True),
     # BBB
     "dg-bbb": partial(bbb.dg_bbb, empirical_fisher=True),
     "dg-l-bbb": partial(bbb.dg_bbb, linplugin=True),
+    "dg-l-ef-bbb": partial(bbb.dg_bbb, empirical_fisher=True, linplugin=True),
     "dg-rep-bbb": partial(bbb.dg_reparam_bbb, empirical_fisher=True),
     "dg-rep-l-bbb": partial(bbb.dg_reparam_bbb, linplugin=True),
+    "dg-rep-l-ef-bbb": partial(bbb.dg_reparam_bbb, empirical_fisher=True, linplugin=True),
     # BLR
     "dg-blr": partial(blr.dg_blr, empirical_fisher=True),
     "dg-l-blr": partial(blr.dg_blr, linplugin=True),
+    "dg-l-ef-blr": partial(blr.dg_blr, empirical_fisher=True, linplugin=True),
     "dg-rep-blr": partial(blr.dg_reparam_blr, empirical_fisher=True),
     "dg-rep-l-blr": partial(blr.dg_reparam_blr, linplugin=True),
+    "dg-rep-l-ef-blr": partial(blr.dg_reparam_blr, empirical_fisher=True, linplugin=True),
 }
 
 
@@ -45,15 +53,19 @@ DLR_BONG_DICT = {
     # BONG
     "dlrg-bong": partial(bong.dlrg_bong, empirical_fisher=True),
     "dlrg-l-bong": partial(bong.dlrg_bong, linplugin=True, empirical_fisher=True),
+    "dlrg-l-ef-bong": partial(bong.dlrg_bong, empirical_fisher=True, linplugin=True),
     # BOG
     "dlrg-bog": partial(bog.dlrg_bog, empirical_fisher=True),
     "dlrg-l-bog": partial(bog.dlrg_bog, linplugin=True, empirical_fisher=True),
+    "dlrg-l-ef-bog": partial(bog.dlrg_bog, empirical_fisher=True, linplugin=True),
     # BBB
     "dlrg-bbb": partial(bbb.dlrg_bbb, empirical_fisher=True),
     "dlrg-l-bbb": partial(bbb.dlrg_bbb, linplugin=True, empirical_fisher=True),
+    "dlrg-l-ef-bbb": partial(bbb.dlrg_bbb, empirical_fisher=True, linplugin=True),
     # BLR
     "dlrg-blr": partial(blr.dlrg_blr, empirical_fisher=True),
     "dlrg-l-blr": partial(blr.dlrg_blr, linplugin=True, empirical_fisher=True),
+    "dlrg-l-ef-blr": partial(blr.dlrg_blr, empirical_fisher=True, linplugin=True),
 }
 
 
